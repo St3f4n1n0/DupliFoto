@@ -91,8 +91,8 @@ jobs:
             if ($LASTEXITCODE) { exit $LASTEXITCODE }
             dotnet publish src/DupliFoto.Cli -c Release -r win-$arch -o out/cli-$arch
             if ($LASTEXITCODE) { exit $LASTEXITCODE }
-            # Portable means one file: anything else next to the executable would be missing at run time.
-            $extra = Get-ChildItem out/gui-$arch, out/cli-$arch -File | Where-Object Name -notin 'DupliFoto.exe', 'duplifoto-cli.exe'
+            # Portable means one file: anything else next to the executable (debug symbols aside) would be missing at run time.
+            $extra = Get-ChildItem out/gui-$arch, out/cli-$arch -File | Where-Object { $_.Name -notin 'DupliFoto.exe', 'duplifoto-cli.exe' -and $_.Extension -ne '.pdb' }
             if ($extra) { $extra | Format-Table Name, Length | Out-String | Write-Host; throw "The publish output is not a single file" }
             Copy-Item out/gui-$arch/DupliFoto.exe "dist/DupliFoto-$env:VERSION-$arch.exe"
             Copy-Item out/cli-$arch/duplifoto-cli.exe "dist/duplifoto-cli-$env:VERSION-$arch.exe"
