@@ -75,19 +75,19 @@ jobs:
         shell: powershell
         run: tools\prova-windows.ps1 -Publish publish\DupliFoto-win-x64 -Full -Screenshot "$env:RUNNER_TEMP\screenshots\app-windows-2025.png"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: DupliFoto-win-x64
           path: publish/DupliFoto-win-x64
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: DupliFoto-win-arm64
           path: publish/DupliFoto-win-arm64
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: screenshots-windows-2025
@@ -113,7 +113,7 @@ jobs:
         shell: powershell
         run: tools\prova-windows.ps1 -Publish publish\DupliFoto-win-x64 -Screenshot "$env:RUNNER_TEMP\screenshots\app-windows-2022.png"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: screenshots-windows-2022
