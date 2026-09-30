@@ -11,6 +11,8 @@
     <!-- App non pacchettizzata e autonoma: nessun runtime Windows App SDK da installare a parte -->
     <WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <!-- Anche il runtime .NET viaggia con l'eseguibile: basta copiare la cartella, nessuna installazione -->
+    <SelfContained>true</SelfContained>
     <ServerGarbageCollection>true</ServerGarbageCollection>
     <TieredPGO>true</TieredPGO>
   </PropertyGroup>

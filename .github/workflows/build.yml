@@ -1,0 +1,119 @@
+# Compila e prova DupliFoto su Windows, poi pubblica l'eseguibile autonomo (x64 e ARM64)
+# come artifact scaricabile dalla pagina dell'esecuzione (Actions → esecuzione → Artifacts).
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: 1
+      DOTNET_NOLOGO: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Compila
+        run: dotnet build DupliFoto.slnx -c Release
+
+      - name: Test
+        run: dotnet test tests/DupliFoto.Tests -c Release --no-build --logger "console;verbosity=normal"
+
+      - name: Pubblica win-x64 e win-arm64
+        run: |
+          dotnet publish src/DupliFoto.Cli -c Release -r win-x64 -o publish/DupliFoto-win-x64
+          dotnet publish src/DupliFoto.Cli -c Release -r win-arm64 -o publish/DupliFoto-win-arm64
+
+      - name: Prova l'eseguibile su foto vere
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Resolve-Path 'publish\DupliFoto-win-x64\duplifoto.exe'
+          function Run { & $exe @args; if ($LASTEXITCODE -ne 0) { throw "duplifoto $args -> codice $LASTEXITCODE" } }
+          function Check($ok, $msg) { if (-not $ok) { throw "FALLITO: $msg" } else { Write-Host "ok: $msg" } }
+
+          Run aiuto
+          Run hardware
+
+          # Foto di prova: una scena, una copia identica, una versione "WhatsApp" rimpicciolita, un PNG, una foto diversa.
+          Add-Type -AssemblyName System.Drawing
+          $dir = Join-Path $env:RUNNER_TEMP 'foto'
+          New-Item -ItemType Directory -Force "$dir\WhatsApp" | Out-Null
+          function New-Scene([int]$seed) {
+            $rnd = New-Object System.Random $seed
+            $bmp = New-Object System.Drawing.Bitmap 1600, 1200
+            $g = [System.Drawing.Graphics]::FromImage($bmp)
+            $g.Clear([System.Drawing.Color]::FromArgb($rnd.Next(256), $rnd.Next(256), $rnd.Next(256)))
+            for ($i = 0; $i -lt 10; $i++) {
+              $brush = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb($rnd.Next(256), $rnd.Next(256), $rnd.Next(256)))
+              $g.FillEllipse($brush, $rnd.Next(1400), $rnd.Next(1000), $rnd.Next(100, 800), $rnd.Next(100, 600))
+            }
+            $g.Dispose()
+            return $bmp
+          }
+          $jpeg = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object MimeType -eq 'image/jpeg'
+          function Save-Jpeg($bmp, $path, [long]$quality) {
+            $p = New-Object System.Drawing.Imaging.EncoderParameters 1
+            $p.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter ([System.Drawing.Imaging.Encoder]::Quality), $quality
+            $bmp.Save($path, $jpeg, $p)
+          }
+          $mare = New-Scene 1
+          Save-Jpeg $mare "$dir\mare.jpg" 92
+          Copy-Item "$dir\mare.jpg" "$dir\mare (1).jpg"
+          Save-Jpeg (New-Object System.Drawing.Bitmap $mare, 800, 600) "$dir\WhatsApp\IMG-20260810-WA0001.jpg" 55
+          $mare.Save("$dir\mare.png", [System.Drawing.Imaging.ImageFormat]::Png)
+          Save-Jpeg (New-Scene 2) "$dir\montagna.jpg" 92
+
+          # 1) Sola lettura: report HTML + CSV, nessun file toccato.
+          $report = Join-Path $env:RUNNER_TEMP 'report\report.html'
+          New-Item -ItemType Directory -Force (Split-Path $report) | Out-Null
+          Run $dir --non-interattivo --no-cache --report $report
+          $rows = Import-Csv (Join-Path (Split-Path $report) 'report.csv') -Delimiter ';' -Encoding UTF8
+          $rows | Format-Table gruppo, ruolo, tipo, affidabilita, percorso -AutoSize | Out-String -Width 250 | Write-Host
+          Check ($rows | Where-Object { $_.ruolo -eq 'doppione' -and $_.tipo -eq 'Identici al byte' -and $_.percorso -like '*\mare (1).jpg' }) 'copia identica trovata'
+          Check ($rows | Where-Object { $_.ruolo -eq 'doppione' -and $_.percorso -like '*\IMG-20260810-WA0001.jpg' }) 'versione WhatsApp trovata'
+          Check (-not ($rows | Where-Object { $_.percorso -like '*\montagna.jpg' })) 'la foto diversa non è un doppione'
+          Check ((Get-ChildItem $dir -Recurse -File).Count -eq 5) 'sola lettura: nessun file spostato'
+
+          # 2) Semi-automatica: sposta da sola solo la copia identica; poi "annulla" la riporta al suo posto.
+          $q = Join-Path $env:RUNNER_TEMP 'quarantena'
+          Run $dir --modo semi-auto --non-interattivo --no-cache --quarantena $q --report "$env:RUNNER_TEMP\report\semi.html"
+          Check (-not (Test-Path "$dir\mare (1).jpg")) 'semi-auto: copia identica spostata'
+          Check (Test-Path "$dir\mare.jpg") 'semi-auto: originale al suo posto'
+          Check (Test-Path "$dir\WhatsApp\IMG-20260810-WA0001.jpg") 'semi-auto: le copie non identiche restano'
+          $journal = Get-ChildItem $q -Filter 'registro-*.jsonl' | Select-Object -First 1
+          Run annulla $journal.FullName
+          Check (Test-Path "$dir\mare (1).jpg") 'annulla: copia ripristinata'
+
+          # 3) Catena Windows ML / ONNX Runtime con un modello minuscolo (colore medio) sulla CPU.
+          python -m pip install --quiet onnx
+          if ($LASTEXITCODE -ne 0) { throw 'pip install onnx fallito' }
+          Push-Location $env:RUNNER_TEMP
+          python "$env:GITHUB_WORKSPACE\tools\crea_modello_prova.py"
+          Pop-Location
+          $out = & $exe $dir --non-interattivo --no-cache --modello "$env:RUNNER_TEMP\modello-prova.onnx" --acceleratore cpu --report "$env:RUNNER_TEMP\report\modello.html" | Out-String
+          Write-Host $out
+          Check ($LASTEXITCODE -eq 0) 'analisi con modello: codice di uscita 0'
+          Check ($out -match 'Rete neurale: Windows ML') 'modello caricato con Windows ML'
+          Check ($out -match 'Embedding neurali su') 'embedding calcolati'
+          Check ($out -notmatch 'Embedding non disponibili') 'nessun errore di inferenza'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DupliFoto-win-x64
+          path: publish/DupliFoto-win-x64
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DupliFoto-win-arm64
+          path: publish/DupliFoto-win-arm64
+          if-no-files-found: error

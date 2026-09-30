@@ -4,3 +4,4 @@ obj/
 publish/
 *.onnx
 *.user
+.mono/

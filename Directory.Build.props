@@ -7,4 +7,17 @@
     <Version>0.1.0</Version>
     <Product>DupliFoto 2026</Product>
   </PropertyGroup>
+
+  <!--
+    Compilazione da Linux/macOS (es. ambienti cloud di sviluppo). L'eseguibile da distribuire si
+    compila su Windows (vedi .github/workflows/build.yml); qui servono solo tre accorgimenti:
+    - EnableWindowsTargeting: permette di compilare i progetti net10.0-windows;
+    - niente file PRI: MakePri.exe esiste solo su Windows e un'app console non ha risorse MRT;
+    - mt.exe (fusione dei manifest di Windows App SDK) sostituito da una copia: il manifest è uno solo.
+  -->
+  <PropertyGroup Condition="'$(OS)' != 'Windows_NT'">
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <AppxGeneratePriEnabled>false</AppxGeneratePriEnabled>
+    <ManifestTool>$(MSBuildThisFileDirectory)tools/mt-linux.sh</ManifestTool>
+  </PropertyGroup>
 </Project>

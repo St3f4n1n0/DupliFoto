@@ -27,7 +27,7 @@ public sealed class ExifMetadataReader : IMetadataReader
         if (sub is not null && sub.TryGetDateTime(ExifDirectoryBase.TagDateTimeOriginal, out var dt))
         {
             // I centesimi di secondo contano per distinguere gli scatti di una raffica.
-            var subsec = sub.GetString(ExifDirectoryBase.TagSubsecTimeOriginal);
+            var subsec = sub.GetString(ExifDirectoryBase.TagSubsecondTimeOriginal);
             if (!string.IsNullOrWhiteSpace(subsec) &&
                 double.TryParse("0." + subsec.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var frac))
                 dt = dt.AddSeconds(frac);
