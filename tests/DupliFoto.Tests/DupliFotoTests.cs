@@ -326,6 +326,53 @@ public sealed class EngineEndToEndTests : IDisposable
         Assert.Equal(0, decoder.Thumbnails);
     }
 
+    [Fact]
+    public void Session_moves_single_pairs_and_refuses_when_the_keeper_is_gone()
+    {
+        var o = Options(RunMode.Assisted);
+        var r = Scan(o);
+        var sea = r.Groups.Single(g => g.AllFiles.Any(f => f.Path.EndsWith("IMG-WA0001.ppm")));
+        var whatsapp = sea.Duplicates.Single(d => d.File.Path.EndsWith("IMG-WA0001.ppm"));
+        var sameData = sea.Duplicates.Single(d => d.Kind == MatchKind.IdenticalPixels);
+
+        using var session = new ActionSession(o);
+        Assert.False(File.Exists(session.JournalPath));                          // nessun registro finché non si sposta nulla
+
+        Assert.Equal(MoveResult.Moved, session.Move(sea.Keeper, whatsapp, automatic: false).Result);
+        Assert.False(File.Exists(whatsapp.File.Path));
+        Assert.Equal(MoveResult.AlreadyHandled, session.Move(sea.Keeper, whatsapp, automatic: false).Result);
+
+        // L'utente sposta la copia da tenere di un altro gruppo: da lì in poi quel gruppo non si tocca più.
+        var exact = r.Groups.Single(g => g.Kind == MatchKind.ExactBytes);
+        var original = new GroupMember { File = exact.Keeper, Kind = MatchKind.ExactBytes, Confidence = 100, Reason = "" };
+        Assert.Equal(MoveResult.Moved, session.Move(exact.Duplicates[0].File, original, automatic: false).Result);
+        Assert.Equal(MoveResult.KeeperUnavailable, session.Move(sea.Keeper, sameData, automatic: false).Result);
+        Assert.True(File.Exists(sameData.File.Path));
+
+        Assert.Equal(2, session.Summary.Moved);
+        session.Dispose();
+        Assert.Equal(2, ActionJournal.Undo(session.JournalPath).Restored);
+        Assert.True(File.Exists(whatsapp.File.Path));
+    }
+
+    [Fact]
+    public void Changing_the_keeper_rescores_members_against_the_new_one()
+    {
+        var o = Options(RunMode.Assisted);
+        var sea = Scan(o).Groups.Single(g => g.AllFiles.Any(f => f.Path.EndsWith("IMG-WA0001.ppm")));
+        var oldKeeper = sea.Keeper;
+        var whatsapp = sea.Duplicates.Single(d => d.File.Path.EndsWith("IMG-WA0001.ppm")).File;
+
+        GroupEditor.ChangeKeeper(sea, whatsapp, o);
+
+        Assert.Same(whatsapp, sea.Keeper);
+        Assert.Equal(3, sea.AllFiles.Count());
+        var back = sea.Duplicates.Single(d => ReferenceEquals(d.File, oldKeeper));
+        Assert.Equal(MatchKind.Perceptual, back.Kind);
+        Assert.All(sea.Duplicates, d => Assert.Equal(MatchKind.Perceptual, d.Kind)); // "stessi pixel" valeva solo rispetto alla vecchia copia
+        Assert.All(sea.Duplicates, d => Assert.InRange(d.Confidence, 90, 98));
+    }
+
     public void Dispose()
     {
         try { Directory.Delete(_dir, recursive: true); } catch { /* pulizia best effort */ }
