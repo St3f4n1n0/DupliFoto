@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!--
+      net10.0-windows: l'app vera per Windows, con Windows ML per NPU/GPU.
+      net10.0: la stessa interfaccia senza la parte Windows, per anteprime e test su Linux/macOS.
+    -->
+    <TargetFrameworks>net10.0-windows10.0.26100.0;net10.0</TargetFrameworks>
+    <AssemblyName>DupliFoto2026</AssemblyName>
+    <RootNamespace>DupliFoto.Gui</RootNamespace>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <TieredPGO>true</TieredPGO>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <!-- x64 per default; per i PC Copilot+ con Snapdragon compilare con -r win-arm64 -->
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
+    <!-- Come duplifoto.exe: app non pacchettizzata e autonoma, niente da installare -->
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <SelfContained>true</SelfContained>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.*" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.*" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.*" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.*" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DupliFoto.Core\DupliFoto.Core.csproj" />
+    <ProjectReference Include="..\DupliFoto.Accel\DupliFoto.Accel.csproj"
+                      Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DupliFoto.Gui.Tests" />
+  </ItemGroup>
+</Project>

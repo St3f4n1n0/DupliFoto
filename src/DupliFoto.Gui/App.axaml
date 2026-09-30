@@ -1,0 +1,218 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="DupliFoto.Gui.App"
+             RequestedThemeVariant="Default">
+  <Application.Resources>
+    <ResourceDictionary>
+      <!--
+        Palette di Windows 11 (token di WinUI): superfici neutre, bordi sottili, e colore solo dove significa qualcosa.
+        L'accento dei pulsanti principali è quello scelto dall'utente in Windows (tema Fluent).
+      -->
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="WindowFallbackBrush" Color="#F3F3F3" />
+          <SolidColorBrush x:Key="CardBrush" Color="#B3FFFFFF" />
+          <SolidColorBrush x:Key="CardStrokeBrush" Color="#0F000000" />
+          <SolidColorBrush x:Key="StageBrush" Color="#08000000" />
+          <SolidColorBrush x:Key="SubtleBrush" Color="#09000000" />
+          <SolidColorBrush x:Key="DividerBrush" Color="#14000000" />
+          <SolidColorBrush x:Key="MutedBrush" Color="#9E000000" />
+          <SolidColorBrush x:Key="FaintBrush" Color="#72000000" />
+          <SolidColorBrush x:Key="PhotoBackBrush" Color="#0F000000" />
+          <SolidColorBrush x:Key="SuccessBrush" Color="#0F7B0F" />
+          <SolidColorBrush x:Key="CautionBrush" Color="#9D5D00" />
+          <SolidColorBrush x:Key="CriticalBrush" Color="#C42B1C" />
+          <SolidColorBrush x:Key="OverlayBrush" Color="#4D000000" />
+          <SolidColorBrush x:Key="DialogBrush" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="ControlFillBrush" Color="#B3FFFFFF" />
+          <SolidColorBrush x:Key="ControlFillHoverBrush" Color="#80F9F9F9" />
+          <SolidColorBrush x:Key="ControlFillPressedBrush" Color="#4DF9F9F9" />
+          <SolidColorBrush x:Key="ControlStrokeBrush" Color="#1F000000" />
+          <SolidColorBrush x:Key="SelectedRowBrush" Color="#0A000000" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="WindowFallbackBrush" Color="#202020" />
+          <SolidColorBrush x:Key="CardBrush" Color="#0DFFFFFF" />
+          <SolidColorBrush x:Key="CardStrokeBrush" Color="#19000000" />
+          <SolidColorBrush x:Key="StageBrush" Color="#4D000000" />
+          <SolidColorBrush x:Key="SubtleBrush" Color="#0FFFFFFF" />
+          <SolidColorBrush x:Key="DividerBrush" Color="#15FFFFFF" />
+          <SolidColorBrush x:Key="MutedBrush" Color="#C5FFFFFF" />
+          <SolidColorBrush x:Key="FaintBrush" Color="#87FFFFFF" />
+          <SolidColorBrush x:Key="PhotoBackBrush" Color="#0FFFFFFF" />
+          <SolidColorBrush x:Key="SuccessBrush" Color="#6CCB5F" />
+          <SolidColorBrush x:Key="CautionBrush" Color="#FCE100" />
+          <SolidColorBrush x:Key="CriticalBrush" Color="#FF99A4" />
+          <SolidColorBrush x:Key="OverlayBrush" Color="#80000000" />
+          <SolidColorBrush x:Key="DialogBrush" Color="#2B2B2B" />
+          <SolidColorBrush x:Key="ControlFillBrush" Color="#0FFFFFFF" />
+          <SolidColorBrush x:Key="ControlFillHoverBrush" Color="#15FFFFFF" />
+          <SolidColorBrush x:Key="ControlFillPressedBrush" Color="#08FFFFFF" />
+          <SolidColorBrush x:Key="ControlStrokeBrush" Color="#17FFFFFF" />
+          <SolidColorBrush x:Key="SelectedRowBrush" Color="#0FFFFFFF" />
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+
+      <!-- Icone 24×24 (stile Material Design Icons, licenza Apache 2.0) -->
+      <StreamGeometry x:Key="IconFolderAdd">M13,19C13,19.34 13.04,19.67 13.09,20H4C2.9,20 2,19.1 2,18V6C2,4.89 2.89,4 4,4H10L12,6H20A2,2 0 0,1 22,8V13.81C21.12,13.3 20.1,13 19,13C15.69,13 13,15.69 13,19M20,18V15H18V18H15V20H18V23H20V20H23V18H20Z</StreamGeometry>
+      <StreamGeometry x:Key="IconFolder">M10,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8C22,6.89 21.1,6 20,6H12L10,4Z</StreamGeometry>
+      <StreamGeometry x:Key="IconClose">M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z</StreamGeometry>
+      <StreamGeometry x:Key="IconStar">M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z</StreamGeometry>
+      <StreamGeometry x:Key="IconStarOutline">M12,15.39L8.24,17.66L9.23,13.38L5.91,10.5L10.29,10.13L12,6.09L13.71,10.13L18.09,10.5L14.77,13.38L15.76,17.66M22,9.24L14.81,8.63L12,2L9.19,8.63L2,9.24L7.45,13.97L5.82,21L12,17.27L18.18,21L16.54,13.97L22,9.24Z</StreamGeometry>
+      <StreamGeometry x:Key="IconPlay">M8,5.14V19.14L19,12.14L8,5.14Z</StreamGeometry>
+      <StreamGeometry x:Key="IconStop">M18,18H6V6H18V18Z</StreamGeometry>
+      <StreamGeometry x:Key="IconSwap">M21,9L17,5V8H10V10H17V13M7,11L3,15L7,19V16H14V14H7V11Z</StreamGeometry>
+      <StreamGeometry x:Key="IconMove">M4,11V13H16L10.5,18.5L11.92,19.92L19.84,12L11.92,4.08L10.5,5.5L16,11H4Z</StreamGeometry>
+      <StreamGeometry x:Key="IconCheck">M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z</StreamGeometry>
+      <StreamGeometry x:Key="IconCheckAll">M0.41,13.41L6,19L7.41,17.58L1.83,12M22.24,5.58L11.66,16.17L7.5,12L6.07,13.41L11.66,19L23.66,7M18,7L16.59,5.58L10.24,11.93L11.66,13.34L18,7Z</StreamGeometry>
+      <StreamGeometry x:Key="IconUndo">M12.5,8C9.85,8 7.45,9 5.6,10.6L2,7V16H11L7.38,12.38C8.77,11.22 10.54,10.5 12.5,10.5C16.04,10.5 19.05,12.81 20.1,16L22.47,15.22C21.08,11.03 17.15,8 12.5,8Z</StreamGeometry>
+      <StreamGeometry x:Key="IconReport">M13,9H18.5L13,3.5V9M6,2H14L20,8V20A2,2 0 0,1 18,22H6C4.89,22 4,21.1 4,20V4C4,2.89 4.89,2 6,2M15,18V16H6V18H15M18,14V12H6V14H18Z</StreamGeometry>
+      <StreamGeometry x:Key="IconEye">M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9M12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17M12,4.5C7,4.5 2.73,7.61 1,12C2.73,16.39 7,19.5 12,19.5C17,19.5 21.27,16.39 23,12C21.27,7.61 17,4.5 12,4.5Z</StreamGeometry>
+      <StreamGeometry x:Key="IconFolderOpen">M19,20H4C2.89,20 2,19.1 2,18V6C2,4.89 2.89,4 4,4H10L12,6H19A2,2 0 0,1 21,8H21L4,8V18L6.14,10H23.21L20.93,18.5C20.7,19.37 19.92,20 19,20Z</StreamGeometry>
+      <StreamGeometry x:Key="IconChevronLeft">M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z</StreamGeometry>
+      <StreamGeometry x:Key="IconChevronRight">M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z</StreamGeometry>
+      <StreamGeometry x:Key="IconTune">M3,17V19H9V17H3M3,5V7H13V5H3M13,21V19H21V17H13V15H11V21H13M7,9V11H3V13H7V15H9V9H7M21,13V11H11V13H21M15,9H17V7H21V5H17V3H15V9Z</StreamGeometry>
+      <StreamGeometry x:Key="IconImages">M22,16V4A2,2 0 0,0 20,2H8A2,2 0 0,0 6,4V16A2,2 0 0,0 8,18H20A2,2 0 0,0 22,16M11,12L13.03,14.71L16,11L20,16H8M2,6V20A2,2 0 0,0 4,22H18V20H4V6</StreamGeometry>
+    </ResourceDictionary>
+  </Application.Resources>
+
+  <Application.Styles>
+    <FluentTheme />
+
+    <Style Selector="Window">
+      <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI, fonts:Inter#Inter" />
+    </Style>
+
+    <!-- Tipografia -->
+    <Style Selector="TextBlock.title">
+      <Setter Property="FontSize" Value="20" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.h">
+      <Setter Property="FontSize" Value="14" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.muted">
+      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+    </Style>
+    <Style Selector="TextBlock.faint">
+      <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
+    </Style>
+    <Style Selector="TextBlock.small">
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="TextBlock.label">
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+    </Style>
+
+    <!-- Superfici -->
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+
+    <!-- Icone nei pulsanti -->
+    <Style Selector="Button PathIcon, ToggleButton PathIcon">
+      <Setter Property="Width" Value="16" />
+      <Setter Property="Height" Value="16" />
+    </Style>
+    <!-- Pulsanti normali come in WinUI: chiari, bordo sottile -->
+    <Style Selector="Button:not(.accent):not(.subtle)">
+      <Setter Property="Background" Value="{DynamicResource ControlFillBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Button:not(.accent):not(.subtle):pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource ControlFillHoverBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeBrush}" />
+    </Style>
+    <Style Selector="Button:not(.accent):not(.subtle):pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource ControlFillPressedBrush}" />
+    </Style>
+    <Style Selector="Button.subtle">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="Button.subtle:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SubtleBrush}" />
+    </Style>
+    <Style Selector="Button.subtle:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <!-- Stella "cartella preferita": vuota o piena, senza riquadro colorato -->
+    <Style Selector="ToggleButton.star, ToggleButton.star:checked, ToggleButton.star:pointerover">
+      <Setter Property="Padding" Value="5" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="ToggleButton.star /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ToggleButton.star:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SubtleBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.star:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ToggleButton.star PathIcon">
+      <Setter Property="Foreground" Value="{DynamicResource FaintBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.star:checked PathIcon">
+      <Setter Property="Foreground" Value="{DynamicResource AccentButtonBackground}" />
+    </Style>
+    <Style Selector="Button.icon">
+      <Setter Property="Padding" Value="6" />
+    </Style>
+
+    <!-- Affidabilità: verde = si può spostare tranquilli; ambra = guarda bene prima (sotto il 90%). Il resto è testo normale. -->
+    <Style Selector="TextBlock.conf.ok">
+      <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+    </Style>
+    <Style Selector="TextBlock.conf.low">
+      <Setter Property="Foreground" Value="{DynamicResource CautionBrush}" />
+    </Style>
+
+    <!-- Contatori -->
+    <Style Selector="StackPanel.stat TextBlock.value">
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="StackPanel.stat TextBlock.name">
+      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+    </Style>
+
+    <!-- Stato delle coppie nell'elenco: neutro finché non succede qualcosa -->
+    <Style Selector="TextBlock.status">
+      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+    </Style>
+    <Style Selector="TextBlock.status.moved">
+      <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+    </Style>
+    <Style Selector="TextBlock.status.blocked">
+      <Setter Property="Foreground" Value="{DynamicResource CriticalBrush}" />
+    </Style>
+
+    <!-- Righe dell'elenco: selezione discreta con la barretta d'accento, come in Windows 11 -->
+    <Style Selector="ListBox.table ListBoxItem">
+      <Setter Property="Padding" Value="12,7" />
+      <Setter Property="Margin" Value="4,1" />
+      <Setter Property="CornerRadius" Value="4" />
+    </Style>
+    <Style Selector="ListBox.table ListBoxItem:selected">
+      <Setter Property="Padding" Value="9,7,12,7" />
+    </Style>
+    <Style Selector="ListBox.table ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource AccentButtonBackground}" />
+      <Setter Property="BorderThickness" Value="3,0,0,0" />
+    </Style>
+    <Style Selector="ListBox.table ListBoxItem:selected:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource SubtleBrush}" />
+    </Style>
+    <Style Selector="ListBox.table ListBoxItem:selected /template/ ContentPresenter">
+      <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseHighBrush}" />
+    </Style>
+  </Application.Styles>
+</Application>

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" />
+    <PackageReference Include="xunit.v3" Version="3.*" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.*" />
+    <PackageReference Include="Avalonia.Headless.XUnit" Version="12.1.*" />
+    <PackageReference Include="Avalonia.Skia" Version="12.1.*" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DupliFoto.Gui\DupliFoto.Gui.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Stesse immagini sintetiche dei test del motore -->
+    <Compile Include="..\DupliFoto.Tests\TestImages.cs" Link="Shared\TestImages.cs" />
+    <Compile Include="..\DupliFoto.Tests\RealImages.cs" Link="Shared\RealImages.cs" />
+  </ItemGroup>
+</Project>

@@ -16,13 +16,16 @@ public sealed class MagickImageDecoder : IImageDecoder
     public RgbImage DecodeThumbnail(string path, int maxSide)
     {
         var settings = new MagickReadSettings();
-        // Per i JPEG chiede a libjpeg di decodificare direttamente a scala ridotta (1/2, 1/4, 1/8):
-        // è il singolo accorgimento che accelera di più la scansione.
-        settings.SetDefine(MagickFormat.Jpeg, "size", $"{maxSide * 2}x{maxSide * 2}");
+        // Per i JPEG grandi chiede a libjpeg di decodificare direttamente a scala ridotta (1/2, 1/4, 1/8):
+        // è il singolo accorgimento che accelera di più la scansione. Solo se l'originale è davvero più grande:
+        // con le immagini piccole libjpeg userebbe il suggerimento per INGRANDIRLE.
+        var info = new MagickImageInfo(path);
+        if (Math.Max(info.Width, info.Height) > (uint)maxSide * 2)
+            settings.SetDefine(MagickFormat.Jpeg, "size", $"{maxSide * 2}x{maxSide * 2}");
 
         using var image = new MagickImage(path, settings);
         image.AutoOrient();
-        image.Thumbnail(new MagickGeometry((uint)maxSide, (uint)maxSide));
+        image.Thumbnail(new MagickGeometry((uint)maxSide, (uint)maxSide) { Greater = true }); // solo rimpicciolire
         return ToRgb(image);
     }
 

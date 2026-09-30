@@ -1,0 +1,415 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:DupliFoto.Gui.ViewModels"
+        x:Class="DupliFoto.Gui.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="DupliFoto 2026"
+        Width="1360" Height="900" MinWidth="1040" MinHeight="720"
+        WindowStartupLocation="CenterScreen"
+        WindowState="Maximized"
+        TransparencyLevelHint="Mica"
+        Background="Transparent"
+        TransparencyBackgroundFallback="{DynamicResource WindowFallbackBrush}"
+        DragDrop.AllowDrop="True">
+
+  <Window.DataTemplates>
+    <!-- Metà del confronto: etichetta, foto, informazioni, azioni -->
+    <DataTemplate DataType="vm:PhotoPanel">
+      <Grid RowDefinitions="Auto,*,Auto" Margin="20,14,20,10">
+        <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+          <PathIcon Data="{StaticResource IconCheck}" Width="14" Height="14"
+                    Foreground="{DynamicResource SuccessBrush}" IsVisible="{Binding IsKeeper}" />
+          <TextBlock Text="{Binding Role}" Classes="h" />
+        </StackPanel>
+
+        <Panel Grid.Row="1" Margin="0,10">
+          <Border CornerRadius="8" ClipToBounds="True" Background="{DynamicResource PhotoBackBrush}"
+                  BoxShadow="0 2 12 0 #24000000"
+                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                  IsVisible="{Binding Image, Converter={x:Static ObjectConverters.IsNotNull}}">
+            <Image Source="{Binding Image}" Stretch="Uniform" />
+          </Border>
+          <ProgressBar IsIndeterminate="True" Width="140" IsVisible="{Binding IsLoading}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+          <TextBlock Text="{Binding Placeholder}" Classes="muted" TextAlignment="Center" TextWrapping="Wrap"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"
+                     IsVisible="{Binding ShowPlaceholder}" />
+        </Panel>
+
+        <StackPanel Grid.Row="2" Spacing="1" HorizontalAlignment="Center" MaxWidth="600">
+          <StackPanel Orientation="Horizontal" Spacing="2" HorizontalAlignment="Center">
+            <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" VerticalAlignment="Center" MaxWidth="420"
+                       TextTrimming="CharacterEllipsis" Margin="0,0,6,0" />
+            <Button Classes="subtle icon" Command="{Binding OpenCommand}" IsEnabled="{Binding HasPhoto}"
+                    ToolTip.Tip="Apri con il visualizzatore di foto">
+              <PathIcon Data="{StaticResource IconEye}" />
+            </Button>
+            <Button Classes="subtle icon" Command="{Binding RevealCommand}" IsEnabled="{Binding HasPhoto}"
+                    ToolTip.Tip="Mostra nella cartella">
+              <PathIcon Data="{StaticResource IconFolderOpen}" />
+            </Button>
+          </StackPanel>
+          <TextBlock Text="{Binding Folder}" Classes="muted small" TextAlignment="Center" TextTrimming="PrefixCharacterEllipsis"
+                     ToolTip.Tip="{Binding Folder}" />
+          <TextBlock Text="{Binding Details}" Classes="faint small" TextAlignment="Center" TextWrapping="Wrap" />
+        </StackPanel>
+      </Grid>
+    </DataTemplate>
+  </Window.DataTemplates>
+
+  <Panel>
+    <Grid RowDefinitions="Auto,*,Auto,6,200" Margin="16,12,16,16">
+
+      <!-- ============ In alto: cartelle, modalità, avvio ============ -->
+      <Border Grid.Row="0" Classes="card" Padding="16,12">
+        <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto">
+
+          <StackPanel Spacing="10">
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <TextBlock Text="Cartelle da analizzare" Classes="h" VerticalAlignment="Center" />
+                <TextBlock Text="puoi anche trascinarle qui da Esplora risorse" Classes="faint small" VerticalAlignment="Center" />
+              </StackPanel>
+              <Button Grid.Column="1" x:Name="AddFolderButton" Click="OnAddFolder" IsEnabled="{Binding IsIdle}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Data="{StaticResource IconFolderAdd}" />
+                  <TextBlock Text="Aggiungi cartella" />
+                </StackPanel>
+              </Button>
+            </Grid>
+            <TextBlock Text="Nessuna cartella: aggiungine una o trascinala qui." Classes="muted" IsVisible="{Binding !HasFolders}" Margin="0,2,0,6" />
+            <ItemsControl ItemsSource="{Binding Folders}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <WrapPanel />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:FolderItem">
+                  <Border Background="{DynamicResource SubtleBrush}" BorderBrush="{DynamicResource CardStrokeBrush}"
+                          BorderThickness="1" CornerRadius="6" Padding="10,2,3,2" Margin="0,0,8,8">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                      <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14" Foreground="{DynamicResource MutedBrush}" />
+                      <TextBlock Text="{Binding Path}" VerticalAlignment="Center" MaxWidth="460" Margin="4,0"
+                                 TextTrimming="PrefixCharacterEllipsis" ToolTip.Tip="{Binding Path}" />
+                      <ToggleButton Classes="star" IsChecked="{Binding IsPreferred}"
+                                    ToolTip.Tip="Cartella preferita: tra due doppioni tieni la copia che sta qui">
+                        <Panel>
+                          <PathIcon Data="{StaticResource IconStar}" Width="14" Height="14" IsVisible="{Binding IsPreferred}" />
+                          <PathIcon Data="{StaticResource IconStarOutline}" Width="14" Height="14" IsVisible="{Binding !IsPreferred}" />
+                        </Panel>
+                      </ToggleButton>
+                      <Button Classes="subtle icon" Command="{Binding RemoveCommand}" ToolTip.Tip="Togli dall'elenco">
+                        <PathIcon Data="{StaticResource IconClose}" Width="12" Height="12" />
+                      </Button>
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </StackPanel>
+
+          <!-- Modalità e avvio -->
+          <StackPanel Grid.Column="1" Spacing="6" Margin="24,0,0,0" Width="300">
+            <TextBlock Text="Modalità" Classes="label" />
+            <ComboBox ItemsSource="{Binding Modes}" SelectedItem="{Binding SelectedMode}" HorizontalAlignment="Stretch"
+                      IsEnabled="{Binding IsIdle}" />
+            <TextBlock Text="{Binding SelectedMode.Description}" Classes="muted small" TextWrapping="Wrap" MinHeight="32" />
+          </StackPanel>
+
+          <!-- Seconda riga: opzioni rapide -->
+          <Border Grid.Row="1" Grid.ColumnSpan="2" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0"
+                  Margin="0,8,0,0" Padding="0,12,0,0">
+            <Grid ColumnDefinitions="*,Auto">
+              <WrapPanel VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,24,0">
+                  <TextBlock Text="I doppioni vanno in" Classes="label" />
+                  <ComboBox ItemsSource="{Binding Disposals}" SelectedItem="{Binding SelectedDisposal}" Width="150"
+                            IsEnabled="{Binding CanChangeDisposal}" ToolTip.Tip="{Binding SelectedDisposal.Description}" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,24,0" IsVisible="{Binding IsAutomaticMode}">
+                  <TextBlock Text="Sposta da sola da" Classes="label" />
+                  <NumericUpDown Value="{Binding Threshold}" Minimum="90" Maximum="100" Increment="1" FormatString="0"
+                                 Width="120" IsEnabled="{Binding IsIdle}" />
+                  <TextBlock Text="% in su" Classes="label" />
+                </StackPanel>
+                <CheckBox IsChecked="{Binding IncludeSubfolders}" Content="Sottocartelle" Margin="0,0,20,0" IsEnabled="{Binding IsIdle}" />
+                <CheckBox IsChecked="{Binding DetectBursts}" Content="Cerca scatti multipli" Margin="0,0,20,0" IsEnabled="{Binding IsIdle}" />
+                <Button Classes="subtle" IsEnabled="{Binding IsIdle}">
+                  <StackPanel Orientation="Horizontal" Spacing="8">
+                    <PathIcon Data="{StaticResource IconTune}" />
+                    <TextBlock Text="Altre opzioni" />
+                  </StackPanel>
+                  <Button.Flyout>
+                    <Flyout Placement="BottomEdgeAlignedLeft">
+                      <StackPanel Width="400" Spacing="8" Margin="4">
+                        <TextBlock Text="Cartella di quarantena" Classes="h" />
+                        <Grid ColumnDefinitions="*,Auto">
+                          <TextBox Text="{Binding QuarantineRoot}" IsEnabled="{Binding CanChangeDisposal}" />
+                          <Button Grid.Column="1" Content="Sfoglia…" Margin="8,0,0,0" Click="OnBrowseQuarantine"
+                                  IsEnabled="{Binding CanChangeDisposal}" />
+                        </Grid>
+                        <TextBlock Text="Da qui «Annulla spostamenti» rimette tutto a posto." Classes="muted small" />
+
+                        <TextBlock Text="Scatti multipli" Classes="h" Margin="0,8,0,0" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                          <TextBlock Text="Al massimo" Classes="label" />
+                          <NumericUpDown Value="{Binding BurstSeconds}" Minimum="1" Maximum="120" Increment="1" FormatString="0" Width="120" />
+                          <TextBlock Text="secondi tra uno scatto e l'altro" Classes="label" />
+                        </StackPanel>
+
+                        <TextBlock Text="Rete neurale (facoltativa)" Classes="h" Margin="0,8,0,0" />
+                        <TextBlock Text="Un modello ONNX come DINOv2 riconosce meglio gli scatti multipli. Usa la NPU o la GPU, se ci sono."
+                                   Classes="muted small" TextWrapping="Wrap" />
+                        <Grid ColumnDefinitions="*,Auto">
+                          <TextBox Text="{Binding ModelPath}" PlaceholderText="nessun modello: solo algoritmi classici" />
+                          <Button Grid.Column="1" Content="Sfoglia…" Margin="8,0,0,0" Click="OnBrowseModel" />
+                        </Grid>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                          <TextBlock Text="Esegui su" Classes="label" />
+                          <ComboBox ItemsSource="{Binding Accelerators}" SelectedItem="{Binding SelectedAccelerator}" Width="220" />
+                        </StackPanel>
+                        <TextBlock Text="Disponibile solo nella versione per Windows." Classes="faint small"
+                                   IsVisible="{Binding !IsNeuralAvailable}" />
+                      </StackPanel>
+                    </Flyout>
+                  </Button.Flyout>
+                </Button>
+              </WrapPanel>
+
+              <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <Button Classes="accent" Command="{Binding StartCommand}" IsVisible="{Binding !IsScanning}"
+                        IsEnabled="{Binding CanStart}" Padding="18,8" MinWidth="180">
+                  <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                    <PathIcon Data="{StaticResource IconPlay}" />
+                    <TextBlock Text="Avvia ricerca" FontWeight="SemiBold" />
+                  </StackPanel>
+                </Button>
+                <Button Command="{Binding CancelCommand}" IsVisible="{Binding IsScanning}" Padding="18,8" MinWidth="180">
+                  <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                    <PathIcon Data="{StaticResource IconStop}" />
+                    <TextBlock Text="Interrompi" />
+                  </StackPanel>
+                </Button>
+              </StackPanel>
+            </Grid>
+          </Border>
+        </Grid>
+      </Border>
+
+      <!-- ============ Al centro: il confronto ============ -->
+      <Border Grid.Row="1" Classes="card" Background="{DynamicResource StageBrush}" Margin="0,12,0,0">
+        <Panel>
+          <!-- Benvenuto -->
+          <StackPanel IsVisible="{Binding ShowWelcome}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" MaxWidth="520">
+            <PathIcon Data="{StaticResource IconImages}" Width="44" Height="44" Foreground="{DynamicResource FaintBrush}" />
+            <TextBlock Text="Trova le foto doppie" Classes="title" HorizontalAlignment="Center" />
+            <TextBlock Classes="muted" TextAlignment="Center" TextWrapping="Wrap"
+                       Text="Aggiungi le cartelle da controllare, scegli la modalità e premi «Avvia ricerca». In sola lettura nessun file viene toccato; negli altri casi i doppioni vanno in quarantena, da dove si possono sempre ripristinare." />
+          </StackPanel>
+
+          <!-- Ricerca in corso -->
+          <StackPanel IsVisible="{Binding IsScanning}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" Width="420">
+            <TextBlock Text="Ricerca in corso" Classes="title" HorizontalAlignment="Center" />
+            <ProgressBar IsIndeterminate="True" />
+            <TextBlock Text="{Binding StatusText}" Classes="muted" TextAlignment="Center" TextWrapping="Wrap" />
+          </StackPanel>
+
+          <!-- Nessun doppione -->
+          <StackPanel IsVisible="{Binding ShowNoDuplicates}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" MaxWidth="520">
+            <PathIcon Data="{StaticResource IconCheck}" Width="40" Height="40" Foreground="{DynamicResource SuccessBrush}" />
+            <TextBlock Text="Nessun doppione" Classes="title" HorizontalAlignment="Center" />
+            <TextBlock Text="{Binding StatusText}" Classes="muted" TextAlignment="Center" TextWrapping="Wrap" />
+          </StackPanel>
+
+          <TextBlock IsVisible="{Binding ShowPickHint}" Text="Scegli una coppia dall'elenco qui sotto."
+                     Classes="muted" HorizontalAlignment="Center" VerticalAlignment="Center" />
+
+          <!-- Confronto affiancato -->
+          <Grid IsVisible="{Binding ShowComparison}" RowDefinitions="*,Auto" ColumnDefinitions="*,190,*">
+            <ContentControl Grid.Column="0" Content="{Binding Left}" />
+
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
+              <TextBlock Text="Affidabilità" Classes="muted small" HorizontalAlignment="Center" />
+              <TextBlock Text="{Binding ConfidenceText}" FontSize="40" FontWeight="SemiBold" HorizontalAlignment="Center"
+                         Classes="conf" Classes.ok="{Binding IsHigh}" Classes.mid="{Binding IsMid}" Classes.low="{Binding IsLow}" />
+              <TextBlock Text="{Binding KindText}" FontWeight="SemiBold" HorizontalAlignment="Center" />
+              <TextBlock Text="{Binding ReasonText}" Classes="muted small" TextAlignment="Center" TextWrapping="Wrap" Margin="0,4,0,0" />
+              <Button Classes="subtle" HorizontalAlignment="Center" Margin="0,14,0,0" Command="{Binding SwapCommand}"
+                      IsEnabled="{Binding CanSwap}" ToolTip.Tip="Tieni la foto a destra invece di quella a sinistra">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Data="{StaticResource IconSwap}" />
+                  <TextBlock Text="Scambia" />
+                </StackPanel>
+              </Button>
+            </StackPanel>
+
+            <ContentControl Grid.Column="2" Content="{Binding Right}" />
+
+            <!-- Barra delle decisioni -->
+            <Border Grid.Row="1" Grid.ColumnSpan="3" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0" Padding="12,10">
+              <Grid ColumnDefinitions="*,Auto,*">
+                <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                  <Button Classes="subtle icon" Command="{Binding PreviousCommand}" IsEnabled="{Binding CanNavigate}" ToolTip.Tip="Coppia precedente">
+                    <PathIcon Data="{StaticResource IconChevronLeft}" />
+                  </Button>
+                  <Button Classes="subtle icon" Command="{Binding NextCommand}" IsEnabled="{Binding CanNavigate}" ToolTip.Tip="Coppia successiva">
+                    <PathIcon Data="{StaticResource IconChevronRight}" />
+                  </Button>
+                  <TextBlock Text="{Binding DecisionHint}" Classes="muted small" VerticalAlignment="Center" Margin="8,0,0,0"
+                             TextWrapping="Wrap" MaxWidth="330" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" IsVisible="{Binding !IsReadOnlyMode}">
+                  <Button Classes="accent" Command="{Binding MoveDuplicateCommand}" IsEnabled="{Binding CanDecide}" Padding="16,7"
+                          ToolTip.Tip="Sposta la foto a destra; quella a sinistra resta dov'è">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <PathIcon Data="{StaticResource IconMove}" />
+                      <TextBlock Text="Sposta il doppione" FontWeight="SemiBold" />
+                    </StackPanel>
+                  </Button>
+                  <Button Command="{Binding KeepBothCommand}" IsEnabled="{Binding CanDecide}" Padding="14,7">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <PathIcon Data="{StaticResource IconCheck}" />
+                      <TextBlock Text="Tieni entrambe" />
+                    </StackPanel>
+                  </Button>
+                  <Button Classes="subtle" Command="{Binding ApplyToAllOfKindCommand}" IsEnabled="{Binding CanDecide}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <PathIcon Data="{StaticResource IconCheckAll}" />
+                      <TextBlock Text="{Binding ApplyAllText}" />
+                    </StackPanel>
+                  </Button>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right" VerticalAlignment="Center">
+                  <Button Classes="subtle" Command="{Binding ApplyAutomaticCommand}" IsVisible="{Binding CanApplyAutomatic}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <PathIcon Data="{StaticResource IconCheckAll}" />
+                      <TextBlock Text="{Binding AutomaticText}" />
+                    </StackPanel>
+                  </Button>
+                  <Button Classes="subtle" Command="{Binding UndoCommand}" IsEnabled="{Binding CanUndo}"
+                          ToolTip.Tip="Riporta al loro posto i file spostati in questa sessione">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <PathIcon Data="{StaticResource IconUndo}" />
+                      <TextBlock Text="Annulla spostamenti" />
+                    </StackPanel>
+                  </Button>
+                  <Button Classes="subtle" Command="{Binding ExportReportCommand}" ToolTip.Tip="Report HTML con anteprime e CSV per Excel">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <PathIcon Data="{StaticResource IconReport}" />
+                      <TextBlock Text="Report" />
+                    </StackPanel>
+                  </Button>
+                </StackPanel>
+              </Grid>
+            </Border>
+          </Grid>
+        </Panel>
+      </Border>
+
+      <!-- ============ Contatori ============ -->
+      <Grid Grid.Row="2" ColumnDefinitions="Auto,*" Margin="4,10,4,4">
+        <StackPanel Orientation="Horizontal" Spacing="22">
+          <StackPanel Classes="stat" Orientation="Horizontal" Spacing="5">
+            <TextBlock Classes="value" Text="{Binding FilesCount, StringFormat='{}{0:N0}'}" />
+            <TextBlock Classes="name" Text="foto analizzate" />
+          </StackPanel>
+          <StackPanel Classes="stat" Orientation="Horizontal" Spacing="5">
+            <TextBlock Classes="value" Text="{Binding GroupsCount, StringFormat='{}{0:N0}'}" />
+            <TextBlock Classes="name" Text="gruppi" />
+          </StackPanel>
+          <StackPanel Classes="stat" Orientation="Horizontal" Spacing="5">
+            <TextBlock Classes="value" Text="{Binding DuplicatesCount, StringFormat='{}{0:N0}'}" />
+            <TextBlock Classes="name" Text="doppioni" />
+          </StackPanel>
+          <StackPanel Classes="stat" Orientation="Horizontal" Spacing="5">
+            <TextBlock Classes="value" Text="{Binding ReclaimableText}" />
+            <TextBlock Classes="name" Text="recuperabili" />
+          </StackPanel>
+          <StackPanel Classes="stat" Orientation="Horizontal" Spacing="5">
+            <TextBlock Classes="value" Text="{Binding PendingCount, StringFormat='{}{0:N0}'}" />
+            <TextBlock Classes="name" Text="da decidere" />
+          </StackPanel>
+          <StackPanel Classes="stat" Orientation="Horizontal" Spacing="5">
+            <TextBlock Classes="value" Text="{Binding MovedCount, StringFormat='{}{0:N0}'}" />
+            <TextBlock Classes="name" Text="spostati" />
+            <TextBlock Classes="name" Text="{Binding MovedBytesText, StringFormat='({0})'}" />
+          </StackPanel>
+        </StackPanel>
+        <TextBlock Grid.Column="1" Text="{Binding StatusText}" Classes="muted small" HorizontalAlignment="Right"
+                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="24,0,0,0" IsVisible="{Binding !IsScanning}" />
+      </Grid>
+
+      <GridSplitter Grid.Row="3" Background="Transparent" ResizeDirection="Rows" />
+
+      <!-- ============ In basso: elenco delle coppie ============ -->
+      <Border Grid.Row="4" Classes="card">
+        <Grid RowDefinitions="Auto,Auto,*">
+          <Grid ColumnDefinitions="*,Auto" Margin="16,10,12,6">
+            <TextBlock Text="Coppie trovate" Classes="h" VerticalAlignment="Center" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="Mostra" Classes="label" />
+              <ComboBox ItemsSource="{Binding Filters}" SelectedItem="{Binding SelectedFilter}" Width="180" />
+            </StackPanel>
+          </Grid>
+
+          <Grid Grid.Row="1" ColumnDefinitions="120,*,*,140,90" Margin="16,0,16,4">
+            <TextBlock Text="Stato" Classes="faint small" />
+            <TextBlock Grid.Column="1" Text="Da tenere" Classes="faint small" />
+            <TextBlock Grid.Column="2" Text="Doppione" Classes="faint small" />
+            <TextBlock Grid.Column="3" Text="Tipo" Classes="faint small" />
+            <TextBlock Grid.Column="4" Text="Affidabilità" Classes="faint small" HorizontalAlignment="Right" />
+          </Grid>
+
+          <TextBlock Grid.Row="2" Text="{Binding ListEmptyText}" Classes="muted" IsVisible="{Binding ShowListEmpty}"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,24" />
+          <ListBox Grid.Row="2" Classes="table" ItemsSource="{Binding VisiblePairs}" SelectedItem="{Binding SelectedPair}"
+                   Background="Transparent" Margin="0,0,0,4">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:PairItem">
+                <Grid ColumnDefinitions="120,*,*,140,90">
+                  <TextBlock Text="{Binding StatusText}" Classes="status small" VerticalAlignment="Center"
+                             Classes.pending="{Binding IsPending}" Classes.moved="{Binding IsMoved}" Classes.blocked="{Binding IsBlocked}"
+                             ToolTip.Tip="{Binding Note}" />
+                  <Grid Grid.Column="1" ColumnDefinitions="Auto,*" Margin="0,0,12,0">
+                    <TextBlock Text="{Binding KeeperName}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="1" Text="{Binding KeeperFolder}" Classes="faint small" Margin="8,0,0,0"
+                               VerticalAlignment="Center" TextTrimming="PrefixCharacterEllipsis" />
+                  </Grid>
+                  <Grid Grid.Column="2" ColumnDefinitions="Auto,*" Margin="0,0,12,0">
+                    <TextBlock Text="{Binding DuplicateName}" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="1" Text="{Binding DuplicateFolder}" Classes="faint small" Margin="8,0,0,0"
+                               VerticalAlignment="Center" TextTrimming="PrefixCharacterEllipsis" />
+                  </Grid>
+                  <TextBlock Grid.Column="3" Text="{Binding KindLabel}" Classes="muted" />
+                  <TextBlock Grid.Column="4" Text="{Binding ConfidenceText}" FontWeight="SemiBold" HorizontalAlignment="Right"
+                             Classes="conf" Classes.ok="{Binding IsHigh}" Classes.mid="{Binding IsMid}" Classes.low="{Binding IsLow}" />
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+      </Border>
+    </Grid>
+
+    <!-- ============ Domanda di conferma ============ -->
+    <Border Background="{DynamicResource OverlayBrush}" IsVisible="{Binding ConfirmVisible}">
+      <Border Background="{DynamicResource DialogBrush}" BorderBrush="{DynamicResource CardStrokeBrush}" BorderThickness="1"
+              CornerRadius="8" Padding="24,20" Width="500" HorizontalAlignment="Center" VerticalAlignment="Center"
+              BoxShadow="0 8 32 0 #40000000">
+        <StackPanel Spacing="14">
+          <TextBlock Text="{Binding ConfirmTitle}" Classes="title" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding ConfirmText}" TextWrapping="Wrap" LineHeight="21" />
+          <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="0,8,0,0">
+            <Button Command="{Binding ConfirmNoCommand}" Content="Annulla" MinWidth="110" />
+            <Button Classes="accent" Command="{Binding ConfirmYesCommand}" MinWidth="110">
+              <TextBlock Text="{Binding ConfirmYesText}" FontWeight="SemiBold" />
+            </Button>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </Border>
+  </Panel>
+</Window>
