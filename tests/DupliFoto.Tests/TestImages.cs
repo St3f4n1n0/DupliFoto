@@ -36,6 +36,56 @@ internal static class TestImages
         return new RgbImage(w, h, px);
     }
 
+    /// <summary>
+    /// Un paesaggio sintetico (cielo, sole, montagne, lago) che somiglia a una foto: serve per gli screenshot
+    /// della documentazione. <paramref name="shiftX"/> sposta leggermente l'inquadratura, come in una raffica.
+    /// </summary>
+    public static RgbImage Landscape(int seed, int w = 1200, int h = 800, double shiftX = 0)
+    {
+        var rnd = new Random(seed);
+        (double r, double g, double b)[][] skies =
+        [
+            [(52, 120, 200), (170, 210, 240)],   // giorno
+            [(40, 50, 110), (245, 150, 90)],     // tramonto
+            [(90, 150, 210), (230, 225, 210)],   // mattino velato
+        ];
+        var sky = skies[seed % skies.Length];
+        double sunX = 0.2 + rnd.NextDouble() * 0.6, sunY = 0.18 + rnd.NextDouble() * 0.15, sunR = 0.05;
+        var ridges = Enumerable.Range(0, 3).Select(i => (
+            Base: 0.42 + i * 0.1, Amp: 0.10 - i * 0.02,
+            F1: 2 + rnd.NextDouble() * 3, F2: 7 + rnd.NextDouble() * 6, P1: rnd.NextDouble() * 6, P2: rnd.NextDouble() * 6,
+            Color: new[] { (70.0, 95.0, 120.0), (48.0, 92.0, 70.0), (30.0, 70.0, 45.0) }[i])).ToArray();
+        double lake = 0.8;
+        var noise = new Random(seed * 7);
+        var px = new byte[w * h * 3];
+        for (int y = 0; y < h; y++)
+        {
+            double v = (double)y / h;
+            for (int x = 0; x < w; x++)
+            {
+                double u = (double)x / w + shiftX;
+                double yy = v < lake ? v : 2 * lake - v;   // il lago riflette il paesaggio
+                double t = Math.Clamp(yy / 0.6, 0, 1);
+                double r = sky[0].r + (sky[1].r - sky[0].r) * t, g = sky[0].g + (sky[1].g - sky[0].g) * t, b = sky[0].b + (sky[1].b - sky[0].b) * t;
+                double dx = u - sunX, dy = (yy - sunY) * h / w, d = Math.Sqrt(dx * dx + dy * dy);
+                if (d < sunR) (r, g, b) = (255, 236, 180);
+                else { double glow = Math.Max(0, 1 - d / (sunR * 4)) * 60; r += glow; g += glow * 0.8; b += glow * 0.4; }
+                foreach (var m in ridges)
+                {
+                    double top = m.Base - m.Amp * (Math.Sin(u * m.F1 + m.P1) * 0.7 + Math.Sin(u * m.F2 + m.P2) * 0.3);
+                    if (yy > top) { double shade = 1 - (yy - top) * 0.8; (r, g, b) = (m.Color.Item1 * shade, m.Color.Item2 * shade, m.Color.Item3 * shade); }
+                }
+                if (v >= lake) { r = r * 0.75 + 10; g = g * 0.8 + 20; b = b * 0.85 + 35; }
+                double n = noise.Next(-4, 5);
+                int k = (y * w + x) * 3;
+                px[k] = (byte)Math.Clamp(r + n, 0, 255);
+                px[k + 1] = (byte)Math.Clamp(g + n, 0, 255);
+                px[k + 2] = (byte)Math.Clamp(b + n, 0, 255);
+            }
+        }
+        return new RgbImage(w, h, px);
+    }
+
     public static RgbImage Rotate90(RgbImage img)
     {
         int w = img.Width, h = img.Height;

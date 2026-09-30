@@ -1,215 +1,262 @@
-# DupliFoto
+<p align="center">
+  <img src="assets/DupliFoto.png" width="112" alt="DupliFoto icon">
+</p>
 
-Trova e gestisce le foto doppie su Windows. Riconosce le copie identiche, le stesse immagini ricompresse o ridimensionate (per esempio passate da WhatsApp) e gli scatti multipli della stessa scena. Se il PC ha una NPU o una GPU, le usa per la parte di riconoscimento neurale.
+<h1 align="center">DupliFoto</h1>
 
-Si usa con una finestra (`DupliFoto2026.exe`) oppure dalla riga di comando (`duplifoto.exe`). Entrambi usano lo stesso motore e le stesse regole di sicurezza: nessun file viene mai cancellato.
+<p align="center">
+  Find and clean up duplicate photos on Windows: exact copies, recompressed or resized versions, and burst shots.<br>
+  Portable, safe by design, and able to use your NPU or GPU.
+</p>
 
-## Scaricare
+<p align="center">
+  <a href="https://github.com/St3f4n1n0/DupliFoto/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/St3f4n1n0/DupliFoto"></a>
+  <a href="https://github.com/St3f4n1n0/DupliFoto/actions/workflows/build.yml"><img alt="Build" src="https://github.com/St3f4n1n0/DupliFoto/actions/workflows/build.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/github/license/St3f4n1n0/DupliFoto"></a>
+</p>
 
-L'ultima versione è nella pagina [Releases](https://github.com/St3f4n1n0/DupliFoto/releases):
+![DupliFoto comparing a photo with its WhatsApp copy](docs/images/screenshot.png)
 
-- `DupliFoto-win-x64-….zip` per quasi tutti i PC;
-- `DupliFoto-win-arm64-….zip` per i PC con processore Snapdragon (Copilot+).
+## Features
 
-Si estrae lo zip in una cartella qualsiasi e si avvia `DupliFoto2026.exe`. Non serve installare niente: la cartella contiene già .NET e Windows App SDK.
+- **Finds every kind of duplicate:**
+  - byte-identical files, even when renamed;
+  - the same pixels with different metadata;
+  - the same picture recompressed, resized or rotated (for example, a copy that went through WhatsApp);
+  - several shots of the same scene taken seconds apart.
+- **Side-by-side comparison.** The copy to keep is on the left and the duplicate on the right, with a confidence score and the reason. You can move the duplicate, keep both, or swap which one to keep.
+- **Never deletes anything.** Duplicates go to a quarantine folder that can be restored with one click, or to the Recycle Bin.
+- **Portable.** A single `.exe` with nothing to install: .NET and every library are included.
+- **Many formats:** JPEG, PNG, HEIC, AVIF, WebP, TIFF, JPEG XL and the common RAW formats.
+- **Optional neural model** (DINOv2) that runs on the NPU, the GPU or the CPU through Windows ML.
+- **Command-line tool** for scripts and scheduled clean-ups.
 
-I programmi non sono firmati digitalmente. Al primo avvio Windows può mostrare "Windows ha protetto il PC": si sceglie "Ulteriori informazioni", poi "Esegui comunque". Il file `SHA256SUMS.txt` della release permette di verificare gli zip scaricati.
+The user interface is currently in Italian.
 
-## Requisiti
+## Download
 
-- Windows 10 (versione 1809 o successiva, quindi anche la 22H2) oppure Windows 11, x64 o ARM64.
-- La selezione automatica di NPU e GPU richiede Windows 11 24H2 o successivo. Su Windows 10 la rete neurale facoltativa usa i dispositivi che ONNX Runtime trova (CPU, o GPU con DirectML); se non ce n'è nessuno, restano gli algoritmi classici.
+Get the latest version from the [Releases page](https://github.com/St3f4n1n0/DupliFoto/releases/latest):
 
-## Uso della finestra
+| File | What it is |
+|---|---|
+| `DupliFoto-<version>-x64.exe` | The app, for almost every PC (Intel or AMD). |
+| `DupliFoto-<version>-arm64.exe` | The app, for Windows on ARM (Snapdragon / Copilot+ PCs). |
+| `duplifoto-cli-<version>-x64.exe`, `…-arm64.exe` | The command-line tool. |
+| `DupliFoto-<version>-licenses.zip` | License texts of the third-party components. |
+| `SHA256SUMS.txt` | Checksums to verify the downloads. |
 
-1. **Cartelle.** In alto si aggiungono una o più cartelle, con il pulsante oppure trascinandole da Esplora risorse. La stella segna una cartella come preferita: tra due doppioni si tiene la copia che sta lì.
-2. **Modalità.** Si sceglie la modalità (vedi la tabella più sotto), dove mettere i doppioni (quarantena o Cestino), e si preme **Avvia ricerca**.
-3. **Confronto.** Al centro compaiono le due foto affiancate: a sinistra quella da tenere, a destra il doppione, con l'affidabilità in mezzo.
-   - **Sposta il doppione** sposta la foto a destra nella quarantena o nel Cestino.
-   - **Tieni entrambe** lascia tutto com'è.
-   - **Scambia** fa diventare "da tenere" la foto a destra.
-   - Si passa da sola alla coppia successiva da decidere.
-4. **Elenco.** Sotto ci sono i contatori e l'elenco di tutte le coppie, filtrabile. **Annulla spostamenti** rimette a posto tutto ciò che è stato spostato in quarantena nella sessione; **Report** salva il report HTML e il CSV.
+Download the `.exe` and double-click it. Keep it wherever you like: Desktop, a USB stick, a tools folder.
 
-In semi-automatica e in automatica, finita la ricerca, la finestra propone di spostare subito i doppioni che la modalità può gestire da sola. Tutti gli altri si decidono uno per uno. La modalità si può cambiare anche dopo la ricerca, senza rifarla. Le anteprime passano da Magick.NET, quindi si vedono anche i file HEIC e RAW, già raddrizzati.
+- **First launch.** On the first start of each version the program unpacks itself into `%TEMP%\.net\DupliFoto`, which takes a few seconds. Later starts are quick.
+- **Unsigned executables.** They are not code-signed yet, so Windows SmartScreen may say "Windows protected your PC". Choose **More info**, then **Run anyway**.
 
-## Uso dalla riga di comando
+## Requirements
+
+- Windows 10 version 1809 or later (including 22H2), or Windows 11, on x64 or ARM64.
+- Automatic NPU/GPU selection for the optional neural model needs Windows 11 24H2 or later. On older systems the model runs on whatever ONNX Runtime finds (CPU, or GPU through DirectML); without a model, DupliFoto uses classic algorithms only.
+
+## Using the app
+
+1. **Folders.** Add one or more folders with **Aggiungi cartella**, or drag them from File Explorer. The star marks a *preferred* folder: when two copies are found, the one in that folder is kept.
+2. **Mode.** Pick a mode (see [Modes](#modes)) and where duplicates go: quarantine or Recycle Bin. Then press **Avvia ricerca**.
+3. **Compare.** Each pair appears side by side: the copy to keep on the left, the duplicate on the right, and the confidence in the middle.
+   - **Sposta il doppione** moves the right-hand photo away.
+   - **Tieni entrambe** keeps both.
+   - **Scambia** keeps the right-hand one instead.
+   - The next pair to decide comes up automatically.
+4. **Review.** Counters and the full list of pairs sit at the bottom, and the list can be filtered. **Annulla spostamenti** puts back everything moved to quarantine during the session. **Report** saves an HTML report with thumbnails and a CSV file for Excel.
+
+In the semi-automatic and automatic modes, the app offers to move right away the duplicates that the mode allows. Everything else is decided pair by pair. The mode can be changed after a search without searching again.
+
+## Command line
 
 ```powershell
-duplifoto "D:\Foto"                                  # sola lettura: solo report
-duplifoto "D:\Foto" --modo assistita                 # chiede tutto
-duplifoto "D:\Foto" "E:\Telefono" --modo semi-auto --preferisci "D:\Foto"
-duplifoto "D:\Foto" --modo auto --soglia 98 --modello dinov2-small.onnx --non-interattivo
-duplifoto annulla "...\DupliFoto-Quarantena\registro-20260930-101500-3fa2c1.jsonl"
-duplifoto hardware                                   # NPU/GPU/CPU disponibili
-duplifoto --versione
+duplifoto-cli "D:\Foto"                                  # read-only: report only
+duplifoto-cli "D:\Foto" --modo assistita                 # ask for every group
+duplifoto-cli "D:\Foto" "E:\Phone" --modo semi-auto --preferisci "D:\Foto"
+duplifoto-cli "D:\Foto" --modo auto --soglia 98 --modello dinov2-small.onnx --non-interattivo
+duplifoto-cli annulla "...\DupliFoto-Quarantena\registro-20260930-101500-3fa2c1.jsonl"
+duplifoto-cli hardware                                   # NPU / GPU / CPU available
+duplifoto-cli --versione
 ```
 
-`duplifoto aiuto` elenca tutte le opzioni: `--azione quarantena|cestino`, `--quarantena`, `--preferisci`, `--report`, `--modello`, `--acceleratore`, `--raffica`, `--no-raffiche`, `--no-sottocartelle`, `--nascosti`, `--no-cache`, `--thread`, `--non-interattivo`.
+`duplifoto-cli aiuto` lists every option:
 
-Si può anche trascinare una cartella sull'icona di `duplifoto.exe`: parte un'analisi in sola lettura, il report finisce in Documenti\DupliFoto e si apre nel browser. La finestra resta aperta finché non si preme Invio.
+- where duplicates go: `--azione quarantena|cestino`, `--quarantena`;
+- which copies to keep: `--preferisci`;
+- output: `--report`;
+- neural model: `--modello`, `--acceleratore`;
+- burst shots: `--raffica`, `--no-raffiche`;
+- scanning: `--no-sottocartelle`, `--nascosti`, `--no-cache`, `--thread`;
+- unattended runs: `--non-interattivo`.
 
-Ogni analisi produce un report HTML con le anteprime e un CSV da aprire in Excel. Il browser non mostra le anteprime dei file HEIC e RAW, ma i percorsi restano cliccabili.
+Every run writes an HTML report and a CSV file. Browsers cannot preview HEIC and RAW files in the report, but the paths are clickable. Dropping a folder onto `duplifoto-cli.exe` runs a read-only analysis, and the report opens in the browser.
 
-## Come funziona: l'imbuto
+## How it works
 
-| Livello | Cosa trova | Come | Affidabilità |
+DupliFoto works like a funnel, from the cheapest check to the most expensive one, so a large archive is analysed quickly:
+
+| Level | Finds | How | Confidence |
 |---|---|---|---|
-| 0 | inventario | nome, peso, data (costo quasi nullo) | — |
-| 1 | file identici | stesso peso, poi hash parziale (64 KB iniziali e finali), poi xxHash128 completo, poi confronto byte per byte prima di agire | 100% |
-| 2 | stessi pixel, metadati diversi | hash dei pixel decodificati, calcolato solo sui candidati | 99% |
-| 3 | stessa immagine ricompressa, ridimensionata o ruotata | pHash DCT nelle 8 orientazioni, dHash, BK-tree | 90–98% |
-| 4 | scatti multipli | data EXIF vicina e stessa fotocamera, somiglianza visiva (o neurale con un modello) | 60–89% |
+| 0 | inventory | name, size, date (almost free) | — |
+| 1 | identical files | same size → hash of the first and last 64 KB → full xxHash128 → byte-by-byte check before any action | 100% |
+| 2 | same pixels, different metadata | xxHash128 of the decoded pixels, only for candidates | 99% |
+| 3 | same picture recompressed, resized or rotated | DCT perceptual hash in 8 orientations, difference hash, BK-tree search | 90–98% |
+| 4 | burst shots | same camera, EXIF time within seconds, visual (or neural) similarity | 60–89% |
 
-Alcune regole valgono sempre:
+A few rules always apply:
 
-- Una coppia RAW+JPEG dello stesso scatto non è mai un doppione.
-- Le versioni "modificate" (`-edited`, `(modificata)`) sono limitate all'80%.
-- Due foto con date di scatto diverse non vengono mai considerate "stessa immagine", ma al massimo scatti multipli.
+- A RAW+JPEG pair of the same shot is never a duplicate.
+- An edited version (`-edited`, `(modificata)`) is capped at 80%.
+- Two photos with different capture times are never "the same picture": at most, they are burst shots.
+- Confidence is always measured against the copy that is kept, never along a chain.
 
-## Modalità
+## Modes
 
-| | 100% | 99% | 90–98% | 60–89% |
+| Mode | 100% | 99% | 90–98% | 60–89% |
 |---|---|---|---|---|
-| sola lettura | report | report | report | report |
-| assistita | chiede | chiede | chiede | chiede |
-| semi-automatica | **automatico** | chiede | chiede | chiede |
-| automatica (soglia predefinita 99, minimo 90) | **automatico** | **automatico** | sopra la soglia | chiede sempre |
+| read-only | report | report | report | report |
+| assisted | asks | asks | asks | asks |
+| semi-automatic | **automatic** | asks | asks | asks |
+| automatic (threshold 99 by default, minimum 90) | **automatic** | **automatic** | above the threshold | always asks |
 
-Gli scatti multipli si chiedono sempre, in ogni modalità. Dalla riga di comando con `--non-interattivo`, ciò che richiederebbe una conferma non viene toccato e il riepilogo finale lo conta come "da rivedere".
+Burst shots are always left to you. In unattended command-line runs (`--non-interattivo`), anything that would need confirmation is left untouched and counted as "da rivedere" (to review).
 
-## Sicurezza
+## Safety
 
-Queste regole valgono in tutte le modalità:
+These rules hold in every mode:
 
-- **Nessuna cancellazione.** I file vengono solo spostati: in quarantena (predefinita) o nel Cestino.
-- **Cestino solo se c'è davvero.** Sulle unità di rete o rimovibili Windows non ha un Cestino, e "eliminare" vorrebbe dire cancellare: lì il file non viene toccato. Se il Cestino è disattivato o troppo piccolo, Windows chiede conferma invece di cancellare in silenzio.
-- **Registro JSON Lines.** Viene scritto dopo ogni singolo spostamento. `duplifoto annulla` e **Annulla spostamenti** rimettono a posto tutto ciò che è in quarantena; dal Cestino si ripristina con Windows.
-- **File cambiati dopo la scansione.** Se un file è cambiato (peso o data), non viene toccato.
-- **Copia da tenere mancante.** Se la copia da tenere non esiste più o è cambiata, i suoi doppioni non vengono toccati.
-- **Verifica finale.** I file "identici" vengono riconfrontati byte per byte subito prima dello spostamento.
-- **OneDrive e collegamenti.** I file "solo online" di OneDrive vengono saltati, per non scaricarli. I collegamenti simbolici e le giunzioni non vengono seguiti: niente cicli, niente foto contate due volte.
+- **Nothing is ever deleted.** Files are only moved, to quarantine (the default) or to the Recycle Bin.
+- **Recycle Bin only when it really exists.** Network and removable drives have no Recycle Bin, and "deleting" there would mean erasing, so those files are not touched. If the Recycle Bin is disabled or too small, Windows asks before erasing instead of doing it silently.
+- **Undo journal.** Every move is written to a JSON Lines journal as it happens. `duplifoto-cli annulla` and **Annulla spostamenti** restore everything in quarantine; the Recycle Bin is restored from Windows.
+- **Files changed after the scan are not touched,** and neither is anything whose copy-to-keep has gone missing or changed.
+- **Byte-by-byte check.** "Identical" files are compared byte by byte again right before being moved.
+- **OneDrive and links.** Online-only OneDrive files are skipped, so they are not downloaded. Symbolic links and junctions are not followed: no loops, no photo counted twice.
+- **Locked files.** A file briefly locked by another program (antivirus, indexer) is retried; a file still open is left in place.
 
-## Quale copia tenere
+## Which copy is kept
 
-- **Doppioni:** vince la cartella preferita. A parità:
-  1. la risoluzione più alta;
-  2. i metadati più completi;
-  3. il nome senza "(1)" o "Copia";
-  4. l'originale rispetto alla versione modificata;
-  5. la copia più vecchia;
-  6. il percorso più breve.
-- **Scatti multipli:** vince lo scatto più nitido (varianza del Laplaciano), poi la risoluzione.
+- **Duplicates.** The copy in the preferred folder wins. After that:
+  1. the higher resolution;
+  2. the richer metadata;
+  3. the name without "(1)" or "Copia";
+  4. the original over the edited version;
+  5. the older file;
+  6. the shorter path.
+- **Burst shots.** The sharpest shot wins (variance of the Laplacian), then the higher resolution.
 
-## Accelerazione NPU/GPU
+## NPU and GPU acceleration
 
-La rete neurale serve solo per il livello 4, ed è facoltativa. Senza un modello il programma funziona interamente con algoritmi classici.
+The neural model is only used for burst shots (level 4) and is optional: without it, DupliFoto relies on classic algorithms alone.
 
-- **Il modello.** Con `tools/export_dinov2.py` si genera `dinov2-small.onnx`. Nella finestra lo si sceglie in **Altre opzioni**; dalla riga di comando con `--modello`. Per provare solo la catena Windows ML, `tools/crea_modello_prova.py` crea un modello minuscolo che restituisce il colore medio della foto.
-- **Execution provider.** Windows ML scarica tramite Windows Update i provider certificati per l'hardware presente: Qualcomm QNN, Intel OpenVINO, AMD VitisAI/MIGraphX, NVIDIA TensorRT-RTX. Include inoltre DirectML per qualunque GPU DirectX 12.
-- **Scelta del dispositivo.** Automatico, NPU, GPU o CPU (`--acceleratore auto|npu|gpu|cpu`). Se un dispositivo non è disponibile si ricade sul successivo, senza errori.
-- **Solo dove serve.** Gli embedding vengono calcolati solo sulle foto candidate, non sull'intero archivio.
+- **The model.** `tools/export_dinov2.py` exports `dinov2-small.onnx`. Select it in **Altre opzioni** in the app, or pass `--modello` on the command line. To test the Windows ML pipeline alone, `tools/crea_modello_prova.py` creates a tiny model that returns the average colour of a photo.
+- **Execution providers.** Windows ML downloads the certified providers for your hardware through Windows Update: Qualcomm QNN, Intel OpenVINO, AMD VitisAI/MIGraphX, NVIDIA TensorRT-RTX. It also includes DirectML for any DirectX 12 GPU.
+- **Device choice.** Automatic, NPU, GPU or CPU (`--acceleratore auto|npu|gpu|cpu`). If a device is not available, the next one is used without errors.
+- **Only where needed.** Embeddings are computed only for candidate photos, not for the whole archive.
 
-Il resto del lavoro, cioè lettura dei file e decodifica, va in parallelo su tutti i core della CPU. È il collo di bottiglia reale, insieme al disco. Una seconda scansione è molto più veloce grazie alla cache.
+Reading and decoding files, the real bottleneck together with the disk, run in parallel on all CPU cores. Later scans are much faster thanks to the cache.
 
-## File e cartelle del programma
+## Files and folders
 
-| Cosa | Dove |
+| What | Where |
 |---|---|
-| Quarantena (predefinita) e registri per annullare | `Immagini\DupliFoto-Quarantena` |
-| Cache delle analisi | `%LOCALAPPDATA%\DupliFoto\cache-v1.json` |
-| Impostazioni della finestra | `%APPDATA%\DupliFoto\gui.json` |
-| Errori imprevisti della finestra | `%LOCALAPPDATA%\DupliFoto\errori.log` |
-| Report (finestra, o riga di comando avviata con un doppio clic) | `Documenti\DupliFoto` |
+| Quarantine (default) and undo journals | `Pictures\DupliFoto-Quarantena` |
+| Analysis cache | `%LOCALAPPDATA%\DupliFoto\cache-v1.json` |
+| App settings | `%APPDATA%\DupliFoto\gui.json` |
+| Unexpected errors (app) | `%LOCALAPPDATA%\DupliFoto\errori.log` |
+| Reports (app, or command line started by double-click) | `Documents\DupliFoto` |
+| Unpacked program files | `%TEMP%\.net\DupliFoto` and `%TEMP%\.net\duplifoto-cli` |
 
-Per disinstallare basta cancellare la cartella del programma e, se non servono più, queste cartelle.
+To remove DupliFoto, delete the `.exe` and, if you no longer need them, these folders.
 
 ## Privacy
 
-DupliFoto lavora solo sul PC e non invia dati. Due casi usano la rete, e solo tramite Windows:
+DupliFoto works entirely on your PC and sends no data. The network is only used through Windows in two cases:
 
-- la rete neurale facoltativa, se si sceglie un modello;
-- il comando `hardware`.
+- when you select a neural model;
+- when you run the `hardware` command.
 
-In entrambi i casi Windows ML può scaricare da Windows Update i provider per NPU e GPU. I componenti Microsoft inclusi (Windows App SDK, Windows ML) possono inviare dati diagnostici a Microsoft secondo le impostazioni di privacy di Windows.
+In both cases Windows ML may download the NPU/GPU providers from Windows Update. The bundled Microsoft components (Windows App SDK, Windows ML) may send diagnostic data to Microsoft, according to your Windows privacy settings.
 
-## Compilazione
+## Building from source
 
-Serve il [.NET 10 SDK](https://dotnet.microsoft.com/download) (oppure Visual Studio 2026); `global.json` accetta qualunque versione 10.0.
+You need the [.NET 10 SDK](https://dotnet.microsoft.com/download) or Visual Studio 2026. `global.json` accepts any 10.0 SDK.
 
 ```powershell
 dotnet build DupliFoto.slnx -c Release
 dotnet test  DupliFoto.slnx
 
-# cartella autonoma con i due programmi (x64; per i PC Copilot+ con Snapdragon usa win-arm64)
-dotnet publish src/DupliFoto.Cli -c Release -r win-x64 -o publish
+# portable single-file executables (use win-arm64 for Windows on ARM)
 dotnet publish src/DupliFoto.Gui -c Release -f net10.0-windows10.0.26100.0 -r win-x64 -o publish
-powershell -File tools\raccogli-licenze.ps1 -Publish publish -Rid win-x64
+dotnet publish src/DupliFoto.Cli -c Release -r win-x64 -o publish
+powershell -File tools\raccogli-licenze.ps1 -Destination publish\licenses -Rid win-x64
 ```
 
-Le versioni dei pacchetti sono fissate in `Directory.Packages.props`; Dependabot propone gli aggiornamenti come pull request.
+- **Package versions** are pinned in `Directory.Packages.props`; Dependabot proposes updates as pull requests.
+- **Avalonia telemetry.** Avalonia sends anonymous build statistics (project, version, platform). Set `AVALONIA_TELEMETRY_OPTOUT=1` to turn them off; CI already does.
+- **Linux and macOS.** The solution also builds there, for example in cloud development environments. `Directory.Build.props` enables Windows targeting, skips the PRI resources and replaces `mt.exe` with `tools/mt-linux.sh`. Release executables are always built on Windows.
+- **Headless tests.** The app also has a plain `net10.0` target without the Windows parts. The tests in `tests/DupliFoto.Gui.Tests` use it to drive and render the window without a screen. With `DUPLIFOTO_SCREENSHOTS` they save images of the window; with `DUPLIFOTO_README_SCREENSHOT` they regenerate the screenshot above.
 
-Durante la compilazione, Avalonia invia statistiche anonime d'uso (progetto, versione, piattaforma). Per disattivarle si imposta la variabile d'ambiente `AVALONIA_TELEMETRY_OPTOUT=1`; nella CI è già così.
+## Releasing
 
-La soluzione compila anche da Linux o macOS, per esempio negli ambienti di sviluppo nel cloud. `Directory.Build.props` abilita la compilazione per Windows, salta i file PRI e sostituisce `mt.exe` con `tools/mt-linux.sh`. L'eseguibile da distribuire resta quello compilato su Windows.
+1. Add a section for the new version to `CHANGELOG.md`, for example `## [0.2.0] - YYYY-MM-DD`.
+2. Update `<Version>` in `Directory.Build.props` and merge to `main`.
+3. Start the release in one of two ways:
+   - **Actions → build → Run workflow**, with the version (for example `0.2.0`). This prepares a **draft** release with all the files and notes: review it on the Releases page and press **Publish**.
+   - Or push a tag: `git tag v0.2.0` then `git push origin v0.2.0`.
 
-L'interfaccia grafica ha anche un target `net10.0` senza la parte Windows. Serve per provarla e fotografarla da Linux: i test in `tests/DupliFoto.Gui.Tests` la disegnano senza schermo e, con la variabile `DUPLIFOTO_SCREENSHOTS`, salvano le immagini della finestra.
+In both cases GitHub Actions builds and tests everything (Linux, Windows 11 and a Windows 10 base) before attaching anything. The release notes are made from the `CHANGELOG.md` section and `.github/release-notes.md`, and the program version comes from the release version.
 
-## Pubblicare una release
-
-1. Aggiornare `CHANGELOG.md` con la sezione della nuova versione, per esempio `## [0.2.0] - AAAA-MM-GG`.
-2. Aggiornare `<Version>` in `Directory.Build.props`.
-3. Creare il tag, in uno dei due modi:
-   - dalla pagina di GitHub: **Releases → Draft a new release**, tag `v0.2.0` su `main`, poi **Publish release** (le note si possono lasciare vuote);
-   - oppure da terminale:
-     ```powershell
-     git tag v0.2.0
-     git push origin v0.2.0
-     ```
-
-GitHub Actions compila ed esegue tutte le prove: Linux, Windows 11 e base Windows 10. Solo se passano, allega alla release gli zip x64 e ARM64 e i checksum. Se le note della release sono vuote, usa la sezione del CHANGELOG. La versione dei programmi viene presa dal tag.
-
-## Struttura
+## Project layout
 
 ```
-src/DupliFoto.Core    motore (net10.0): scansione, hash, punteggi, azioni, report
-src/DupliFoto.Accel   Windows ML / ONNX Runtime: embedding su NPU/GPU/CPU
-src/DupliFoto.Cli     riga di comando (duplifoto.exe)
-src/DupliFoto.Gui     interfaccia grafica (DupliFoto2026.exe), Avalonia
-tests/                test xUnit del motore e della finestra, con immagini generate al momento
-tools/                modelli ONNX, prove su Windows, raccolta delle licenze, sostituto di mt.exe per Linux
-.github/              build, test, prove e release (workflows), aggiornamenti delle dipendenze (Dependabot)
+src/DupliFoto.Core    engine (net10.0): scanning, hashing, scoring, actions, reports
+src/DupliFoto.Accel   Windows ML / ONNX Runtime embeddings on NPU, GPU or CPU
+src/DupliFoto.Gui     the app (DupliFoto.exe), Avalonia
+src/DupliFoto.Cli     the command-line tool (duplifoto-cli.exe)
+tests/                xUnit tests for the engine and the app, with images generated on the fly
+tools/                ONNX models, Windows test scripts, license collection, mt.exe stand-in for Linux
+assets/               icon and the script that draws it
+.github/              CI, release notes template, Dependabot
 ```
 
-## Stato della verifica
+## Testing
 
-A ogni push GitHub Actions compila ed esegue tutti i test su Linux e su Windows. I test del motore coprono:
+On every push, GitHub Actions builds the solution and runs all tests on Linux and on Windows. The tests cover:
 
-- tutti i livelli dell'imbuto, le modalità e la verifica byte per byte;
-- l'annullamento e la cache;
-- le regole di sicurezza: collegamenti, cartella preferita, registro, Cestino (su Windows).
+- **The engine:** every level of the funnel, the modes, the byte-by-byte check, undo and the cache.
+- **The safety rules:** links, preferred folders, journals, locked files, and the Recycle Bin on Windows.
+- **Real libraries:** Magick.NET and MetadataExtractor on generated JPEG and PNG files, checking EXIF with sub-seconds and GPS, orientation, greyscale and transparency.
+- **The app:** the full flow on real photos (search, move, swap, keep both, undo, semi-automatic, read-only), plus screenshots in light and dark theme.
 
-I test d'integrazione usano Magick.NET e MetadataExtractor veri su JPEG e PNG generati al momento: EXIF con sottosecondi e GPS, orientamento, scala di grigi, trasparenza. I test della finestra ripetono il flusso completo su foto vere: ricerca, sposta, scambia, tieni entrambe, annulla, semi-automatica e sola lettura.
+Then CI runs the published executables on real photos:
 
-Poi prova i programmi pubblicati su Windows:
+- **Windows Server 2025:**
+  - a read-only analysis;
+  - a semi-automatic move followed by undo;
+  - the Windows ML pipeline with a test model;
+  - the app starting and showing its window.
+- **Windows Server 2022:** the same checks except Windows ML. It shares its base with Windows 10 21H2 (no Mica, pre-Windows 11 build); GitHub offers no Windows 10 machines.
 
-- **Comandi di base.** `aiuto` e `hardware` funzionano; sul runner vengono rilevati CPU e GPU tramite DirectML.
-- **Sola lettura.** Su foto JPEG e PNG trova la copia identica e la versione "WhatsApp" ricompressa, e non tocca nessun file.
-- **Semi-automatica e annulla.** Sposta in quarantena solo la copia identica; `annulla` la rimette al suo posto.
-- **Windows ML.** Registra i provider certificati e calcola gli embedding con un modello ONNX di prova sulla CPU.
-- **Interfaccia grafica.** `DupliFoto2026.exe` si apre e resta aperto. Lo screenshot finisce tra gli artifact.
-- **Base Windows 10.** Le stesse prove, senza Windows ML, girano anche su Windows Server 2022. È costruito sulla base di Windows 10 21H2: niente Mica, build precedente a Windows 11. GitHub non offre macchine con Windows 10 vero e proprio.
+Not yet verified on real hardware:
 
-Restano da provare su un PC vero: Windows 10, le NPU e le GPU dedicate, i file HEIC e RAW, le cartelle OneDrive, archivi grandi. L'eseguibile ARM64 viene compilato ma non provato, perché il runner è x64. `tools/export_dinov2.py` non è stato eseguito.
+- Windows 10;
+- dedicated NPUs and GPUs;
+- HEIC and RAW files;
+- OneDrive folders;
+- very large archives.
 
-## Prossimi passi
+The ARM64 build is compiled but not run, because the CI machines are x64.
 
-1. **Interfaccia.** Zoom sincronizzato sulle due foto, scorciatoie da tastiera, icona del programma, griglia di anteprime per i gruppi con molte foto.
-2. **Occhi aperti e sorrisi** per scegliere il miglior scatto di gruppo (rilevamento volti via ONNX).
-3. **ID di raffica nativi** (BurstUUID di Apple, Samsung) e coppie Live Photo (HEIC+MOV).
-4. **Lettura della MFT NTFS** per l'inventario istantaneo di dischi con milioni di file.
-5. **Pre-compilazione del modello per la NPU,** per un avvio a freddo più rapido.
+## Roadmap
 
-## Licenza
+1. **English user interface.**
+2. **App.** Synchronised zoom on the two photos, keyboard shortcuts, a thumbnail grid for large groups.
+3. **Best shot.** Open eyes and smiles to pick the best burst shot (face detection via ONNX).
+4. **Native burst IDs** (Apple BurstUUID, Samsung) and Live Photo pairs (HEIC+MOV).
+5. **NTFS MFT reading** for an instant inventory of drives with millions of files.
+6. **Pre-compiled NPU models** for a faster cold start.
 
-Il codice è distribuito con [licenza MIT](LICENSE). I programmi pubblicati includono componenti di terze parti con le proprie licenze: l'elenco è in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md), e i testi completi sono nella cartella `licenze/` di ogni release.
+## License
+
+DupliFoto is released under the [MIT License](LICENSE). The executables include third-party components under their own licenses: they are listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md), and each release ships their full texts in `DupliFoto-<version>-licenses.zip`.

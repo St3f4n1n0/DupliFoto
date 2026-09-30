@@ -1,19 +1,29 @@
-# Novità
+# Changelog
+
+All notable changes to DupliFoto are documented in this file.
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [0.1.0] - 2026-09-30
 
-Prima versione pubblica.
+First public release.
 
-- **Interfaccia grafica** (`DupliFoto2026.exe`), in stile Windows 11 con tema chiaro e scuro:
-  - cartelle da aggiungere o trascinare, e una cartella preferita;
-  - confronto affiancato con l'affidabilità;
-  - spostamento, scambio, "tieni entrambe", annulla, report.
-- **Riga di comando** (`duplifoto.exe`): modalità sola lettura, assistita, semi-automatica e automatica, report HTML/CSV, annulla dal registro.
-- **Ricerca a imbuto**: file identici al byte, stessi pixel, stessa immagine ricompressa, ridimensionata o ruotata, scatti multipli.
-- **Formati**: JPEG, PNG, HEIC, AVIF, WebP, TIFF, JPEG XL e i principali RAW.
-- **Rete neurale facoltativa** (DINOv2) con Windows ML su NPU, GPU o CPU.
-- **Sicurezza**:
-  - nessuna cancellazione: si sposta in quarantena o nel Cestino, e solo se Windows può davvero metterci il file;
-  - verifica byte per byte prima di spostare i file identici;
-  - registro per annullare.
-- **Sistemi**: Windows 10 (1809 o successivo) e Windows 11, x64 e ARM64. Programmi autonomi, niente da installare.
+### Added
+
+- **The app, `DupliFoto.exe`.** Add or drag in folders, then compare each pair side by side with its confidence score. For each pair you can move the duplicate, keep both, or swap which copy to keep. Counters, a filterable list of pairs, one-click undo, and HTML/CSV reports. Windows 11 style, with light and dark theme.
+- **The command-line tool, `duplifoto-cli.exe`,** with read-only, assisted, semi-automatic and automatic modes, and an `annulla` command to undo from the journal.
+- **Duplicate detection** from the cheapest check to the most expensive: byte-identical files, identical pixels with different metadata, the same picture recompressed, resized or rotated, and burst shots.
+- **Formats:** JPEG, PNG, HEIC, AVIF, WebP, TIFF, JPEG XL and the common RAW formats.
+- **Optional neural model** (DINOv2 in ONNX format) running on the NPU, GPU or CPU through Windows ML.
+- **Safety first.**
+  - Files are never deleted: they are only moved to a quarantine folder or to the Recycle Bin, and to the Recycle Bin only when Windows can really put them there.
+  - Identical files are checked byte by byte before being moved.
+  - An undo journal records every move.
+- **Portable, self-contained executables** for Windows 10 (1809 or later) and Windows 11, on x64 and ARM64.
+
+### Known limitations
+
+- The user interface is in Italian only.
+- Tested automatically on Windows Server 2025 and Windows Server 2022 (the Windows 10 base); not yet on physical Windows 10 PCs, dedicated NPUs, or large HEIC/RAW archives.
+- The ARM64 executables are built but not run in CI, which only has x64 machines.
+
+[0.1.0]: https://github.com/St3f4n1n0/DupliFoto/releases/tag/v0.1.0
