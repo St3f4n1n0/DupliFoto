@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using DupliFoto.Core.Matching;
 
 namespace DupliFoto.Core.Actions;
@@ -45,7 +46,9 @@ public static class ActionPolicy
 /// </summary>
 public sealed class ActionSession(ScanOptions options, IProgress<string>? progress = null) : IDisposable
 {
-    private readonly string _stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+    // Data e ora, più un suffisso casuale: due sessioni ravvicinate (per esempio "annulla" e subito dopo
+    // un nuovo spostamento) non devono mai condividere registro e cartella.
+    private readonly string _stamp = $"{DateTime.Now:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString("N")[..6]}";
     private readonly HashSet<string> _removed = new(StringComparer.OrdinalIgnoreCase);
     private ActionJournal? _journal;
 
@@ -127,15 +130,72 @@ public sealed class ActionSession(ScanOptions options, IProgress<string>? progre
     public void Dispose() => _journal?.Dispose();
 }
 
+/// <summary>
+/// Cestino di Windows. Mai una cancellazione definitiva: se Windows non può mettere il file nel Cestino
+/// (unità di rete o rimovibile, Cestino disattivato o troppo piccolo), il file resta dov'è.
+/// </summary>
 internal static class RecycleBin
 {
     public static void Send(string path)
     {
         if (!OperatingSystem.IsWindows())
             throw new PlatformNotSupportedException("Il Cestino è disponibile solo su Windows: usa la quarantena.");
-        Microsoft.VisualBasic.FileIO.FileSystem.DeleteFile(
-            path,
-            Microsoft.VisualBasic.FileIO.UIOption.OnlyErrorDialogs,
-            Microsoft.VisualBasic.FileIO.RecycleOption.SendToRecycleBin);
+
+        // Sulle unità di rete e rimovibili Windows non ha un Cestino: "eliminare" vorrebbe dire cancellare davvero.
+        var drive = new DriveInfo(Path.GetPathRoot(Path.GetFullPath(path))!);
+        if (drive.DriveType != DriveType.Fixed)
+            throw new IOException($"L'unità {drive.Name} non ha un Cestino ({drive.DriveType}): usa la quarantena.");
+
+        var op = new NativeMethods.SHFILEOPSTRUCT
+        {
+            wFunc = NativeMethods.FO_DELETE,
+            pFrom = Path.GetFullPath(path) + "\0\0",
+            // ALLOWUNDO = Cestino. WANTNUKEWARNING: se il file verrebbe cancellato per sempre (Cestino disattivato
+            // o pieno), Windows chiede conferma invece di procedere in silenzio.
+            fFlags = NativeMethods.FOF_ALLOWUNDO | NativeMethods.FOF_NOCONFIRMATION | NativeMethods.FOF_SILENT
+                     | NativeMethods.FOF_NOERRORUI | NativeMethods.FOF_WANTNUKEWARNING,
+        };
+        // Le API della shell vogliono un thread STA; i thread del pool (e il Main della console) sono MTA.
+        int rc = -1;
+        Exception? error = null;
+        var sta = new Thread(() =>
+        {
+            try { rc = NativeMethods.SHFileOperation(ref op); }
+            catch (Exception ex) { error = ex; }
+        });
+        sta.SetApartmentState(ApartmentState.STA);
+        sta.Start();
+        sta.Join();
+        if (error is not null) throw new IOException($"Cestino non disponibile: {error.Message}", error);
+        if (rc != 0 || op.fAnyOperationsAborted)
+            throw new IOException($"Windows non ha spostato il file nel Cestino (codice {rc}{(op.fAnyOperationsAborted ? ", annullato" : "")}).");
+        if (File.Exists(path))
+            throw new IOException("Il file è ancora al suo posto dopo lo spostamento nel Cestino.");
+    }
+
+    private static class NativeMethods
+    {
+        public const uint FO_DELETE = 3;
+        public const ushort FOF_SILENT = 0x0004;
+        public const ushort FOF_NOCONFIRMATION = 0x0010;
+        public const ushort FOF_ALLOWUNDO = 0x0040;
+        public const ushort FOF_NOERRORUI = 0x0400;
+        public const ushort FOF_WANTNUKEWARNING = 0x4000;
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        public struct SHFILEOPSTRUCT
+        {
+            public IntPtr hwnd;
+            public uint wFunc;
+            public string pFrom;   // elenco terminato da un doppio carattere nullo
+            public string? pTo;
+            public ushort fFlags;
+            [MarshalAs(UnmanagedType.Bool)] public bool fAnyOperationsAborted;
+            public IntPtr hNameMappings;
+            public string? lpszProgressTitle;
+        }
+
+        [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+        public static extern int SHFileOperation(ref SHFILEOPSTRUCT lpFileOp);
     }
 }

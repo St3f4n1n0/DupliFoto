@@ -30,7 +30,7 @@ public static class KeeperPolicy
     }
 
     private static bool IsInPreferredFolder(PhotoFile f, ScanOptions o) =>
-        o.PreferredFolders.Any(p => f.Path.StartsWith(Path.GetFullPath(p), StringComparison.OrdinalIgnoreCase));
+        o.PreferredFolders.Any(p => Scanning.FileScanner.IsUnder(f.Path, p));
 
     private static string Explain(PhotoFile k, IReadOnlyList<PhotoFile> all, bool isBurst, ScanOptions o)
     {

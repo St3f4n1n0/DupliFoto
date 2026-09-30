@@ -2,6 +2,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using DupliFoto.Gui.Services;
 using DupliFoto.Gui.ViewModels;
 
 namespace DupliFoto.Gui.Views;
@@ -18,7 +19,7 @@ public partial class MainWindow : Window
 
     private MainViewModel? Vm => DataContext as MainViewModel;
 
-    private async void OnAddFolder(object? sender, RoutedEventArgs e)
+    private async void OnAddFolder(object? sender, RoutedEventArgs e) => await Guard(async () =>
     {
         var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
@@ -26,15 +27,15 @@ public partial class MainWindow : Window
             AllowMultiple = true,
         });
         Vm?.AddFolders(folders.Select(f => f.TryGetLocalPath()).OfType<string>());
-    }
+    });
 
-    private async void OnBrowseQuarantine(object? sender, RoutedEventArgs e)
+    private async void OnBrowseQuarantine(object? sender, RoutedEventArgs e) => await Guard(async () =>
     {
         var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions { Title = "Cartella di quarantena" });
         if (Vm is { } vm && folders.FirstOrDefault()?.TryGetLocalPath() is { } path) vm.QuarantineRoot = path;
-    }
+    });
 
-    private async void OnBrowseModel(object? sender, RoutedEventArgs e)
+    private async void OnBrowseModel(object? sender, RoutedEventArgs e) => await Guard(async () =>
     {
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
@@ -42,6 +43,17 @@ public partial class MainWindow : Window
             FileTypeFilter = [new FilePickerFileType("Modello ONNX") { Patterns = ["*.onnx"] }],
         });
         if (Vm is { } vm && files.FirstOrDefault()?.TryGetLocalPath() is { } path) vm.ModelPath = path;
+    });
+
+    /// <summary>I gestori "async void" non devono mai far cadere il programma: l'errore va nella barra di stato.</summary>
+    private async Task Guard(Func<Task> action)
+    {
+        try { await action(); }
+        catch (Exception ex)
+        {
+            ErrorLog.Write(ex, "finestra");
+            if (Vm is { } vm) vm.StatusText = $"Operazione non riuscita: {ex.Message}";
+        }
     }
 
     // Cartelle trascinate da Esplora risorse (una foto trascinata vale per la sua cartella).

@@ -41,11 +41,11 @@
             <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" VerticalAlignment="Center" MaxWidth="420"
                        TextTrimming="CharacterEllipsis" Margin="0,0,6,0" />
             <Button Classes="subtle icon" Command="{Binding OpenCommand}" IsEnabled="{Binding HasPhoto}"
-                    ToolTip.Tip="Apri con il visualizzatore di foto">
+                    ToolTip.Tip="Apri con il visualizzatore di foto" AutomationProperties.Name="Apri la foto">
               <PathIcon Data="{StaticResource IconEye}" />
             </Button>
             <Button Classes="subtle icon" Command="{Binding RevealCommand}" IsEnabled="{Binding HasPhoto}"
-                    ToolTip.Tip="Mostra nella cartella">
+                    ToolTip.Tip="Mostra nella cartella" AutomationProperties.Name="Mostra nella cartella">
               <PathIcon Data="{StaticResource IconFolderOpen}" />
             </Button>
           </StackPanel>
@@ -92,14 +92,15 @@
                       <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14" Foreground="{DynamicResource MutedBrush}" />
                       <TextBlock Text="{Binding Path}" VerticalAlignment="Center" MaxWidth="460" Margin="4,0"
                                  TextTrimming="PrefixCharacterEllipsis" ToolTip.Tip="{Binding Path}" />
-                      <ToggleButton Classes="star" IsChecked="{Binding IsPreferred}"
+                      <ToggleButton Classes="star" IsChecked="{Binding IsPreferred}" AutomationProperties.Name="Cartella preferita"
                                     ToolTip.Tip="Cartella preferita: tra due doppioni tieni la copia che sta qui">
                         <Panel>
                           <PathIcon Data="{StaticResource IconStar}" Width="14" Height="14" IsVisible="{Binding IsPreferred}" />
                           <PathIcon Data="{StaticResource IconStarOutline}" Width="14" Height="14" IsVisible="{Binding !IsPreferred}" />
                         </Panel>
                       </ToggleButton>
-                      <Button Classes="subtle icon" Command="{Binding RemoveCommand}" ToolTip.Tip="Togli dall'elenco">
+                      <Button Classes="subtle icon" Command="{Binding RemoveCommand}" ToolTip.Tip="Togli dall'elenco"
+                              AutomationProperties.Name="Togli la cartella dall'elenco">
                         <PathIcon Data="{StaticResource IconClose}" Width="12" Height="12" />
                       </Button>
                     </StackPanel>
@@ -206,6 +207,7 @@
             <TextBlock Text="Trova le foto doppie" Classes="title" HorizontalAlignment="Center" />
             <TextBlock Classes="muted" TextAlignment="Center" TextWrapping="Wrap"
                        Text="Aggiungi le cartelle da controllare, scegli la modalità e premi «Avvia ricerca». In sola lettura nessun file viene toccato; negli altri casi i doppioni vanno in quarantena, da dove si possono sempre ripristinare." />
+            <TextBlock Text="{Binding VersionText}" Classes="faint small" HorizontalAlignment="Center" Margin="0,6,0,0" />
           </StackPanel>
 
           <!-- Ricerca in corso -->
@@ -250,10 +252,12 @@
             <Border Grid.Row="1" Grid.ColumnSpan="3" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0" Padding="12,10">
               <Grid ColumnDefinitions="*,Auto,*">
                 <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
-                  <Button Classes="subtle icon" Command="{Binding PreviousCommand}" IsEnabled="{Binding CanNavigate}" ToolTip.Tip="Coppia precedente">
+                  <Button Classes="subtle icon" Command="{Binding PreviousCommand}" IsEnabled="{Binding CanNavigate}" ToolTip.Tip="Coppia precedente"
+                          AutomationProperties.Name="Coppia precedente">
                     <PathIcon Data="{StaticResource IconChevronLeft}" />
                   </Button>
-                  <Button Classes="subtle icon" Command="{Binding NextCommand}" IsEnabled="{Binding CanNavigate}" ToolTip.Tip="Coppia successiva">
+                  <Button Classes="subtle icon" Command="{Binding NextCommand}" IsEnabled="{Binding CanNavigate}" ToolTip.Tip="Coppia successiva"
+                          AutomationProperties.Name="Coppia successiva">
                     <PathIcon Data="{StaticResource IconChevronRight}" />
                   </Button>
                   <TextBlock Text="{Binding DecisionHint}" Classes="muted small" VerticalAlignment="Center" Margin="8,0,0,0"

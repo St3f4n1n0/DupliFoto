@@ -32,6 +32,11 @@ async Task<int> Run(string[] a)
         PrintHelp();
         return 0;
     }
+    if (a[0] is "--versione" or "--version" or "-v")
+    {
+        Console.WriteLine($"{AppInfo.Name} {AppInfo.Version}");
+        return 0;
+    }
 
     try
     {
@@ -86,9 +91,7 @@ async Task<int> Analyze(string[] a)
                 };
                 break;
             case "--soglia":
-                o.AutoThreshold = double.Parse(Next(), CultureInfo.InvariantCulture);
-                if (o.AutoThreshold < ScanOptions.AutoThresholdFloor)
-                    throw new ArgumentException($"La soglia automatica non può scendere sotto {ScanOptions.AutoThresholdFloor}%.");
+                o.AutoThreshold = Number(arg, Next(), ScanOptions.AutoThresholdFloor, 100);
                 break;
             case "--azione":
                 o.Disposal = Next().ToLowerInvariant() switch
@@ -113,12 +116,12 @@ async Task<int> Analyze(string[] a)
                 break;
             case "--no-sottocartelle": o.Recursive = false; break;
             case "--nascosti": o.IncludeHidden = true; break;
-            case "--raffica": o.BurstWindowSeconds = double.Parse(Next(), CultureInfo.InvariantCulture); break;
+            case "--raffica": o.BurstWindowSeconds = Number(arg, Next(), 0.1, 3600); break;
             case "--no-raffiche": o.DetectBursts = false; break;
             case "--preferisci": o.PreferredFolders.Add(Path.GetFullPath(Next())); break;
             case "--non-interattivo": interactive = false; break;
             case "--no-cache": o.CachePath = null; break;
-            case "--thread": o.MaxDegreeOfParallelism = int.Parse(Next(), CultureInfo.InvariantCulture); break;
+            case "--thread": o.MaxDegreeOfParallelism = (int)Number(arg, Next(), 1, 1024); break;
             default:
                 if (arg.StartsWith("--")) throw new ArgumentException($"Opzione sconosciuta: {arg}");
                 o.Roots.Add(Path.GetFullPath(arg));
@@ -129,7 +132,7 @@ async Task<int> Analyze(string[] a)
     if (o.Mode == RunMode.Assisted && !interactive)
         throw new ArgumentException("La modalità assistita richiede di rispondere alle domande: togli --non-interattivo.");
 
-    Ui.Color(ConsoleColor.Cyan, $"DupliFoto 2026 · modalità: {ModeLabel(o)}");
+    Ui.Color(ConsoleColor.Cyan, $"{AppInfo.Name} {AppInfo.Version} · modalità: {ModeLabel(o)}");
 
     // --- Acceleratore (facoltativo) ---
     IEmbeddingProvider? embeddings = null;
@@ -208,6 +211,16 @@ async Task<int> Hardware()
     return 0;
 }
 
+/// <summary>Un numero da riga di comando, con il punto o la virgola, entro i limiti: altrimenti un messaggio chiaro.</summary>
+static double Number(string option, string text, double min, double max)
+{
+    if (!double.TryParse(text.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out double value))
+        throw new ArgumentException($"{option}: «{text}» non è un numero.");
+    if (value < min || value > max)
+        throw new ArgumentException($"{option}: il valore deve essere tra {min} e {max}.");
+    return value;
+}
+
 static string ModeLabel(ScanOptions o) => o.Mode switch
 {
     RunMode.ReadOnly => "sola lettura (nessun file verrà toccato)",
@@ -233,6 +246,7 @@ static void PrintHelp() => Console.WriteLine("""
       duplifoto [analizza] <cartella> [<cartella>...] [opzioni]
       duplifoto annulla <registro.jsonl>        riporta i file dalla quarantena
       duplifoto hardware                        mostra NPU/GPU/CPU disponibili
+      duplifoto --versione
 
     MODALITÀ  (--modo)
       sola-lettura   predefinita: solo report HTML/CSV, nessun file toccato

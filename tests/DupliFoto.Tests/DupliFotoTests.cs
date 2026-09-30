@@ -392,3 +392,76 @@ public sealed class EngineEndToEndTests : IDisposable
         public RgbImage DecodeFull(string path) => inner.DecodeFull(path);
     }
 }
+
+public sealed class SafetyTests : IDisposable
+{
+    private readonly string _dir = Path.Combine(Path.GetTempPath(), "duplifoto-safety-" + Guid.NewGuid().ToString("N"));
+
+    public SafetyTests() => Directory.CreateDirectory(_dir);
+
+    public void Dispose()
+    {
+        try { Directory.Delete(_dir, recursive: true); } catch { /* pulizia best effort */ }
+    }
+
+    [Fact]
+    public void Scanner_ignores_links_and_never_loops()
+    {
+        string photos = Path.Combine(_dir, "Foto");
+        Directory.CreateDirectory(Path.Combine(photos, "Sotto"));
+        TestImages.SavePpm(TestImages.Scene(1), Path.Combine(photos, "a.ppm"));
+        TestImages.SavePpm(TestImages.Scene(2), Path.Combine(photos, "Sotto", "b.ppm"));
+        try
+        {
+            Directory.CreateSymbolicLink(Path.Combine(photos, "Sotto", "giro"), photos);                     // ciclo
+            File.CreateSymbolicLink(Path.Combine(photos, "collegamento.ppm"), Path.Combine(photos, "a.ppm"));  // doppione finto
+        }
+        catch (Exception) { return; } // Windows senza privilegi per i collegamenti simbolici: niente da provare
+
+        var o = new ScanOptions { Roots = { photos }, Extensions = { ".ppm" }, QuarantineRoot = Path.Combine(_dir, "Q") };
+        var files = DupliFoto.Core.Scanning.FileScanner.Scan(o);
+
+        Assert.Equal(["a.ppm", "b.ppm"], files.Select(f => Path.GetFileName(f.Path)).Order());
+    }
+
+    [Fact]
+    public void A_preferred_folder_does_not_include_folders_with_a_similar_name()
+    {
+        string foto = Path.Combine(_dir, "Foto"), foto2 = Path.Combine(_dir, "Foto2");
+        var a = new PhotoFile { Path = Path.Combine(foto2, "img.jpg"), Size = 10, Width = 100, Height = 100 };
+        var b = new PhotoFile { Path = Path.Combine(foto, "img.jpg"), Size = 10, Width = 100, Height = 100 };
+        var o = new ScanOptions { PreferredFolders = { foto } };
+
+        Assert.Same(b, KeeperPolicy.Choose([a, b], isBurst: false, o).Keeper);
+        Assert.True(DupliFoto.Core.Scanning.FileScanner.IsUnder(b.Path, foto));
+        Assert.False(DupliFoto.Core.Scanning.FileScanner.IsUnder(a.Path, foto));
+    }
+
+    [Fact]
+    public void Two_sessions_never_share_the_journal()
+    {
+        var o = new ScanOptions { QuarantineRoot = Path.Combine(_dir, "Q") };
+        using var s1 = new ActionSession(o);
+        using var s2 = new ActionSession(o);
+        Assert.NotEqual(s1.JournalPath, s2.JournalPath);
+    }
+
+    [Fact]
+    public void Recycle_bin_moves_the_file_on_windows()
+    {
+        if (!OperatingSystem.IsWindows()) return; // solo su Windows (la CI lo esegue su Windows Server)
+        string path = Path.Combine(_dir, "da-cestinare.jpg");
+        File.WriteAllBytes(path, [1, 2, 3]);
+        var file = new PhotoFile { Path = path, Size = 3, LastWriteUtc = File.GetLastWriteTimeUtc(path) };
+        string keeperPath = Path.Combine(_dir, "tieni.jpg");
+        File.WriteAllBytes(keeperPath, [1, 2, 3]);
+        var keeper = new PhotoFile { Path = keeperPath, Size = 3, LastWriteUtc = File.GetLastWriteTimeUtc(keeperPath) };
+
+        using var session = new ActionSession(new ScanOptions { Disposal = DisposalMethod.RecycleBin, QuarantineRoot = Path.Combine(_dir, "Q") });
+        var outcome = session.Move(keeper, new GroupMember { File = file, Kind = MatchKind.ExactBytes, Confidence = 100, Reason = "" }, automatic: false);
+
+        Assert.Equal(MoveResult.Moved, outcome.Result);
+        Assert.False(File.Exists(path));
+        Assert.True(File.Exists(keeperPath));
+    }
+}

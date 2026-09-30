@@ -1,3 +1,4 @@
+using System.IO.Enumeration;
 using DupliFoto.Core.Matching;
 
 namespace DupliFoto.Core.Scanning;
@@ -5,9 +6,15 @@ namespace DupliFoto.Core.Scanning;
 /// <summary>Livello 0: inventario. Solo nome, peso e data: costo quasi nullo.</summary>
 public static class FileScanner
 {
+    // Attributi dei file "solo online" (OneDrive e simili): leggerli ne avvierebbe il download.
+    private const FileAttributes RecallOnOpen = (FileAttributes)0x00040000;
+    private const FileAttributes RecallOnDataAccess = (FileAttributes)0x00400000;
+
     public static List<PhotoFile> Scan(ScanOptions options, IProgress<string>? progress = null, CancellationToken ct = default)
     {
-        var skip = FileAttributes.ReparsePoint | FileAttributes.Offline;
+        // Niente ReparsePoint qui: con OneDrive "File su richiesta" TUTTI i file e le cartelle lo sono, anche quelli
+        // già scaricati. I veri collegamenti (simbolici e giunzioni) vengono esclusi più sotto.
+        var skip = FileAttributes.Offline | RecallOnOpen | RecallOnDataAccess;
         if (!options.IncludeHidden) skip |= FileAttributes.Hidden | FileAttributes.System;
 
         var enumeration = new EnumerationOptions
@@ -30,11 +37,17 @@ public static class FileScanner
                 continue;
             }
 
-            foreach (var path in System.IO.Directory.EnumerateFiles(root, "*", enumeration))
+            var files = new FileSystemEnumerable<string>(root, (ref FileSystemEntry e) => e.ToFullPath(), enumeration)
+            {
+                ShouldIncludePredicate = (ref FileSystemEntry e) =>
+                    !e.IsDirectory && options.Extensions.Contains(Path.GetExtension(e.FileName).ToString()) && !IsLink(ref e),
+                // Mai seguire collegamenti simbolici e giunzioni: eviterebbe cicli infiniti e foto contate due volte.
+                ShouldRecursePredicate = (ref FileSystemEntry e) => !IsLink(ref e),
+            };
+
+            foreach (var path in files)
             {
                 ct.ThrowIfCancellationRequested();
-                if (!options.Extensions.Contains(Path.GetExtension(path))) continue;
-
                 string full = Path.GetFullPath(path);
                 // Mai analizzare la quarantena o il cestino: vi sono già i doppioni rimossi.
                 if (full.StartsWith(quarantine, StringComparison.OrdinalIgnoreCase)) continue;
@@ -59,6 +72,22 @@ public static class FileScanner
 
         progress?.Report($"Inventario completato: {result.Count:N0} foto.");
         return result;
+    }
+
+    /// <summary>Collegamento simbolico o giunzione (non un segnaposto di OneDrive, che non ha una destinazione).</summary>
+    private static bool IsLink(ref FileSystemEntry e)
+    {
+        if ((e.Attributes & FileAttributes.ReparsePoint) == 0) return false;
+        try { return e.ToFileSystemInfo().LinkTarget is not null; }
+        catch (Exception) { return true; } // nel dubbio non si segue
+    }
+
+    /// <summary>Vero se <paramref name="path"/> sta dentro <paramref name="folder"/> (non basta il prefisso: "D:\Foto" non contiene "D:\Foto2").</summary>
+    public static bool IsUnder(string path, string folder)
+    {
+        string f = Normalize(folder);
+        return path.StartsWith(f, StringComparison.OrdinalIgnoreCase)
+               || string.Equals(Path.TrimEndingDirectorySeparator(path), Path.TrimEndingDirectorySeparator(f), StringComparison.OrdinalIgnoreCase);
     }
 
     private static string Normalize(string p)

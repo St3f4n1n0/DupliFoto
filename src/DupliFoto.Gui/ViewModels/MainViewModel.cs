@@ -100,6 +100,7 @@ public sealed partial class MainViewModel : ObservableObject
     public bool IsReadOnlyMode => SelectedMode.Value == RunMode.ReadOnly;
     public bool IsAutomaticMode => SelectedMode.Value == RunMode.Automatic;
     public bool IsNeuralAvailable => Neural.IsAvailable;
+    public string VersionText => $"Versione {AppInfo.Version}";
 
     // ------------------------------------------------------------------ stato
 
@@ -462,6 +463,12 @@ public sealed partial class MainViewModel : ObservableObject
             StatusText = r.Skipped == 0
                 ? $"Ripristinati {r.Restored:N0} file."
                 : $"Ripristinati {r.Restored:N0} file, {r.Skipped:N0} no: {r.Messages.FirstOrDefault()}";
+        }
+        catch (Exception ex)
+        {
+            ErrorLog.Write(ex, "annulla");
+            _session = new ActionSession(_options);
+            StatusText = $"Ripristino non completato: {ex.Message}. Il registro è in {journal}.";
         }
         finally
         {

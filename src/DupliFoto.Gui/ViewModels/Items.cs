@@ -39,7 +39,7 @@ public enum PairStatus
 }
 
 /// <summary>
-/// Una coppia "copia da tenere / doppione", come le righe di Awesome Duplicate Photo Finder.
+/// Una coppia "copia da tenere / doppione": una riga dell'elenco e ciò che si vede nel confronto.
 /// L'affidabilità è sempre quella del doppione rispetto alla copia da tenere del suo gruppo.
 /// </summary>
 public sealed partial class PairItem(DuplicateGroup group, GroupMember member) : ObservableObject

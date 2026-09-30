@@ -68,9 +68,9 @@ public sealed class AnalysisCache
     /// <summary>Rimuove le voci di file che non esistono più tra quelli scansionati sotto le stesse radici.</summary>
     public void Prune(IEnumerable<string> roots, IReadOnlySet<string> existing)
     {
-        var rootList = roots.Select(r => Path.GetFullPath(r)).ToList();
+        var rootList = roots.ToList();
         foreach (var key in _entries.Keys)
-            if (rootList.Any(r => key.StartsWith(r, StringComparison.OrdinalIgnoreCase)) && !existing.Contains(key))
+            if (rootList.Any(r => FileScanner.IsUnder(key, r)) && !existing.Contains(key))
                 _entries.TryRemove(key, out _);
     }
 
