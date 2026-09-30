@@ -195,6 +195,15 @@ jobs:
         run: |
           tag="v$VERSION"
           title="DupliFoto $VERSION"
+          if [ "$GITHUB_REF_TYPE" != "tag" ]; then
+            # A manual run must never attach new executables to a tag that points at other code.
+            tagged=$(gh api "repos/$GITHUB_REPOSITORY/commits/$tag" --jq .sha 2>/dev/null || true)
+            [[ "$tagged" =~ ^[0-9a-f]{40}$ ]] || tagged=""
+            if [ -n "$tagged" ] && [ "$tagged" != "$GITHUB_SHA" ]; then
+              echo "::error::Tag $tag points at commit ${tagged:0:7}, not at ${GITHUB_SHA:0:7}. Delete that release and its tag on GitHub, or choose another version."
+              exit 1
+            fi
+          fi
           if gh release view "$tag" > /dev/null 2>&1; then
             draft=$(gh release view "$tag" --json isDraft -q .isDraft)
             assets=$(gh release view "$tag" --json assets -q '.assets | length')
@@ -203,15 +212,14 @@ jobs:
               exit 0
             fi
             gh release upload "$tag" dist/* --clobber
-            gh release edit "$tag" --title "$title" --notes-file notes.md
+            if [ "$draft" = "true" ]; then
+              gh release edit "$tag" --target "$GITHUB_SHA" --title "$title" --notes-file notes.md
+            else
+              gh release edit "$tag" --title "$title" --notes-file notes.md
+            fi
           elif [ "$GITHUB_REF_TYPE" = "tag" ]; then
             gh release create "$tag" dist/* --verify-tag --title "$title" --notes-file notes.md
           else
-            existing=$(git ls-remote --tags origin "refs/tags/$tag" | cut -f1)
-            if [ -n "$existing" ] && [ "$existing" != "$GITHUB_SHA" ]; then
-              echo "Tag $tag already exists on another commit: delete it or choose another version." >&2
-              exit 1
-            fi
             gh release create "$tag" dist/* --draft --target "$GITHUB_SHA" --title "$title" --notes-file notes.md
             echo "Draft release $tag ready: review it on the Releases page and press Publish."
           fi
