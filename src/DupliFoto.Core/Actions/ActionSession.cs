@@ -113,7 +113,7 @@ public sealed class ActionSession(ScanOptions options, IProgress<string>? progre
     {
         if (options.Disposal == DisposalMethod.RecycleBin)
         {
-            RecycleBin.Send(path);
+            RetryWhileLocked(() => RecycleBin.Send(path));
             return null;
         }
 
@@ -123,9 +123,32 @@ public sealed class ActionSession(ScanOptions options, IProgress<string>? progre
         Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
         for (int i = 2; File.Exists(dest); i++)
             dest = Path.Combine(Path.GetDirectoryName(dest)!, $"{Path.GetFileNameWithoutExtension(relative)} ~{i}{Path.GetExtension(relative)}");
-        File.Move(path, dest);
+        RetryWhileLocked(() => File.Move(path, dest));
         return dest;
     }
+
+    /// <summary>
+    /// Su Windows un file può restare aperto per un attimo da altri programmi (antivirus, indicizzazione,
+    /// anteprime di Esplora risorse): si ritenta qualche volta prima di arrendersi.
+    /// </summary>
+    private static void RetryWhileLocked(Action action)
+    {
+        for (int attempt = 1; ; attempt++)
+        {
+            try
+            {
+                action();
+                return;
+            }
+            catch (IOException ex) when (attempt < 5 && IsTransientLock(ex))
+            {
+                Thread.Sleep(200 * attempt);
+            }
+        }
+    }
+
+    // ERROR_SHARING_VIOLATION (32) ed ERROR_LOCK_VIOLATION (33)
+    private static bool IsTransientLock(IOException ex) => (ex.HResult & 0xFFFF) is 32 or 33;
 
     public void Dispose() => _journal?.Dispose();
 }
@@ -168,7 +191,9 @@ internal static class RecycleBin
         sta.Join();
         if (error is not null) throw new IOException($"Cestino non disponibile: {error.Message}", error);
         if (rc != 0 || op.fAnyOperationsAborted)
-            throw new IOException($"Windows non ha spostato il file nel Cestino (codice {rc}{(op.fAnyOperationsAborted ? ", annullato" : "")}).");
+            throw new IOException(
+                $"Windows non ha spostato il file nel Cestino (codice {rc}{(op.fAnyOperationsAborted ? ", annullato" : "")}).",
+                rc is 32 or 33 ? unchecked((int)0x80070000) | rc : -1); // file bloccato: si potrà ritentare
         if (File.Exists(path))
             throw new IOException("Il file è ancora al suo posto dopo lo spostamento nel Cestino.");
     }

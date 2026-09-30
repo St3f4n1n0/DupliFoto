@@ -465,3 +465,39 @@ public sealed class SafetyTests : IDisposable
         Assert.True(File.Exists(keeperPath));
     }
 }
+
+public sealed class LockedFileTests : IDisposable
+{
+    private readonly string _dir = Path.Combine(Path.GetTempPath(), "duplifoto-lock-" + Guid.NewGuid().ToString("N"));
+
+    public LockedFileTests() => Directory.CreateDirectory(_dir);
+
+    public void Dispose()
+    {
+        try { Directory.Delete(_dir, recursive: true); } catch { /* pulizia best effort */ }
+    }
+
+    private PhotoFile Photo(string name)
+    {
+        string path = Path.Combine(_dir, name);
+        File.WriteAllBytes(path, [1, 2, 3]);
+        return new PhotoFile { Path = path, Size = 3, LastWriteUtc = File.GetLastWriteTimeUtc(path) };
+    }
+
+    [Fact]
+    public async Task A_briefly_locked_file_is_moved_once_released()
+    {
+        var keeper = Photo("tieni.jpg");
+        var dup = Photo("doppione.jpg");
+        // Come fa un antivirus o un'anteprima: il file resta aperto (senza condivisione in cancellazione) per un attimo.
+        var stream = new FileStream(dup.Path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        var release = Task.Run(async () => { await Task.Delay(300); stream.Dispose(); });
+
+        using var session = new ActionSession(new ScanOptions { QuarantineRoot = Path.Combine(_dir, "Q") });
+        var outcome = session.Move(keeper, new GroupMember { File = dup, Kind = MatchKind.Perceptual, Confidence = 95, Reason = "" }, automatic: false);
+        await release;
+
+        Assert.Equal(MoveResult.Moved, outcome.Result);
+        Assert.False(File.Exists(dup.Path));
+    }
+}

@@ -28,6 +28,7 @@ public sealed partial class MainViewModel : ObservableObject
     private ActionSession? _session;
     private CancellationTokenSource? _scanCts;
     private CancellationTokenSource? _imageCts;
+    private Task _imagesTask = Task.CompletedTask;
     private TaskCompletionSource<bool>? _confirm;
 
     public MainViewModel(SettingsStore store, Func<IImageDecoder>? decoder = null, Func<IMetadataReader>? metadata = null)
@@ -417,6 +418,7 @@ public sealed partial class MainViewModel : ObservableObject
         IsWorking = true;
         try
         {
+            await ReleasePreviewFilesAsync();
             int done = 0;
             foreach (var p in items)
             {
@@ -436,7 +438,19 @@ public sealed partial class MainViewModel : ObservableObject
         {
             IsWorking = false;
             RefreshCounters();
+            _imagesTask = LoadImagesAsync(SelectedPair); // le anteprime interrotte vanno ricaricate
         }
+    }
+
+    /// <summary>
+    /// Su Windows un file aperto, anche solo per disegnarne l'anteprima, non si può spostare:
+    /// prima di ogni spostamento si ferma il caricamento e si aspetta che i file vengano rilasciati.
+    /// </summary>
+    private async Task ReleasePreviewFilesAsync()
+    {
+        _imageCts?.Cancel();
+        try { await _imagesTask; }
+        catch (Exception) { /* un'anteprima fallita non conta: serve solo che il file sia chiuso */ }
     }
 
     [RelayCommand]
@@ -578,7 +592,7 @@ public sealed partial class MainViewModel : ObservableObject
     {
         Left.Show(value?.Keeper);
         Right.Show(value?.Duplicate);
-        _ = LoadImagesAsync(value);
+        _imagesTask = LoadImagesAsync(value);
         RefreshState();
     }
 
