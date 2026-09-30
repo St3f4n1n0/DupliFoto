@@ -51,7 +51,7 @@ async Task<int> Run(string[] a)
     catch (ArgumentException ex)
     {
         Ui.Color(ConsoleColor.Red, ex.Message);
-        Console.WriteLine("Usa 'duplifoto aiuto' per l'elenco delle opzioni.");
+        Console.WriteLine("Usa 'duplifoto-cli aiuto' per l'elenco delle opzioni.");
         return 2;
     }
     catch (OperationCanceledException)
@@ -189,13 +189,13 @@ async Task<int> Analyze(string[] a)
     if (summary.AwaitingReview > 0) Console.WriteLine($"Da rivedere (non toccati): {summary.AwaitingReview:N0}");
     foreach (var w in summary.Warnings) Ui.Color(ConsoleColor.Yellow, "  " + w);
     if (summary.JournalPath is not null && summary.Moved > 0)
-        Console.WriteLine($"Per annullare tutto:  duplifoto annulla \"{summary.JournalPath}\"");
+        Console.WriteLine($"Per annullare tutto:  duplifoto-cli annulla \"{summary.JournalPath}\"");
     return 0;
 }
 
 int Undo(string[] a)
 {
-    if (a.Length < 2) throw new ArgumentException("Uso: duplifoto annulla <registro.jsonl>");
+    if (a.Length < 2) throw new ArgumentException("Uso: duplifoto-cli annulla <registro.jsonl>");
     var r = ActionJournal.Undo(a[1]);
     Ui.Color(ConsoleColor.Green, $"Ripristinati {r.Restored:N0} file, {r.Skipped:N0} non ripristinati.");
     foreach (var m in r.Messages) Console.WriteLine("  " + m);
@@ -240,13 +240,13 @@ static void PrintSummary(ScanResult r, ScanOptions o)
 }
 
 static void PrintHelp() => Console.WriteLine("""
-    DupliFoto 2026 — trova foto doppie, copie ricompresse e scatti multipli
+    DupliFoto — trova foto doppie, copie ricompresse e scatti multipli
 
     USO
-      duplifoto [analizza] <cartella> [<cartella>...] [opzioni]
-      duplifoto annulla <registro.jsonl>        riporta i file dalla quarantena
-      duplifoto hardware                        mostra NPU/GPU/CPU disponibili
-      duplifoto --versione
+      duplifoto-cli [analizza] <cartella> [<cartella>...] [opzioni]
+      duplifoto-cli annulla <registro.jsonl>    riporta i file dalla quarantena
+      duplifoto-cli hardware                    mostra NPU/GPU/CPU disponibili
+      duplifoto-cli --versione
 
     MODALITÀ  (--modo)
       sola-lettura   predefinita: solo report HTML/CSV, nessun file toccato
@@ -267,9 +267,9 @@ static void PrintHelp() => Console.WriteLine("""
       --non-interattivo             non fare domande: ciò che richiede conferma resta da rivedere
 
     ESEMPI
-      duplifoto "D:\Foto"
-      duplifoto "D:\Foto" "E:\Backup telefono" --modo semi-auto --preferisci "D:\Foto"
-      duplifoto "D:\Foto" --modo auto --soglia 98 --modello dinov2-small.onnx --non-interattivo
+      duplifoto-cli "D:\Foto"
+      duplifoto-cli "D:\Foto" "E:\Backup telefono" --modo semi-auto --preferisci "D:\Foto"
+      duplifoto-cli "D:\Foto" --modo auto --soglia 98 --modello dinov2-small.onnx --non-interattivo
     """);
 
 internal sealed class SyncProgress(Action<string> report) : IProgress<string>

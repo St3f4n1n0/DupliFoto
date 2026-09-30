@@ -5,7 +5,7 @@ namespace DupliFoto.Core;
 /// <summary>Informazioni sul programma in esecuzione.</summary>
 public static class AppInfo
 {
-    public const string Name = "DupliFoto 2026";
+    public const string Name = "DupliFoto";
 
     /// <summary>La versione pubblicata (es. "0.1.0"), senza il commit che la compilazione aggiunge dopo il "+".</summary>
     public static string Version { get; } =

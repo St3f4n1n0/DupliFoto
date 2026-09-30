@@ -53,7 +53,7 @@ public static class ReportWriter
         sb.Append("""
             <!doctype html><html lang="it"><head><meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>DupliFoto 2026 – report</title>
+            <title>DupliFoto – report</title>
             <style>
             :root{--bg:#f6f5f1;--card:#fff;--fg:#222;--mut:#6b6a66;--line:#ddd9cf;--ok:#0f6e56;--mid:#854f0b;--low:#993c1d}
             @media (prefers-color-scheme:dark){:root{--bg:#1d1d1b;--card:#282826;--fg:#eee;--mut:#aaa89f;--line:#3c3b37;--ok:#5dcaa5;--mid:#ef9f27;--low:#f0997b}}
@@ -72,7 +72,7 @@ public static class ReportWriter
             .tag{font-weight:600}
             </style></head><body>
             """);
-        sb.Append($"<h1>DupliFoto 2026</h1><div class=mut>Analisi del {DateTime.Now.ToString("f", It)} · durata {r.Elapsed:mm\\:ss} · {Enc(r.AcceleratorDescription)}</div>");
+        sb.Append($"<h1>DupliFoto</h1><div class=mut>Analisi del {DateTime.Now.ToString("f", It)} · durata {r.Elapsed:mm\\:ss} · {Enc(r.AcceleratorDescription)}</div>");
         sb.Append("<div class=stats>");
         Stat("Foto analizzate", r.Files.Count.ToString("N0", It));
         Stat("Gruppi di doppioni", r.Groups.Count.ToString("N0", It));

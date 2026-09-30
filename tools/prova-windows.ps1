@@ -1,4 +1,4 @@
-﻿# Prova i programmi pubblicati (duplifoto.exe e DupliFoto2026.exe) su foto vere, su Windows.
+﻿# Prova i programmi pubblicati (DupliFoto.exe e duplifoto-cli.exe) su foto vere, su Windows.
 # Usato da .github/workflows/build.yml; funziona anche a mano:
 #   powershell -File tools\prova-windows.ps1 -Publish publish\DupliFoto-win-x64 -Full
 param(
@@ -9,9 +9,9 @@ param(
     [switch] $Full
 )
 $ErrorActionPreference = 'Stop'
-$cli = Resolve-Path (Join-Path $Publish 'duplifoto.exe')
-$gui = Resolve-Path (Join-Path $Publish 'DupliFoto2026.exe')
-function Run { & $cli @args; if ($LASTEXITCODE -ne 0) { throw "duplifoto $args -> codice $LASTEXITCODE" } }
+$cli = Resolve-Path (Join-Path $Publish 'duplifoto-cli.exe')
+$gui = Resolve-Path (Join-Path $Publish 'DupliFoto.exe')
+function Run { & $cli @args; if ($LASTEXITCODE -ne 0) { throw "duplifoto-cli $args -> codice $LASTEXITCODE" } }
 function Check($ok, $msg) { if (-not $ok) { throw "FALLITO: $msg" } else { Write-Host "ok: $msg" } }
 
 Write-Host "Sistema: $((Get-CimInstance Win32_OperatingSystem).Caption) build $([Environment]::OSVersion.Version.Build)"
@@ -88,7 +88,7 @@ if ($Full) {
 $app = Start-Process $gui -ArgumentList "`"$dir`"" -PassThru
 Start-Sleep -Seconds 15
 $app.Refresh()
-Check (-not $app.HasExited) "DupliFoto2026.exe resta aperto (nessun errore all'avvio)"
+Check (-not $app.HasExited) "DupliFoto.exe resta aperto (nessun errore all'avvio)"
 Write-Host "Finestra principale: '$($app.MainWindowTitle)' (handle $($app.MainWindowHandle))"
 if ($Screenshot) {
     try {

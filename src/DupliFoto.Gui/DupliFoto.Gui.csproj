@@ -6,7 +6,8 @@
       net10.0: la stessa interfaccia senza la parte Windows, per anteprime e test su Linux/macOS.
     -->
     <TargetFrameworks>net10.0-windows10.0.26100.0;net10.0</TargetFrameworks>
-    <AssemblyName>DupliFoto2026</AssemblyName>
+    <AssemblyName>DupliFoto</AssemblyName>
+    <ApplicationIcon>..\..\assets\DupliFoto.ico</ApplicationIcon>
     <RootNamespace>DupliFoto.Gui</RootNamespace>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <ServerGarbageCollection>false</ServerGarbageCollection>
@@ -40,5 +41,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="DupliFoto.Gui.Tests" />
+    <!-- Icona della finestra (la stessa dell'eseguibile) -->
+    <AvaloniaResource Include="..\..\assets\DupliFoto.ico" Link="Assets\DupliFoto.ico" />
   </ItemGroup>
 </Project>
