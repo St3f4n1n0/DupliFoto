@@ -60,7 +60,7 @@ internal sealed class ConsolePrompt : IDecisionPrompt
         }
     }
 
-    private static void Open(string path)
+    public static void Open(string path)
     {
         try { Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); }
         catch (Exception ex) { Console.WriteLine($"  Impossibile aprire {path}: {ex.Message}"); }
@@ -69,6 +69,17 @@ internal sealed class ConsolePrompt : IDecisionPrompt
 
 internal static class Ui
 {
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+    private static extern uint GetConsoleProcessList(uint[] processList, uint processCount);
+
+    /// <summary>Vero se la console è stata creata apposta per questo processo (doppio clic da Esplora risorse).</summary>
+    public static bool OwnsConsole()
+    {
+        if (!OperatingSystem.IsWindows() || Console.IsInputRedirected || Console.IsOutputRedirected) return false;
+        try { return GetConsoleProcessList(new uint[2], 2) == 1; }
+        catch (Exception) { return false; }
+    }
+
     public static void Color(ConsoleColor c, string text)
     {
         var old = Console.ForegroundColor;

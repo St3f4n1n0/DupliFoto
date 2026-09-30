@@ -12,35 +12,55 @@ Console.OutputEncoding = Encoding.UTF8;
 // Progress<T> su console è asincrono: per messaggi in ordine usiamo un reporter sincrono.
 IProgress<string> progress = new SyncProgress(m => Console.WriteLine(m));
 
-if (args.Length == 0 || args[0] is "-h" or "--help" or "aiuto")
+// Aperto con un doppio clic, o trascinando una cartella sull'icona: la finestra appartiene solo a noi
+// e si chiuderebbe subito, prima che si possa leggere qualcosa. In quel caso si aspetta Invio.
+bool ownsConsole = Ui.OwnsConsole();
+int exitCode = await Run(args);
+if (ownsConsole)
 {
-    PrintHelp();
-    return 0;
+    Console.Write("\nPremi Invio per chiudere...");
+    Console.ReadLine();
 }
-
-try
-{
-    return args[0].ToLowerInvariant() switch
-    {
-        "annulla" => Undo(args),
-        "hardware" => await Hardware(),
-        "analizza" => await Analyze(args[1..]),
-        _ => await Analyze(args),
-    };
-}
-catch (ArgumentException ex)
-{
-    Ui.Color(ConsoleColor.Red, ex.Message);
-    Console.WriteLine("Usa 'duplifoto aiuto' per l'elenco delle opzioni.");
-    return 2;
-}
-catch (OperationCanceledException)
-{
-    Console.WriteLine("Interrotto.");
-    return 130;
-}
+return exitCode;
 
 // ======================================================================
+
+async Task<int> Run(string[] a)
+{
+    if (a.Length == 0 || a[0] is "-h" or "--help" or "aiuto")
+    {
+        PrintHelp();
+        return 0;
+    }
+
+    try
+    {
+        return a[0].ToLowerInvariant() switch
+        {
+            "annulla" => Undo(a),
+            "hardware" => await Hardware(),
+            "analizza" => await Analyze(a[1..]),
+            _ => await Analyze(a),
+        };
+    }
+    catch (ArgumentException ex)
+    {
+        Ui.Color(ConsoleColor.Red, ex.Message);
+        Console.WriteLine("Usa 'duplifoto aiuto' per l'elenco delle opzioni.");
+        return 2;
+    }
+    catch (OperationCanceledException)
+    {
+        Console.WriteLine("Interrotto.");
+        return 130;
+    }
+    catch (Exception ex) when (ownsConsole)
+    {
+        // Senza terminale un errore imprevisto chiuderebbe la finestra all'istante: lo si mostra prima.
+        Ui.Color(ConsoleColor.Red, $"Errore imprevisto: {ex}");
+        return 1;
+    }
+}
 
 async Task<int> Analyze(string[] a)
 {
@@ -134,12 +154,18 @@ async Task<int> Analyze(string[] a)
     embeddings?.Dispose();
 
     // --- Report (sempre, in ogni modalità) ---
-    report ??= Path.GetFullPath($"DupliFoto-report-{DateTime.Now:yyyyMMdd-HHmmss}.html");
+    // Da Esplora risorse la cartella corrente può essere C:\Windows\System32: meglio Documenti\DupliFoto.
+    string reportName = $"DupliFoto-report-{DateTime.Now:yyyyMMdd-HHmmss}.html";
+    report ??= ownsConsole
+        ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "DupliFoto", reportName)
+        : Path.GetFullPath(reportName);
+    Directory.CreateDirectory(Path.GetDirectoryName(report)!);
     ReportWriter.WriteHtml(result, report);
     ReportWriter.WriteCsv(result, Path.ChangeExtension(report, ".csv"));
 
     PrintSummary(result, o);
     Console.WriteLine($"Report: {report}");
+    if (ownsConsole) ConsolePrompt.Open(report); // senza terminale, il report si apre da solo nel browser
 
     if (o.Mode == RunMode.ReadOnly || result.Groups.Count == 0) return 0;
 

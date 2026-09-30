@@ -84,7 +84,8 @@ public sealed class WindowsMlEmbeddingProvider : IEmbeddingProvider
         try
         {
             return OrtEnv.Instance().GetEpDevices()
-                .Select(d => $"{d.HardwareDevice.Type} {d.HardwareDevice.Vendor} via {d.EpName}")
+                // DirectML non indica il produttore: niente doppio spazio in "GPU  via ..."
+                .Select(d => $"{d.HardwareDevice.Type} {d.HardwareDevice.Vendor}".TrimEnd() + $" via {d.EpName}")
                 .Distinct()
                 .ToList();
         }
