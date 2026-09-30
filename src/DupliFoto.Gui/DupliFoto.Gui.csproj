@@ -25,6 +25,19 @@
     <SelfContained>true</SelfContained>
   </PropertyGroup>
 
+  <!--
+    Pubblicazione su Windows: un unico exe portabile, niente da installare. Al primo avvio si scompatta da solo
+    in %TEMP%\.net\<nome> (serve a Windows App SDK e alle librerie native) e poi parte come un'app normale.
+  -->
+  <PropertyGroup Condition="'$(OS)' == 'Windows_NT' and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <DebugType>embedded</DebugType>
+    <CopyDebugSymbolFilesFromPackages>false</CopyDebugSymbolFilesFromPackages>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Desktop" />

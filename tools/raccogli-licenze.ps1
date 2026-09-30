@@ -1,14 +1,14 @@
-﻿# Copia nella cartella pubblicata le licenze dei componenti inclusi (vedi THIRD-PARTY-NOTICES.md).
+﻿# Raccoglie in una cartella i testi di licenza dei componenti inclusi negli exe (vedi THIRD-PARTY-NOTICES.md).
 # Si esegue dopo "dotnet publish", sulla stessa macchina (i testi vengono dalla cache dei pacchetti NuGet).
-#   powershell -File tools\raccogli-licenze.ps1 -Publish publish\DupliFoto-win-x64 -Rid win-x64
+#   powershell -File tools\raccogli-licenze.ps1 -Destination dist\licenses -Rid win-x64
 param(
-    [Parameter(Mandatory = $true)] [string] $Publish,
+    [Parameter(Mandatory = $true)] [string] $Destination,
     [Parameter(Mandatory = $true)] [string] $Rid
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path $PSScriptRoot -Parent
 $packages = (dotnet nuget locals global-packages --list) -replace '^global-packages:\s*', ''
-$dest = Join-Path $Publish 'licenze'
+$dest = $Destination
 New-Item -ItemType Directory -Force $dest | Out-Null
 
 function Copy-FromPackage([string]$package, [string]$file, [string]$name) {
@@ -19,7 +19,7 @@ function Copy-FromPackage([string]$package, [string]$file, [string]$name) {
     Copy-Item $source (Join-Path $dest $name)
 }
 
-Copy-Item (Join-Path $repo 'LICENSE') (Join-Path $dest 'LICENSE-DupliFoto.txt')
+Copy-Item (Join-Path $repo 'LICENSE') (Join-Path $dest 'DupliFoto-LICENSE.txt')
 Copy-Item (Join-Path $repo 'THIRD-PARTY-NOTICES.md') $dest
 Copy-FromPackage "microsoft.netcore.app.runtime.$Rid" 'LICENSE.TXT' 'dotnet-LICENSE.txt'
 Copy-FromPackage "microsoft.netcore.app.runtime.$Rid" 'THIRD-PARTY-NOTICES.TXT' 'dotnet-THIRD-PARTY-NOTICES.txt'

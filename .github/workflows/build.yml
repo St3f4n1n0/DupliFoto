@@ -1,8 +1,8 @@
-# Compila e prova DupliFoto, poi pubblica i programmi autonomi per Windows (x64 e ARM64).
-# - A ogni push: artifact scaricabili dalla pagina dell'esecuzione (Actions → esecuzione → Artifacts).
-# - A ogni tag vX.Y.Z, o release creata dalla pagina di GitHub: gli zip vengono allegati alla release
-#   (vedi README, "Pubblicare una release").
-# Ogni cartella contiene DupliFoto2026.exe (interfaccia grafica), duplifoto.exe (riga di comando) e licenze/.
+# Builds and tests DupliFoto, then publishes the portable Windows executables (x64 and ARM64).
+# - Every push: executables available as a build artifact (Actions → run → Artifacts).
+# - "Run workflow" with a version: prepares a DRAFT release with every file; publish it from the Releases page.
+# - Tag vX.Y.Z: attaches the files to that release (creating it if needed).
+# See README, "Releasing".
 name: build
 
 on:
@@ -10,16 +10,19 @@ on:
     branches: ["**"]
     tags: ["v*"]
   pull_request:
-  release:
-    types: [published]
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Prepare a draft release for this version (for example 0.2.0). Leave empty for a normal build."
+        required: false
+        default: ""
 
 permissions:
   contents: read
 
 concurrency:
-  group: build-${{ github.ref }}
-  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+  group: build-${{ github.ref }}-${{ inputs.version }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') && inputs.version == '' }}
 
 env:
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
@@ -28,7 +31,7 @@ env:
 
 jobs:
   linux:
-    name: Linux (compilazione e test)
+    name: Linux (build and tests)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -36,7 +39,7 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
-      - name: Compila
+      - name: Build
         run: dotnet build DupliFoto.slnx -c Release
       - name: Test
         run: dotnet test DupliFoto.slnx -c Release --no-build
@@ -44,7 +47,9 @@ jobs:
   windows:
     name: Windows 11 (Server 2025)
     runs-on: windows-latest
-    timeout-minutes: 40
+    timeout-minutes: 45
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
 
@@ -52,43 +57,59 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Versione dal tag
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: '"DUPLIFOTO_VERSION=$($env:GITHUB_REF_NAME.Substring(1))" >> $env:GITHUB_ENV'
+      - name: Version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if ($env:GITHUB_REF -like 'refs/tags/v*') { $v = $env:GITHUB_REF_NAME.Substring(1) }
+          elseif ($env:INPUT_VERSION) { $v = $env:INPUT_VERSION.Trim().TrimStart('v') }
+          else { $v = '' }
+          if ($v) {
+            if ($v -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid version '$v': use MAJOR.MINOR.PATCH, for example 0.2.0" }
+            "DUPLIFOTO_VERSION=$v" >> $env:GITHUB_ENV
+          } else {
+            $v = (dotnet msbuild src/DupliFoto.Core/DupliFoto.Core.csproj -getProperty:Version).Trim()
+          }
+          "VERSION=$v" >> $env:GITHUB_ENV
+          "version=$v" >> $env:GITHUB_OUTPUT
+          Write-Host "Version: $v"
 
-      - name: Compila
+      - name: Build
         run: dotnet build DupliFoto.slnx -c Release
 
-      - name: Test (motore e interfaccia)
+      - name: Test (engine and app)
         env:
           DUPLIFOTO_SCREENSHOTS: ${{ runner.temp }}\screenshots\test
         run: dotnet test DupliFoto.slnx -c Release --no-build --logger "console;verbosity=normal"
 
-      - name: Pubblica win-x64 e win-arm64
+      - name: Publish portable executables
         run: |
-          foreach ($rid in 'win-x64', 'win-arm64') {
-            dotnet publish src/DupliFoto.Cli -c Release -r $rid -o publish/DupliFoto-$rid
+          New-Item -ItemType Directory -Force dist | Out-Null
+          foreach ($arch in 'x64', 'arm64') {
+            dotnet publish src/DupliFoto.Gui -c Release -f net10.0-windows10.0.26100.0 -r win-$arch -o out/gui-$arch
             if ($LASTEXITCODE) { exit $LASTEXITCODE }
-            dotnet publish src/DupliFoto.Gui -c Release -f net10.0-windows10.0.26100.0 -r $rid -o publish/DupliFoto-$rid
+            dotnet publish src/DupliFoto.Cli -c Release -r win-$arch -o out/cli-$arch
             if ($LASTEXITCODE) { exit $LASTEXITCODE }
-            powershell -File tools\raccogli-licenze.ps1 -Publish publish\DupliFoto-$rid -Rid $rid
-            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+            # Portable means one file: anything else next to the executable would be missing at run time.
+            $extra = Get-ChildItem out/gui-$arch, out/cli-$arch -File | Where-Object Name -notin 'DupliFoto.exe', 'duplifoto-cli.exe'
+            if ($extra) { $extra | Format-Table Name, Length | Out-String | Write-Host; throw "The publish output is not a single file" }
+            Copy-Item out/gui-$arch/DupliFoto.exe "dist/DupliFoto-$env:VERSION-$arch.exe"
+            Copy-Item out/cli-$arch/duplifoto-cli.exe "dist/duplifoto-cli-$env:VERSION-$arch.exe"
           }
+          powershell -File tools\raccogli-licenze.ps1 -Destination out\licenses -Rid win-x64
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          Compress-Archive -Path out\licenses\* -DestinationPath "dist\DupliFoto-$env:VERSION-licenses.zip"
+          Get-ChildItem dist | Format-Table Name, @{ n = 'MB'; e = { [math]::Round($_.Length / 1MB, 1) } } | Out-String | Write-Host
 
-      - name: Prova i programmi su foto vere
+      - name: Test the executables on real photos
         shell: powershell
-        run: tools\prova-windows.ps1 -Publish publish\DupliFoto-win-x64 -Full -Screenshot "$env:RUNNER_TEMP\screenshots\app-windows-2025.png"
+        run: tools\prova-windows.ps1 -Gui "dist\DupliFoto-$env:VERSION-x64.exe" -Cli "dist\duplifoto-cli-$env:VERSION-x64.exe" -Full -Screenshot "$env:RUNNER_TEMP\screenshots\app-windows-2025.png"
 
       - uses: actions/upload-artifact@v7
         with:
-          name: DupliFoto-win-x64
-          path: publish/DupliFoto-win-x64
-          if-no-files-found: error
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: DupliFoto-win-arm64
-          path: publish/DupliFoto-win-arm64
+          name: DupliFoto-${{ steps.version.outputs.version }}
+          path: dist
           if-no-files-found: error
 
       - uses: actions/upload-artifact@v7
@@ -98,24 +119,26 @@ jobs:
           path: ${{ runner.temp }}/screenshots
           if-no-files-found: ignore
 
-  # Windows Server 2022 ha la base di Windows 10 21H2: niente Mica, build precedente a Windows 11.
-  # È il sistema più vicino a Windows 10 tra quelli offerti da GitHub.
+  # Windows Server 2022 shares its base with Windows 10 21H2 (no Mica, pre-Windows 11 build):
+  # the closest thing to Windows 10 that GitHub offers.
   windows-10-base:
-    name: Base Windows 10 (Server 2022)
+    name: Windows 10 base (Server 2022)
     needs: windows
     runs-on: windows-2022
     timeout-minutes: 20
+    env:
+      VERSION: ${{ needs.windows.outputs.version }}
     steps:
       - uses: actions/checkout@v7
 
       - uses: actions/download-artifact@v8
         with:
-          name: DupliFoto-win-x64
-          path: publish/DupliFoto-win-x64
+          name: DupliFoto-${{ needs.windows.outputs.version }}
+          path: dist
 
-      - name: Prova i programmi su foto vere
+      - name: Test the executables on real photos
         shell: powershell
-        run: tools\prova-windows.ps1 -Publish publish\DupliFoto-win-x64 -Screenshot "$env:RUNNER_TEMP\screenshots\app-windows-2022.png"
+        run: tools\prova-windows.ps1 -Gui "dist\DupliFoto-$env:VERSION-x64.exe" -Cli "dist\duplifoto-cli-$env:VERSION-x64.exe" -Screenshot "$env:RUNNER_TEMP\screenshots\app-windows-2022.png"
 
       - uses: actions/upload-artifact@v7
         if: always()
@@ -124,63 +147,71 @@ jobs:
           path: ${{ runner.temp }}/screenshots
           if-no-files-found: ignore
 
-  # Solo per i tag vX.Y.Z, e solo se tutte le prove sono passate. Se la release esiste già
-  # (creata dalla pagina di GitHub), le si allegano gli zip; altrimenti la si crea.
+  # Only for a tag vX.Y.Z or a manual run with a version, and only when every test above has passed.
   release:
-    name: Release su GitHub
-    if: startsWith(github.ref, 'refs/tags/v')
+    name: GitHub release
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.version != ''
     needs: [linux, windows, windows-10-base]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: write
+    env:
+      VERSION: ${{ needs.windows.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v7
 
       - uses: actions/download-artifact@v8
         with:
-          pattern: DupliFoto-win-*
+          name: DupliFoto-${{ needs.windows.outputs.version }}
           path: dist
 
-      - name: Zip e checksum
+      - name: Checksums
         run: |
           cd dist
-          for d in DupliFoto-win-x64 DupliFoto-win-arm64; do
-            (cd "$d" && zip -qr "../$d-$GITHUB_REF_NAME.zip" .)
-          done
-          sha256sum *.zip > SHA256SUMS.txt
+          sha256sum * > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
-      - name: Note di rilascio dal CHANGELOG
+      - name: Release notes
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          awk -v v="$version" '
+          awk -v v="$VERSION" '
             $0 ~ "^## \\[" v "\\]" { found = 1; next }
             found && /^## \[/ { exit }
+            found && /^\[[^]]+\]: / { next }
             found { print }
-          ' CHANGELOG.md > notes.md
-          if [ ! -s notes.md ]; then echo "Manca la sezione [$version] in CHANGELOG.md" >&2; exit 1; fi
-          cat >> notes.md <<'NOTE'
+          ' CHANGELOG.md > changes.md
+          if [ ! -s changes.md ]; then echo "CHANGELOG.md has no section for [$VERSION]" >&2; exit 1; fi
+          python3 - <<'PY'
+          import os, pathlib
+          notes = pathlib.Path(".github/release-notes.md").read_text(encoding="utf-8")
+          notes = notes.replace("{{CHANGES}}", pathlib.Path("changes.md").read_text(encoding="utf-8").strip())
+          notes = notes.replace("{{VERSION}}", os.environ["VERSION"])
+          pathlib.Path("notes.md").write_text(notes, encoding="utf-8")
+          PY
+          cat notes.md
 
-          ### Come si usa
-          Scarica lo zip per il tuo PC (x64 per quasi tutti i PC; arm64 per i PC con processore Snapdragon), estrailo in una cartella e avvia `DupliFoto2026.exe`. Non serve installare niente.
-
-          I programmi non sono firmati digitalmente: al primo avvio Windows può mostrare "Windows ha protetto il PC". In quel caso scegli "Ulteriori informazioni", poi "Esegui comunque".
-          NOTE
-
-      - name: Pubblica la release
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Publish
         run: |
-          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" dist/*.zip dist/SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --clobber
-            body=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json body -q .body)
-            if [ -z "$body" ]; then
-              gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --notes-file notes.md
+          tag="v$VERSION"
+          title="DupliFoto $VERSION"
+          if gh release view "$tag" > /dev/null 2>&1; then
+            draft=$(gh release view "$tag" --json isDraft -q .isDraft)
+            assets=$(gh release view "$tag" --json assets -q '.assets | length')
+            if [ "$draft" = "false" ] && [ "$assets" -gt 0 ]; then
+              echo "Release $tag is already published with its files: nothing to do."
+              exit 0
             fi
+            gh release upload "$tag" dist/* --clobber
+            gh release edit "$tag" --title "$title" --notes-file notes.md
+          elif [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            gh release create "$tag" dist/* --verify-tag --title "$title" --notes-file notes.md
           else
-            gh release create "$GITHUB_REF_NAME" dist/*.zip dist/SHA256SUMS.txt \
-              --repo "$GITHUB_REPOSITORY" \
-              --title "DupliFoto 2026 $GITHUB_REF_NAME" \
-              --notes-file notes.md
+            existing=$(git ls-remote --tags origin "refs/tags/$tag" | cut -f1)
+            if [ -n "$existing" ] && [ "$existing" != "$GITHUB_SHA" ]; then
+              echo "Tag $tag already exists on another commit: delete it or choose another version." >&2
+              exit 1
+            fi
+            gh release create "$tag" dist/* --draft --target "$GITHUB_SHA" --title "$title" --notes-file notes.md
+            echo "Draft release $tag ready: review it on the Releases page and press Publish."
           fi

@@ -1,16 +1,17 @@
-﻿# Prova i programmi pubblicati (DupliFoto.exe e duplifoto-cli.exe) su foto vere, su Windows.
+﻿# Prova i programmi pubblicati (gli exe portabili di DupliFoto e duplifoto-cli) su foto vere, su Windows.
 # Usato da .github/workflows/build.yml; funziona anche a mano:
-#   powershell -File tools\prova-windows.ps1 -Publish publish\DupliFoto-win-x64 -Full
+#   powershell -File tools\prova-windows.ps1 -Gui dist\DupliFoto-0.1.0-x64.exe -Cli dist\duplifoto-cli-0.1.0-x64.exe -Full
 param(
-    [Parameter(Mandatory = $true)] [string] $Publish,
+    [Parameter(Mandatory = $true)] [string] $Gui,
+    [Parameter(Mandatory = $true)] [string] $Cli,
     [string] $Work = $(if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [IO.Path]::GetTempPath() }),
     [string] $Screenshot = '',
     # Anche semi-automatica, annulla e Windows ML (serve Python per creare il modello di prova)
     [switch] $Full
 )
 $ErrorActionPreference = 'Stop'
-$cli = Resolve-Path (Join-Path $Publish 'duplifoto-cli.exe')
-$gui = Resolve-Path (Join-Path $Publish 'DupliFoto.exe')
+$cli = Resolve-Path $Cli
+$gui = Resolve-Path $Gui
 function Run { & $cli @args; if ($LASTEXITCODE -ne 0) { throw "duplifoto-cli $args -> codice $LASTEXITCODE" } }
 function Check($ok, $msg) { if (-not $ok) { throw "FALLITO: $msg" } else { Write-Host "ok: $msg" } }
 
@@ -85,11 +86,17 @@ if ($Full) {
 }
 
 # 4) Interfaccia grafica: si apre con la cartella passata come argomento e resta aperta.
+#    Al primo avvio l'exe portabile si scompatta: si aspetta la finestra fino a un minuto.
 $app = Start-Process $gui -ArgumentList "`"$dir`"" -PassThru
-Start-Sleep -Seconds 15
-$app.Refresh()
-Check (-not $app.HasExited) "DupliFoto.exe resta aperto (nessun errore all'avvio)"
-Write-Host "Finestra principale: '$($app.MainWindowTitle)' (handle $($app.MainWindowHandle))"
+for ($i = 0; $i -lt 60; $i++) {
+    Start-Sleep -Seconds 1
+    $app.Refresh()
+    if ($app.HasExited -or $app.MainWindowHandle -ne 0) { break }
+}
+Check (-not $app.HasExited) "l'interfaccia grafica resta aperta (nessun errore all'avvio, codice $(if ($app.HasExited) { $app.ExitCode }))"
+Check ($app.MainWindowHandle -ne 0) "la finestra principale compare dopo $i secondi"
+Start-Sleep -Seconds 5  # il tempo di disegnare il contenuto prima dello screenshot
+Write-Host "Finestra principale: '$($app.MainWindowTitle)'"
 if ($Screenshot) {
     try {
         Add-Type -AssemblyName System.Windows.Forms
