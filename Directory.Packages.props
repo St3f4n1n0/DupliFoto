@@ -1,0 +1,36 @@
+<Project>
+  <!--
+    Versioni dei pacchetti in un solo posto, fissate: ogni compilazione usa esattamente le stesse librerie.
+    Gli aggiornamenti arrivano come pull request di Dependabot (.github/dependabot.yml).
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup Label="Motore">
+    <!-- Decodifica JPEG/PNG/HEIC/AVIF/WebP/RAW (Apache 2.0) -->
+    <PackageVersion Include="Magick.NET-Q8-AnyCPU" Version="14.17.2" />
+    <!-- Lettura EXIF veloce, senza decodificare l'immagine (Apache 2.0) -->
+    <PackageVersion Include="MetadataExtractor" Version="2.9.3" />
+    <!-- xxHash3 / xxHash128 (MIT) -->
+    <PackageVersion Include="System.IO.Hashing" Version="10.0.12" />
+  </ItemGroup>
+  <ItemGroup Label="Accelerazione (Windows ML)">
+    <PackageVersion Include="Microsoft.WindowsAppSDK.ML" Version="1.8.2223" />
+    <PackageVersion Include="System.Numerics.Tensors" Version="10.0.12" />
+  </ItemGroup>
+  <ItemGroup Label="Interfaccia grafica (MIT)">
+    <PackageVersion Include="Avalonia" Version="12.1.3" />
+    <PackageVersion Include="Avalonia.Desktop" Version="12.1.3" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.3" />
+    <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.1.3" />
+    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+  </ItemGroup>
+  <ItemGroup Label="Test">
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.v3" Version="3.2.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <PackageVersion Include="Avalonia.Headless.XUnit" Version="12.1.3" />
+    <PackageVersion Include="Avalonia.Skia" Version="12.1.3" />
+  </ItemGroup>
+</Project>

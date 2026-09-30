@@ -1,0 +1,16 @@
+# Aggiornamenti delle dipendenze proposti come pull request (la CI li compila e li prova su Windows).
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      avalonia:
+        patterns: ["Avalonia*"]
+      test:
+        patterns: ["xunit*", "Microsoft.NET.Test.Sdk"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

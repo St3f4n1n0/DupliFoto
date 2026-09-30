@@ -4,8 +4,14 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- Nelle release la versione arriva dal tag (v0.1.0 -> 0.1.0), vedi .github/workflows/build.yml -->
     <Version>0.1.0</Version>
+    <Version Condition="'$(DUPLIFOTO_VERSION)' != ''">$(DUPLIFOTO_VERSION)</Version>
     <Product>DupliFoto 2026</Product>
+    <Authors>St3f4n1n0</Authors>
+    <Copyright>Copyright (c) 2026 St3f4n1n0. Licenza MIT.</Copyright>
+    <Description>Trova e gestisce le foto doppie su Windows.</Description>
+    <RepositoryUrl>https://github.com/St3f4n1n0/DupliFoto</RepositoryUrl>
   </PropertyGroup>
 
   <!--

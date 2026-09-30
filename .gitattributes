@@ -1,0 +1,11 @@
+# Fine riga normalizzati nel repository; ciascun sistema usa i suoi in copia di lavoro.
+* text=auto
+
+# Gli script per Linux devono restare LF anche se estratti su Windows.
+*.sh text eol=lf
+
+# Binari
+*.png binary
+*.jpg binary
+*.ico binary
+*.onnx binary

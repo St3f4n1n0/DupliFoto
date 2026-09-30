@@ -5,11 +5,11 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Decodifica JPEG/PNG/HEIC/AVIF/WebP/RAW (licenza Apache 2.0) -->
-    <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="14.*" />
+    <PackageReference Include="Magick.NET-Q8-AnyCPU" />
     <!-- Lettura EXIF veloce, senza decodificare l'immagine (Apache 2.0) -->
-    <PackageReference Include="MetadataExtractor" Version="2.*" />
+    <PackageReference Include="MetadataExtractor" />
     <!-- xxHash3 / xxHash128: hash non crittografici molto veloci (Microsoft, MIT) -->
-    <PackageReference Include="System.IO.Hashing" Version="10.*" />
+    <PackageReference Include="System.IO.Hashing" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="DupliFoto.Tests" />

@@ -9,9 +9,9 @@
     <ProjectReference Include="..\DupliFoto.Core\DupliFoto.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Windows ML: ONNX Runtime di sistema + execution provider NPU/GPU scaricati da Windows Update -->
-    <PackageReference Include="Microsoft.WindowsAppSDK.ML" Version="1.8.*" />
+    <!-- Windows ML: ONNX Runtime (incluso nel programma) + execution provider NPU/GPU scaricati da Windows Update -->
+    <PackageReference Include="Microsoft.WindowsAppSDK.ML" />
     <!-- Richiesto da Microsoft.ML.OnnxRuntime.Tensors (vedi documentazione Windows ML) -->
-    <PackageReference Include="System.Numerics.Tensors" Version="10.*" />
+    <PackageReference Include="System.Numerics.Tensors" />
   </ItemGroup>
 </Project>

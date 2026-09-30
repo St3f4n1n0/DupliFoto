@@ -1,18 +1,42 @@
-# Compila e prova DupliFoto su Windows, poi pubblica i programmi autonomi (x64 e ARM64)
-# come artifact scaricabili dalla pagina dell'esecuzione (Actions → esecuzione → Artifacts).
-# Ogni cartella contiene DupliFoto2026.exe (interfaccia grafica) e duplifoto.exe (riga di comando).
+# Compila e prova DupliFoto, poi pubblica i programmi autonomi per Windows (x64 e ARM64).
+# - A ogni push: artifact scaricabili dalla pagina dell'esecuzione (Actions → esecuzione → Artifacts).
+# - A ogni tag vX.Y.Z: in più una release su GitHub con gli zip (vedi README, "Pubblicare una release").
+# Ogni cartella contiene DupliFoto2026.exe (interfaccia grafica), duplifoto.exe (riga di comando) e licenze/.
 name: build
 
 on:
   push:
+    branches: ["**"]
+    tags: ["v*"]
   pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 env:
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
   DOTNET_NOLOGO: 1
 
 jobs:
+  linux:
+    name: Linux (compilazione e test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Compila
+        run: dotnet build DupliFoto.slnx -c Release
+      - name: Test
+        run: dotnet test DupliFoto.slnx -c Release --no-build
+
   windows:
     name: Windows 11 (Server 2025)
     runs-on: windows-latest
@@ -23,6 +47,10 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+
+      - name: Versione dal tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: '"DUPLIFOTO_VERSION=$($env:GITHUB_REF_NAME.Substring(1))" >> $env:GITHUB_ENV'
 
       - name: Compila
         run: dotnet build DupliFoto.slnx -c Release
@@ -38,6 +66,8 @@ jobs:
             dotnet publish src/DupliFoto.Cli -c Release -r $rid -o publish/DupliFoto-$rid
             if ($LASTEXITCODE) { exit $LASTEXITCODE }
             dotnet publish src/DupliFoto.Gui -c Release -f net10.0-windows10.0.26100.0 -r $rid -o publish/DupliFoto-$rid
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+            powershell -File tools\raccogli-licenze.ps1 -Publish publish\DupliFoto-$rid -Rid $rid
             if ($LASTEXITCODE) { exit $LASTEXITCODE }
           }
 
@@ -89,3 +119,55 @@ jobs:
           name: screenshots-windows-2022
           path: ${{ runner.temp }}/screenshots
           if-no-files-found: ignore
+
+  # Solo per i tag vX.Y.Z, e solo se tutte le prove sono passate.
+  release:
+    name: Release su GitHub
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [linux, windows, windows-10-base]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: DupliFoto-win-*
+          path: dist
+
+      - name: Zip e checksum
+        run: |
+          cd dist
+          for d in DupliFoto-win-x64 DupliFoto-win-arm64; do
+            (cd "$d" && zip -qr "../$d-$GITHUB_REF_NAME.zip" .)
+          done
+          sha256sum *.zip > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Note di rilascio dal CHANGELOG
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="$version" '
+            $0 ~ "^## \\[" v "\\]" { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then echo "Manca la sezione [$version] in CHANGELOG.md" >&2; exit 1; fi
+          cat >> notes.md <<'NOTE'
+
+          ### Come si usa
+          Scarica lo zip per il tuo PC (x64 per quasi tutti i PC; arm64 per i PC con processore Snapdragon), estrailo in una cartella e avvia `DupliFoto2026.exe`. Non serve installare niente.
+
+          I programmi non sono firmati digitalmente: al primo avvio Windows può mostrare "Windows ha protetto il PC". In quel caso scegli "Ulteriori informazioni", poi "Esegui comunque".
+          NOTE
+
+      - name: Pubblica la release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/*.zip dist/SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "DupliFoto 2026 $GITHUB_REF_NAME" \
+            --notes-file notes.md
