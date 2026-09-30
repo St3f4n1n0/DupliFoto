@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- Windows 11 24H2 (build 26100) o successivo per la selezione automatica NPU/GPU di Windows ML -->
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <RootNamespace>DupliFoto.Accel</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\DupliFoto.Core\DupliFoto.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Windows ML: ONNX Runtime di sistema + execution provider NPU/GPU scaricati da Windows Update -->
+    <PackageReference Include="Microsoft.WindowsAppSDK.ML" Version="1.8.*" />
+    <!-- Richiesto da Microsoft.ML.OnnxRuntime.Tensors (vedi documentazione Windows ML) -->
+    <PackageReference Include="System.Numerics.Tensors" Version="10.*" />
+  </ItemGroup>
+</Project>

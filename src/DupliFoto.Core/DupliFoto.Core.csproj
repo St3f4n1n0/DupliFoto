@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>DupliFoto.Core</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Decodifica JPEG/PNG/HEIC/AVIF/WebP/RAW (licenza Apache 2.0) -->
+    <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="14.*" />
+    <!-- Lettura EXIF veloce, senza decodificare l'immagine (Apache 2.0) -->
+    <PackageReference Include="MetadataExtractor" Version="2.*" />
+    <!-- xxHash3 / xxHash128: hash non crittografici molto veloci (Microsoft, MIT) -->
+    <PackageReference Include="System.IO.Hashing" Version="10.*" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="DupliFoto.Tests" />
+  </ItemGroup>
+</Project>

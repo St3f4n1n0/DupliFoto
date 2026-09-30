@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DupliFoto.Core/DupliFoto.Core.csproj" />
+    <Project Path="src/DupliFoto.Accel/DupliFoto.Accel.csproj" />
+    <Project Path="src/DupliFoto.Cli/DupliFoto.Cli.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DupliFoto.Tests/DupliFoto.Tests.csproj" />
+  </Folder>
+</Solution>

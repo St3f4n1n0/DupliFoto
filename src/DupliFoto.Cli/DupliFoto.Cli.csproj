@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <AssemblyName>duplifoto</AssemblyName>
+    <RootNamespace>DupliFoto.Cli</RootNamespace>
+    <!-- x64 per default; per i PC Copilot+ con Snapdragon compilare con -r win-arm64 (NPU Qualcomm) -->
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
+    <!-- App non pacchettizzata e autonoma: nessun runtime Windows App SDK da installare a parte -->
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <TieredPGO>true</TieredPGO>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\DupliFoto.Core\DupliFoto.Core.csproj" />
+    <ProjectReference Include="..\DupliFoto.Accel\DupliFoto.Accel.csproj" />
+  </ItemGroup>
+</Project>
