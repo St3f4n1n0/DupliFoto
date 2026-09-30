@@ -149,6 +149,8 @@ powershell -File tools\raccogli-licenze.ps1 -Publish publish -Rid win-x64
 
 Le versioni dei pacchetti sono fissate in `Directory.Packages.props`; Dependabot propone gli aggiornamenti come pull request.
 
+Durante la compilazione, Avalonia invia statistiche anonime d'uso (progetto, versione, piattaforma). Per disattivarle si imposta la variabile d'ambiente `AVALONIA_TELEMETRY_OPTOUT=1`; nella CI è già così.
+
 La soluzione compila anche da Linux o macOS, per esempio negli ambienti di sviluppo nel cloud. `Directory.Build.props` abilita la compilazione per Windows, salta i file PRI e sostituisce `mt.exe` con `tools/mt-linux.sh`. L'eseguibile da distribuire resta quello compilato su Windows.
 
 L'interfaccia grafica ha anche un target `net10.0` senza la parte Windows. Serve per provarla e fotografarla da Linux: i test in `tests/DupliFoto.Gui.Tests` la disegnano senza schermo e, con la variabile `DUPLIFOTO_SCREENSHOTS`, salvano le immagini della finestra.
@@ -157,13 +159,15 @@ L'interfaccia grafica ha anche un target `net10.0` senza la parte Windows. Serve
 
 1. Aggiornare `CHANGELOG.md` con la sezione della nuova versione, per esempio `## [0.2.0] - AAAA-MM-GG`.
 2. Aggiornare `<Version>` in `Directory.Build.props`.
-3. Creare e pubblicare il tag:
-   ```powershell
-   git tag v0.2.0
-   git push origin v0.2.0
-   ```
+3. Creare il tag, in uno dei due modi:
+   - dalla pagina di GitHub: **Releases → Draft a new release**, tag `v0.2.0` su `main`, poi **Publish release** (le note si possono lasciare vuote);
+   - oppure da terminale:
+     ```powershell
+     git tag v0.2.0
+     git push origin v0.2.0
+     ```
 
-GitHub Actions compila, esegue tutte le prove (Linux, Windows 11, base Windows 10) e, solo se passano, pubblica la release. Allega gli zip x64 e ARM64 e i checksum, e usa come note la sezione del CHANGELOG. La versione dei programmi viene presa dal tag.
+GitHub Actions compila ed esegue tutte le prove: Linux, Windows 11 e base Windows 10. Solo se passano, allega alla release gli zip x64 e ARM64 e i checksum. Se le note della release sono vuote, usa la sezione del CHANGELOG. La versione dei programmi viene presa dal tag.
 
 ## Struttura
 

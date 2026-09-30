@@ -1,6 +1,7 @@
 # Compila e prova DupliFoto, poi pubblica i programmi autonomi per Windows (x64 e ARM64).
 # - A ogni push: artifact scaricabili dalla pagina dell'esecuzione (Actions → esecuzione → Artifacts).
-# - A ogni tag vX.Y.Z: in più una release su GitHub con gli zip (vedi README, "Pubblicare una release").
+# - A ogni tag vX.Y.Z, o release creata dalla pagina di GitHub: gli zip vengono allegati alla release
+#   (vedi README, "Pubblicare una release").
 # Ogni cartella contiene DupliFoto2026.exe (interfaccia grafica), duplifoto.exe (riga di comando) e licenze/.
 name: build
 
@@ -9,6 +10,8 @@ on:
     branches: ["**"]
     tags: ["v*"]
   pull_request:
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -21,6 +24,7 @@ concurrency:
 env:
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
   DOTNET_NOLOGO: 1
+  AVALONIA_TELEMETRY_OPTOUT: 1
 
 jobs:
   linux:
@@ -28,8 +32,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
       - name: Compila
@@ -42,9 +46,9 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.x
 
@@ -75,19 +79,19 @@ jobs:
         shell: powershell
         run: tools\prova-windows.ps1 -Publish publish\DupliFoto-win-x64 -Full -Screenshot "$env:RUNNER_TEMP\screenshots\app-windows-2025.png"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: DupliFoto-win-x64
           path: publish/DupliFoto-win-x64
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: DupliFoto-win-arm64
           path: publish/DupliFoto-win-arm64
           if-no-files-found: error
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: screenshots-windows-2025
@@ -102,9 +106,9 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: DupliFoto-win-x64
           path: publish/DupliFoto-win-x64
@@ -113,14 +117,15 @@ jobs:
         shell: powershell
         run: tools\prova-windows.ps1 -Publish publish\DupliFoto-win-x64 -Screenshot "$env:RUNNER_TEMP\screenshots\app-windows-2022.png"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: screenshots-windows-2022
           path: ${{ runner.temp }}/screenshots
           if-no-files-found: ignore
 
-  # Solo per i tag vX.Y.Z, e solo se tutte le prove sono passate.
+  # Solo per i tag vX.Y.Z, e solo se tutte le prove sono passate. Se la release esiste già
+  # (creata dalla pagina di GitHub), le si allegano gli zip; altrimenti la si crea.
   release:
     name: Release su GitHub
     if: startsWith(github.ref, 'refs/tags/v')
@@ -130,9 +135,9 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: DupliFoto-win-*
           path: dist
@@ -167,7 +172,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/*.zip dist/SHA256SUMS.txt \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "DupliFoto 2026 $GITHUB_REF_NAME" \
-            --notes-file notes.md
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/*.zip dist/SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --clobber
+            body=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json body -q .body)
+            if [ -z "$body" ]; then
+              gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --notes-file notes.md
+            fi
+          else
+            gh release create "$GITHUB_REF_NAME" dist/*.zip dist/SHA256SUMS.txt \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "DupliFoto 2026 $GITHUB_REF_NAME" \
+              --notes-file notes.md
+          fi
