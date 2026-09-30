@@ -1,4 +1,4 @@
-# DupliFoto 2026
+# DupliFoto
 
 Trova e gestisce le foto doppie su Windows. Riconosce le copie identiche, le stesse immagini ricompresse o ridimensionate (per esempio passate da WhatsApp) e gli scatti multipli della stessa scena. Se il PC ha una NPU o una GPU, le usa per la parte di riconoscimento neurale.
 
