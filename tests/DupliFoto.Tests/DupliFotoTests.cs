@@ -485,19 +485,21 @@ public sealed class LockedFileTests : IDisposable
     }
 
     [Fact]
-    public async Task A_briefly_locked_file_is_moved_once_released()
+    public void A_briefly_locked_file_is_moved_once_released()
     {
         var keeper = Photo("tieni.jpg");
         var dup = Photo("doppione.jpg");
         // Come fa un antivirus o un'anteprima: il file resta aperto (senza condivisione in cancellazione) per un attimo.
+        // Un thread dedicato, non il pool: con i test in parallelo il pool può tardare lo sblocco di secondi.
         var stream = new FileStream(dup.Path, FileMode.Open, FileAccess.Read, FileShare.Read);
-        var release = Task.Run(async () => { await Task.Delay(300); stream.Dispose(); });
+        var release = new Thread(() => { Thread.Sleep(300); stream.Dispose(); });
+        release.Start();
 
         using var session = new ActionSession(new ScanOptions { QuarantineRoot = Path.Combine(_dir, "Q") });
         var outcome = session.Move(keeper, new GroupMember { File = dup, Kind = MatchKind.Perceptual, Confidence = 95, Reason = "" }, automatic: false);
-        await release;
+        release.Join();
 
-        Assert.Equal(MoveResult.Moved, outcome.Result);
+        Assert.True(outcome.Moved, outcome.Message);
         Assert.False(File.Exists(dup.Path));
     }
 }
