@@ -132,6 +132,15 @@ public sealed partial class MainViewModel : ObservableObject
     public bool IsAutomaticMode => SelectedMode.Value == RunMode.Automatic;
     public bool IsNeuralAvailable => Neural.IsAvailable;
     public string VersionText => $"Versione {AppInfo.Version}";
+    /// <summary>La cartella dei file di lavoro (impostazioni, cache, registro errori e «Pulisci DupliFoto.bat»).</summary>
+    public string DataFolder => AppFiles.Folder;
+
+    [RelayCommand]
+    private void OpenDataFolder()
+    {
+        AppFiles.Prepare();
+        Shell.Open(AppFiles.Folder);
+    }
 
     // ------------------------------------------------------------------ stato
 

@@ -2,11 +2,10 @@ using DupliFoto.Core;
 
 namespace DupliFoto.Gui.Services;
 
-/// <summary>Gli errori imprevisti (e gli avvii lenti) finiscono qui, per poterli segnalare: %LOCALAPPDATA%\DupliFoto\errori.log.</summary>
+/// <summary>Gli errori imprevisti (e gli avvii lenti) finiscono qui, per poterli segnalare: errori.log nella cartella dei file di lavoro.</summary>
 public static class ErrorLog
 {
-    public static string FilePath { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DupliFoto", "errori.log");
+    public static string FilePath { get; } = Path.Combine(AppFiles.Folder, "errori.log");
 
     public static void Write(Exception ex, string where) => Write(ex.ToString(), where);
 

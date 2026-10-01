@@ -30,17 +30,26 @@ internal sealed partial class GuiJson : JsonSerializerContext
 {
 }
 
-public sealed class SettingsStore(string? path)
+/// <summary>
+/// Le impostazioni in un file JSON. <paramref name="legacyPath"/> è dove le salvava una versione precedente: si leggono
+/// da lì finché non c'è il file nuovo, e al primo salvataggio il vecchio file viene tolto.
+/// </summary>
+public sealed class SettingsStore(string? path, string? legacyPath = null)
 {
-    public static SettingsStore Default => new(System.IO.Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DupliFoto", "gui.json"));
+    /// <summary>
+    /// Nella cartella dei file di lavoro. Le versioni 0.2 e precedenti le tenevano in %APPDATA%\DupliFoto: la versione
+    /// portatile parte invece dai valori predefiniti, perché le sue impostazioni viaggiano con l'exe.
+    /// </summary>
+    public static SettingsStore Default => new(
+        System.IO.Path.Combine(AppFiles.Folder, "gui.json"), AppFiles.IsPortable ? null : AppFiles.LegacySettingsPath);
 
     public GuiSettings Load()
     {
         try
         {
-            if (path is not null && File.Exists(path))
-                return JsonSerializer.Deserialize(File.ReadAllText(path), GuiJson.Default.GuiSettings) ?? new GuiSettings();
+            string? source = File.Exists(path) ? path : File.Exists(legacyPath) ? legacyPath : null;
+            if (source is not null)
+                return JsonSerializer.Deserialize(File.ReadAllText(source), GuiJson.Default.GuiSettings) ?? new GuiSettings();
         }
         catch (Exception) { /* impostazioni illeggibili: si riparte dai valori predefiniti */ }
         return new GuiSettings();
@@ -54,6 +63,15 @@ public sealed class SettingsStore(string? path)
             Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
             File.WriteAllText(path, JsonSerializer.Serialize(settings, GuiJson.Default.GuiSettings));
         }
-        catch (Exception) { /* non poter salvare le preferenze non deve fermare il programma */ }
+        catch (Exception) { return; /* non poter salvare le preferenze non deve fermare il programma */ }
+
+        if (legacyPath is null || !File.Exists(legacyPath)) return;
+        try
+        {
+            File.Delete(legacyPath);
+            string folder = System.IO.Path.GetDirectoryName(legacyPath)!;
+            if (!Directory.EnumerateFileSystemEntries(folder).Any()) Directory.Delete(folder);
+        }
+        catch (Exception) { /* resta il vecchio file: non dà fastidio, e «Pulisci DupliFoto.bat» lo toglie */ }
     }
 }

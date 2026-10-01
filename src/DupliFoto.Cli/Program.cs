@@ -136,6 +136,10 @@ async Task<int> Analyze(string[] a)
         throw new ArgumentException("La modalità assistita richiede di rispondere alle domande: togli --non-interattivo.");
 
     Ui.Color(ConsoleColor.Cyan, $"{AppInfo.Name} {AppInfo.Version} · modalità: {ModeLabel(o)}");
+    // La cartella dei file di lavoro, con «Pulisci DupliFoto.bat»; le copie scompattate delle versioni precedenti
+    // si tolgono intanto, in sottofondo (se il programma finisce prima, si riprende la volta dopo).
+    AppFiles.Prepare();
+    new Thread(() => AppFiles.RemoveOldExtractions()) { IsBackground = true, Priority = ThreadPriority.BelowNormal }.Start();
     if (o.CrossFolderOnly) Console.WriteLine("Solo tra cartelle diverse: i doppioni dentro la stessa cartella vengono ignorati.");
     foreach (var keep in o.PreferredFolders) Console.WriteLine($"Copie da tenere: quelle in {keep}");
 
@@ -272,6 +276,10 @@ static void PrintHelp() => Console.WriteLine("""
       --no-raffiche                 non cercare scatti multipli
       --no-sottocartelle  --nascosti  --no-cache  --thread <n>
       --non-interattivo             non fare domande: ciò che richiede conferma resta da rivedere
+
+    FILE DI LAVORO
+      Cache e impostazioni stanno in %LOCALAPPDATA%\DupliFoto, oppure in "DupliFoto-dati" accanto all'exe
+      se lì c'è un file DupliFoto.portable. «Pulisci DupliFoto.bat», in quella cartella, li toglie tutti.
 
     ESEMPI
       duplifoto-cli "D:\Foto"

@@ -201,6 +201,16 @@
                         </StackPanel>
                         <TextBlock Text="Disponibile solo nella versione per Windows." Classes="faint small"
                                    IsVisible="{Binding !IsNeuralAvailable}" />
+
+                        <TextBlock Text="File di DupliFoto" Classes="h" Margin="0,8,0,0" />
+                        <TextBlock Text="Impostazioni, cache delle analisi e registro errori stanno qui. «Pulisci DupliFoto.bat», in questa cartella, li toglie da questo PC insieme a quelli delle versioni precedenti."
+                                   Classes="muted small" TextWrapping="Wrap" />
+                        <Grid ColumnDefinitions="*,Auto">
+                          <TextBox Text="{Binding DataFolder, Mode=OneWay}" IsReadOnly="True" />
+                          <Button Grid.Column="1" Content="Apri" Margin="8,0,0,0" Command="{Binding OpenDataFolderCommand}" />
+                        </Grid>
+                        <TextBlock Text="Versione portatile: con un file «DupliFoto.portable» accanto all'exe, questi file stanno nella cartella «DupliFoto-dati» accanto all'exe."
+                                   Classes="faint small" TextWrapping="Wrap" />
                       </StackPanel>
                     </Flyout>
                   </Button.Flyout>

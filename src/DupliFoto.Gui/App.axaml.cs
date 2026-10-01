@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using DupliFoto.Core;
 using DupliFoto.Gui.Services;
 using DupliFoto.Gui.ViewModels;
 using DupliFoto.Gui.Views;
@@ -21,7 +22,17 @@ public partial class App : Application
             // Cartelle passate all'avvio, per esempio trascinandole sull'icona del programma.
             vm.AddFolders(desktop.Args ?? []);
             var window = new MainWindow { DataContext = vm };
-            window.Opened += (_, _) => NoteSlowStartup();
+            window.Opened += (_, _) =>
+            {
+                NoteSlowStartup();
+                // A finestra aperta, senza rallentare l'avvio: la cartella dei file di lavoro con «Pulisci DupliFoto.bat»,
+                // e via le copie scompattate delle versioni precedenti.
+                Task.Run(() =>
+                {
+                    AppFiles.Prepare();
+                    AppFiles.RemoveOldExtractions();
+                });
+            };
             desktop.MainWindow = window;
 
             // Un errore imprevisto non deve chiudere il programma a metà lavoro: lo si registra e lo si segnala.

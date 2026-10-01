@@ -192,6 +192,23 @@ public sealed class MainViewModelTests : IDisposable
         Assert.False(again.CompareEverywhere);
     }
 
+    [AvaloniaFact]
+    public void Settings_of_older_versions_are_carried_over()
+    {
+        // Le versioni 0.2 e precedenti salvavano in %APPDATA%\DupliFoto; ora tutto sta nella cartella dei file di lavoro.
+        string legacy = Path.Combine(_photos.Root, "Roaming", "DupliFoto", "gui.json");
+        string current = Path.Combine(_photos.Root, "Local", "DupliFoto", "gui.json");
+        new SettingsStore(legacy).Save(new GuiSettings { Folders = [new(_photos.Photos, false)], CrossFolderOnly = true });
+
+        var vm = new MainViewModel(new SettingsStore(current, legacy)) { CachePath = null };
+        Assert.Equal([_photos.Photos], vm.Folders.Select(f => f.Path));
+        Assert.True(vm.CrossFolderOnly);
+
+        vm.SaveSettings();
+        Assert.True(File.Exists(current));
+        Assert.False(Directory.Exists(Path.GetDirectoryName(legacy)));   // il vecchio file, e la sua cartella vuota, se ne vanno
+    }
+
     /// <summary>
     /// "Foto" e la sua sottocartella "WhatsApp" aggiunte entrambe, si tiene WhatsApp, solo tra cartelle diverse:
     /// le coppie sono tutte "copia in WhatsApp / copia in Foto", e i doppioni interni a Foto non compaiono.
