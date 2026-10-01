@@ -290,6 +290,45 @@ public sealed class EngineEndToEndTests : IDisposable
         Assert.Equal(3, s.AutomaticActions);
     }
 
+    /// <summary>
+    /// La stessa foto in tre copie, e anche la sua versione WhatsApp in tre copie: la copia tenuta tra le tre
+    /// WhatsApp è a sua volta un doppione dell'originale. In qualunque ordine si applichino i gruppi, la modalità
+    /// automatica non toglie mai l'ultima copia: ogni file spostato rimanda a una copia che è ancora al suo posto.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Automatic_mode_never_removes_the_last_copy(bool reverseGroups)
+    {
+        File.Copy(Path.Combine(_photos, "mare.ppm"), Path.Combine(_photos, "mare (2).ppm"));
+        _meta.ByFileName["mare (2).ppm"] = _meta.ByFileName["mare.ppm"];
+        File.Copy(Path.Combine(_photos, "WhatsApp", "IMG-WA0001.ppm"), Path.Combine(_photos, "WhatsApp", "IMG-WA0001 (1).ppm"));
+        File.Copy(Path.Combine(_photos, "WhatsApp", "IMG-WA0001.ppm"), Path.Combine(_photos, "WhatsApp", "IMG-WA0001 (2).ppm"));
+
+        var o = Options(RunMode.Automatic);
+        o.AutoThreshold = 90; // il minimo: anche le versioni ricompresse vengono spostate da sole
+        var r = Scan(o);
+        if (reverseGroups) r = new ScanResult { Files = r.Files, Groups = r.Groups.Reverse().ToList(), Elapsed = r.Elapsed };
+        var s = new ActionExecutor(o, prompt: null).Execute(r);
+
+        var moved = ActionJournal.Read(s.JournalPath!).ToDictionary(e => e.OriginalPath, e => e.KeptFile, StringComparer.OrdinalIgnoreCase);
+        foreach (var (file, kept) in moved)
+        {
+            var survivor = kept;
+            for (int hops = 0; moved.TryGetValue(survivor, out var next); hops++)
+            {
+                Assert.True(hops < moved.Count, "catena circolare nel registro");
+                survivor = next;
+            }
+            Assert.True(File.Exists(survivor), $"{file} spostato tenendo {kept}, ma di quella foto non resta nessuna copia");
+        }
+        Assert.True(File.Exists(Path.Combine(_photos, "mare.ppm")));             // la copia migliore resta sempre
+        // In ordine normale vanno via le due copie di mare.ppm, le due della versione WhatsApp, poi quella
+        // versione e i "stessi pixel". Al contrario la versione WhatsApp va via per prima, e allora le sue
+        // copie restano: la loro copia da tenere non c'è più.
+        Assert.Equal(reverseGroups ? 4 : 6, s.Moved);
+    }
+
     [Fact]
     public void A_file_changed_after_the_scan_is_not_touched()
     {
