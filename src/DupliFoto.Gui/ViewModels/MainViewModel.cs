@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DupliFoto.Core;
@@ -43,7 +44,11 @@ public sealed partial class MainViewModel : ObservableObject
         _selectedAccelerator = Accelerators[0];
         _selectedFilter = Filters[0];
         _quarantineRoot = new ScanOptions().QuarantineRoot;
-        Folders.CollectionChanged += (_, _) => RefreshState();
+        Folders.CollectionChanged += (_, _) =>
+        {
+            RefreshFolderNames();
+            RefreshState();
+        };
         LoadSettings();
     }
 
@@ -89,6 +94,8 @@ public sealed partial class MainViewModel : ObservableObject
     ];
 
     [ObservableProperty] private bool _includeSubfolders = true;
+    /// <summary>Confronta ogni cartella solo con le altre: i doppioni dentro la stessa cartella si ignorano.</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(CompareEverywhere))] private bool _crossFolderOnly;
     [ObservableProperty] private Choice<RunMode> _selectedMode;
     [ObservableProperty] private decimal _threshold = 99;
     [ObservableProperty] private Choice<DisposalMethod> _selectedDisposal;
@@ -97,6 +104,29 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private decimal _burstSeconds = 10;
     [ObservableProperty] private string? _modelPath;
     [ObservableProperty] private Choice<string> _selectedAccelerator;
+
+    /// <summary>L'altra scelta di <see cref="CrossFolderOnly"/>, per i pulsanti di scelta.</summary>
+    public bool CompareEverywhere
+    {
+        get => !CrossFolderOnly;
+        set => CrossFolderOnly = !value;
+    }
+
+    /// <summary>Nessuna cartella da tenere: la copia da tenere la scelgono le regole (risoluzione, metadati, nome...).</summary>
+    public bool KeepAutomatic
+    {
+        get => !Folders.Any(f => f.IsKept);
+        set
+        {
+            if (value) foreach (var f in Folders) f.IsKept = false;
+        }
+    }
+
+    public FolderItem? KeptFolder => Folders.FirstOrDefault(f => f.IsKept);
+    public string KeepHint => KeptFolder is { } k
+        ? $"Le foto in «{k.Name}» non vengono mai spostate: se ce n'è una copia altrove, si sposta l'altra."
+        : "Decide DupliFoto, coppia per coppia: nel confronto la copia da tenere è sempre a sinistra.";
+    public bool HasSeveralFolders => Folders.Count >= 2;
 
     public bool IsReadOnlyMode => SelectedMode.Value == RunMode.ReadOnly;
     public bool IsAutomaticMode => SelectedMode.Value == RunMode.Automatic;
@@ -148,12 +178,13 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private PairItem? _selectedPair;
 
     public PhotoPanel Left { get; } = new("Da tenere", isKeeper: true);
-    public PhotoPanel Right { get; } = new("Doppione", isKeeper: false);
+    public PhotoPanel Right { get; } = new("Da spostare", isKeeper: false);
 
     public string ConfidenceText => SelectedPair?.ConfidenceText ?? "—";
     public string KindText => SelectedPair?.KindLabel ?? "";
     public string ReasonText => SelectedPair?.Member.Reason ?? "";
-    public string KeeperReasonText => SelectedPair?.Group.KeeperReason is { Length: > 0 } r ? $"Da tenere perché: {r}" : "";
+    public string KeeperReasonText => SelectedPair?.Group.KeeperReason is { Length: > 0 } r ? $"Si tiene quella a sinistra: {r}" : "";
+    public string MoveTip => $"La foto a destra va {Destination}; quella a sinistra resta dov'è.";
     public string PairNoteText => SelectedPair is { Note.Length: > 0 } p ? $"{p.StatusText}: {p.Note}" : SelectedPair?.StatusText ?? "";
     public bool IsHigh => SelectedPair?.IsHigh == true;
     public bool IsMid => SelectedPair?.IsMid == true;
@@ -230,9 +261,32 @@ public sealed partial class MainViewModel : ObservableObject
             if (File.Exists(path)) path = Path.GetDirectoryName(path)!; // trascinata una foto: si intende la sua cartella
             if (!Directory.Exists(path)) continue;
             if (Folders.Any(f => string.Equals(f.Path, path, StringComparison.OrdinalIgnoreCase))) continue;
-            Folders.Add(new FolderItem(path, f => Folders.Remove(f)));
+            var item = new FolderItem(path, f => Folders.Remove(f));
+            item.PropertyChanged += OnFolderChanged;
+            Folders.Add(item);
         }
     }
+
+    private void OnFolderChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(FolderItem.IsKept) || sender is not FolderItem changed) return;
+        // Una sola cartella da tenere: sceglierne una toglie la scelta alle altre.
+        if (changed.IsKept)
+            foreach (var f in Folders.Where(f => !ReferenceEquals(f, changed))) f.IsKept = false;
+        OnPropertyChanged(nameof(KeepAutomatic));
+        OnPropertyChanged(nameof(KeptFolder));
+        OnPropertyChanged(nameof(KeepHint));
+    }
+
+    private void RefreshFolderNames()
+    {
+        foreach (var f in Folders)
+            f.Name = Folders.Count(o => string.Equals(o.ShortName, f.ShortName, StringComparison.OrdinalIgnoreCase)) > 1 ? f.Path : f.ShortName;
+    }
+
+    /// <summary>Il nome della cartella aggiunta da cui viene la foto; nulla se la ricerca era su una cartella sola.</summary>
+    private string? RootName(PhotoFile? f) => f is null || _options is not { Roots.Count: > 1 } ? null
+        : Folders.FirstOrDefault(x => FileScanner.SameFolder(x.Path, f.Root))?.Name ?? Path.GetFileName(f.Root);
 
     // ------------------------------------------------------------------ ricerca
 
@@ -281,7 +335,7 @@ public sealed partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void Cancel() => _scanCts?.Cancel();
 
-    private ScanOptions BuildOptions()
+    internal ScanOptions BuildOptions()
     {
         var o = new ScanOptions
         {
@@ -292,12 +346,13 @@ public sealed partial class MainViewModel : ObservableObject
             Mode = SelectedMode.Value,
             AutoThreshold = Math.Max((double)Threshold, ScanOptions.AutoThresholdFloor),
             Disposal = SelectedDisposal.Value,
+            CrossFolderOnly = CrossFolderOnly && HasSeveralFolders,
         };
         if (!string.IsNullOrWhiteSpace(QuarantineRoot)) o.QuarantineRoot = Path.GetFullPath(QuarantineRoot);
         foreach (var f in Folders)
         {
             o.Roots.Add(f.Path);
-            if (f.IsPreferred) o.PreferredFolders.Add(f.Path);
+            if (f.IsKept) o.PreferredFolders.Add(f.Path);
         }
         return o;
     }
@@ -380,7 +435,7 @@ public sealed partial class MainViewModel : ObservableObject
         bool ok = await ConfirmAsync(
             $"Spostare tutti i «{p.KindLabel}»?",
             $"Sposto {Destination} i {targets.Count:N0} doppioni ancora da decidere di questo tipo ({ReportWriter.FormatBytes(bytes)}). " +
-            "In ogni gruppo resta la copia indicata come «da tenere».",
+            KeepSentence,
             $"Sposta {targets.Count:N0}");
         if (!ok) return;
         await MoveAsync(targets, automatic: false);
@@ -400,12 +455,16 @@ public sealed partial class MainViewModel : ObservableObject
             "Spostamento automatico",
             $"La modalità «{SelectedMode.Label}» può spostare da sola {targets.Count:N0} doppioni " +
             $"({ReportWriter.FormatBytes(targets.Sum(p => p.Duplicate.Size))}): {rule}. " +
-            $"Li sposto {Destination}? Le altre coppie te le mostro una per una.",
+            $"Li sposto {Destination}? {KeepSentence} Le altre coppie te le mostro una per una.",
             $"Sposta {targets.Count:N0}");
         if (!ok) return;
         await MoveAsync(targets, automatic: true);
         SelectedPair = VisiblePairs.FirstOrDefault(p => p.IsPending) ?? SelectedPair;
     }
+
+    private string KeepSentence => _options?.PreferredFolders.FirstOrDefault() is { } keep
+        ? $"Restano sempre le copie nella cartella «{Folders.FirstOrDefault(f => FileScanner.SameFolder(f.Path, keep))?.Name ?? keep}»."
+        : "In ogni coppia resta la copia a sinistra, «da tenere».";
 
     private string Destination => SelectedDisposal.Value == DisposalMethod.Quarantine
         ? $"in quarantena ({(_options ?? BuildOptions()).QuarantineRoot})"
@@ -555,9 +614,12 @@ public sealed partial class MainViewModel : ObservableObject
         foreach (var p in old) Pairs.Remove(p);
 
         var status = DefaultStatus;
-        var fresh = g.Duplicates.Select(m => moved.TryGetValue(m.File.Path, out var note)
-            ? new PairItem(g, m) { Status = PairStatus.Moved, Note = note }
-            : new PairItem(g, m) { Status = status }).ToList();
+        // Un file già spostato che con la nuova copia da tenere non è più un doppione (solo tra cartelle diverse)
+        // resta comunque nell'elenco: è stato spostato davvero.
+        var fresh = old.Where(p => p.IsMoved && !g.Duplicates.Any(m => ReferenceEquals(m.File, p.Duplicate)))
+            .Concat(g.Duplicates.Select(m => moved.TryGetValue(m.File.Path, out var note)
+                ? new PairItem(g, m) { Status = PairStatus.Moved, Note = note }
+                : new PairItem(g, m) { Status = status })).ToList();
         for (int i = 0; i < fresh.Count; i++) Pairs.Insert(at + i, fresh[i]);
 
         ApplyFilter();
@@ -590,8 +652,8 @@ public sealed partial class MainViewModel : ObservableObject
 
     partial void OnSelectedPairChanged(PairItem? value)
     {
-        Left.Show(value?.Keeper);
-        Right.Show(value?.Duplicate);
+        Left.Show(value?.Keeper, RootName(value?.Keeper));
+        Right.Show(value?.Duplicate, RootName(value?.Duplicate));
         _imagesTask = LoadImagesAsync(value);
         RefreshState();
     }
@@ -698,7 +760,8 @@ public sealed partial class MainViewModel : ObservableObject
         nameof(IsReadOnlyMode), nameof(IsAutomaticMode), nameof(ConfidenceText), nameof(KindText), nameof(ReasonText),
         nameof(KeeperReasonText), nameof(PairNoteText), nameof(IsHigh), nameof(IsMid), nameof(IsLow), nameof(CanDecide),
         nameof(CanSwap), nameof(CanNavigate), nameof(CanUndo), nameof(AutomaticCount), nameof(CanApplyAutomatic),
-        nameof(AutomaticText), nameof(ApplyAllText), nameof(DecisionHint),
+        nameof(AutomaticText), nameof(ApplyAllText), nameof(DecisionHint), nameof(KeepAutomatic), nameof(KeptFolder),
+        nameof(HasSeveralFolders), nameof(MoveTip), nameof(KeepHint),
     ];
 
     // ------------------------------------------------------------------ impostazioni salvate
@@ -707,8 +770,10 @@ public sealed partial class MainViewModel : ObservableObject
     {
         var s = _store.Load();
         AddFolders(s.Folders.Select(f => f.Path));
-        foreach (var f in Folders)
-            f.IsPreferred = s.Folders.Any(x => x.Preferred && string.Equals(x.Path, f.Path, StringComparison.OrdinalIgnoreCase));
+        // Una sola cartella da tenere (le versioni 0.1 permettevano più cartelle "preferite": vale la prima).
+        if (s.Folders.FirstOrDefault(x => x.Preferred) is { } kept)
+            Folders.FirstOrDefault(f => string.Equals(f.Path, kept.Path, StringComparison.OrdinalIgnoreCase))?.IsKept = true;
+        CrossFolderOnly = s.CrossFolderOnly;
         SelectedMode = Modes.FirstOrDefault(m => m.Value == s.Mode) ?? Modes[0];
         Threshold = (decimal)Math.Clamp(s.Threshold, ScanOptions.AutoThresholdFloor, 100);
         SelectedDisposal = Disposals.FirstOrDefault(d => d.Value == s.Disposal) ?? Disposals[0];
@@ -722,7 +787,8 @@ public sealed partial class MainViewModel : ObservableObject
 
     public void SaveSettings() => _store.Save(new GuiSettings
     {
-        Folders = Folders.Select(f => new GuiSettings.FolderSetting(f.Path, f.IsPreferred)).ToList(),
+        Folders = Folders.Select(f => new GuiSettings.FolderSetting(f.Path, f.IsKept)).ToList(),
+        CrossFolderOnly = CrossFolderOnly,
         Mode = SelectedMode.Value,
         Threshold = (double)Threshold,
         Disposal = SelectedDisposal.Value,

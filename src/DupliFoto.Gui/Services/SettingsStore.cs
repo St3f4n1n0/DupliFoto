@@ -13,11 +13,13 @@ public sealed class GuiSettings
     public DisposalMethod Disposal { get; set; } = DisposalMethod.Quarantine;
     public string? QuarantineRoot { get; set; }
     public bool IncludeSubfolders { get; set; } = true;
+    public bool CrossFolderOnly { get; set; }
     public bool DetectBursts { get; set; } = true;
     public double BurstSeconds { get; set; } = 10;
     public string? ModelPath { get; set; }
     public string Accelerator { get; set; } = "auto";
 
+    /// <summary>Una cartella; <c>Preferred</c> = le copie che stanno qui si tengono sempre.</summary>
     public sealed record FolderSetting(string Path, bool Preferred);
 }
 

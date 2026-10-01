@@ -146,5 +146,75 @@ public sealed class MainViewModelTests : IDisposable
         Assert.Equal(1200, vm.Left.Image!.PixelSize.Width);
         Assert.EndsWith("%", vm.ConfidenceText);
     }
+
+    [AvaloniaFact]
+    public void Only_one_folder_can_be_the_one_to_keep()
+    {
+        var vm = new MainViewModel(new SettingsStore(null)) { CachePath = null };
+        vm.AddFolders([_photos.Photos, _photos.P("WhatsApp")]);
+        Assert.True(vm.KeepAutomatic);
+        Assert.True(vm.HasSeveralFolders);
+        Assert.Equal(["Foto", "WhatsApp"], vm.Folders.Select(f => f.Name));
+
+        vm.Folders[1].IsKept = true;
+        Assert.False(vm.KeepAutomatic);
+        Assert.Same(vm.Folders[1], vm.KeptFolder);
+
+        vm.Folders[0].IsKept = true;                                       // un'altra cartella toglie la scelta alla prima
+        Assert.False(vm.Folders[1].IsKept);
+        Assert.Equal([_photos.Photos], vm.BuildOptions().PreferredFolders);
+
+        vm.KeepAutomatic = true;
+        Assert.All(vm.Folders, f => Assert.False(f.IsKept));
+        Assert.Empty(vm.BuildOptions().PreferredFolders);
+
+        vm.Folders[1].IsKept = true;
+        vm.Folders[1].RemoveCommand.Execute(null);                         // tolta la cartella da tenere: si torna alla scelta automatica
+        Assert.True(vm.KeepAutomatic);
+        Assert.False(vm.HasSeveralFolders);
+        vm.CrossFolderOnly = true;
+        Assert.False(vm.BuildOptions().CrossFolderOnly);                   // con una cartella sola non c'è nulla da confrontare
+    }
+
+    [AvaloniaFact]
+    public void Keep_folder_and_comparison_are_remembered()
+    {
+        var store = new SettingsStore(Path.Combine(_photos.Root, "gui.json"));
+        var vm = new MainViewModel(store) { CachePath = null };
+        vm.AddFolders([_photos.Photos, _photos.P("WhatsApp")]);
+        vm.Folders[1].IsKept = true;
+        vm.CrossFolderOnly = true;
+        vm.SaveSettings();
+
+        var again = new MainViewModel(store) { CachePath = null };
+        Assert.Equal([false, true], again.Folders.Select(f => f.IsKept));
+        Assert.True(again.CrossFolderOnly);
+        Assert.False(again.CompareEverywhere);
+    }
+
+    /// <summary>
+    /// "Foto" e la sua sottocartella "WhatsApp" aggiunte entrambe, si tiene WhatsApp, solo tra cartelle diverse:
+    /// le coppie sono tutte "copia in WhatsApp / copia in Foto", e i doppioni interni a Foto non compaiono.
+    /// </summary>
+    [AvaloniaFact]
+    public async Task Keeping_one_folder_compares_it_with_the_other()
+    {
+        var vm = NewViewModel(_photos, RunMode.Assisted);
+        vm.AddFolders([_photos.P("WhatsApp")]);
+        vm.Folders[1].IsKept = true;
+        vm.CrossFolderOnly = true;
+        await vm.StartCommand.ExecuteAsync(null);
+
+        Assert.Equal(["mare (1).jpg", "mare.jpg"], vm.Pairs.Select(p => p.DuplicateName).Order());
+        Assert.All(vm.Pairs, p => Assert.Equal("IMG-20260810-WA0001.jpg", p.KeeperName));
+        Assert.Equal("WhatsApp", vm.Left.RootName);
+        Assert.Equal("Foto", vm.Right.RootName);
+        Assert.Equal("Da spostare", vm.Right.Role);
+        Assert.Equal("Si tiene quella a sinistra: si trova nella cartella da tenere", vm.KeeperReasonText);
+
+        await vm.MoveDuplicateCommand.ExecuteAsync(null);
+        Assert.True(File.Exists(_photos.P("WhatsApp/IMG-20260810-WA0001.jpg")));  // la cartella da tenere non si tocca
+        Assert.Equal(1, vm.MovedCount);
+    }
 }
 

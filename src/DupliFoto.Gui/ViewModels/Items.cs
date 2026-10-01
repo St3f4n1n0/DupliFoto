@@ -18,8 +18,15 @@ public sealed partial class FolderItem(string path, Action<FolderItem> remove) :
 {
     public string Path { get; } = path;
 
-    /// <summary>Nei doppioni vince la copia che sta in una cartella preferita.</summary>
-    [ObservableProperty] private bool _isPreferred;
+    /// <summary>L'ultima cartella del percorso ("Catalogate"); per un'unità intera, il percorso.</summary>
+    public string ShortName { get; } =
+        System.IO.Path.GetFileName(System.IO.Path.TrimEndingDirectorySeparator(path)) is { Length: > 0 } n ? n : path;
+
+    /// <summary>Come si chiama nell'interfaccia: il nome breve, o il percorso intero se due cartelle si chiamano uguale.</summary>
+    [ObservableProperty] private string _name = "";
+
+    /// <summary>Le copie che stanno in questa cartella si tengono sempre. Al massimo una cartella.</summary>
+    [ObservableProperty] private bool _isKept;
 
     [RelayCommand]
     private void Remove() => remove(this);
@@ -85,6 +92,8 @@ public sealed partial class PhotoPanel(string role, bool isKeeper) : ObservableO
 {
     public string Role { get; } = role;
     public bool IsKeeper { get; } = isKeeper;
+    /// <summary>La cartella aggiunta da cui viene la foto, quando le cartelle sono più di una.</summary>
+    [ObservableProperty] private string _rootName = "";
 
     [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasPhoto))] private string? _path;
     [ObservableProperty] private string _fileName = "";
@@ -97,9 +106,10 @@ public sealed partial class PhotoPanel(string role, bool isKeeper) : ObservableO
     public bool HasPhoto => Path is not null;
     public bool ShowPlaceholder => Image is null && !IsLoading;
 
-    public void Show(PhotoFile? f)
+    public void Show(PhotoFile? f, string? rootName = null)
     {
         Path = f?.Path;
+        RootName = rootName ?? "";
         Image = null;
         Placeholder = "";
         if (f is null)
