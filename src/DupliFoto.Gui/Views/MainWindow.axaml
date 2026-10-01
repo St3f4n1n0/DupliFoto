@@ -9,7 +9,6 @@
         WindowStartupLocation="CenterScreen"
         WindowState="Maximized"
         TransparencyLevelHint="Mica"
-        Background="Transparent"
         TransparencyBackgroundFallback="{DynamicResource WindowFallbackBrush}"
         DragDrop.AllowDrop="True">
 

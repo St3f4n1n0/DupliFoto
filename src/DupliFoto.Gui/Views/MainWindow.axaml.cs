@@ -1,6 +1,8 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using DupliFoto.Gui.Services;
 using DupliFoto.Gui.ViewModels;
@@ -9,12 +11,36 @@ namespace DupliFoto.Gui.Views;
 
 public partial class MainWindow : Window
 {
+    private IDisposable? _solidBackground;
+
     public MainWindow()
     {
         InitializeComponent();
+        UpdateBackground();
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DropEvent, OnDrop);
         Closing += (_, _) => Vm?.SaveSettings();
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == ActualTransparencyLevelProperty) UpdateBackground();
+    }
+
+    /// <summary>
+    /// Con Mica lo sfondo della finestra lo disegna Windows. In ogni altro caso serve lo sfondo pieno del tema:
+    /// su Windows 10, dove Mica non c'è, Avalonia ripiega su una finestra del tutto trasparente e attraverso
+    /// l'app si vedeva il desktop.
+    /// </summary>
+    private void UpdateBackground()
+    {
+        _solidBackground?.Dispose();
+        _solidBackground = null;
+        if (ActualTransparencyLevel == WindowTransparencyLevel.Mica)
+            Background = Brushes.Transparent;
+        else
+            _solidBackground = Bind(BackgroundProperty, this.GetResourceObservable("WindowFallbackBrush"));
     }
 
     private MainViewModel? Vm => DataContext as MainViewModel;

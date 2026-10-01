@@ -1,6 +1,8 @@
 using Avalonia;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Controls;
+using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using DupliFoto.Core;
@@ -76,6 +78,28 @@ public sealed class ScreenshotTests : IDisposable
         Assert.False(await confirm);
         window.Close();
     }
+    /// <summary>
+    /// Senza Mica (Windows 10, e qui) la finestra deve avere lo sfondo pieno del tema: su Windows 10 Avalonia
+    /// ripiega su una finestra trasparente, e con lo sfondo trasparente si vedeva il desktop attraverso l'app.
+    /// </summary>
+    [AvaloniaFact]
+    public void Window_background_is_opaque_without_Mica()
+    {
+        Application.Current!.RequestedThemeVariant = ThemeVariant.Light;
+        var window = Show(new MainViewModel(new SettingsStore(null)) { CachePath = null });
+        Assert.NotEqual(WindowTransparencyLevel.Mica, window.ActualTransparencyLevel);
+        var light = Assert.IsAssignableFrom<ISolidColorBrush>(window.Background).Color;
+
+        Application.Current.RequestedThemeVariant = ThemeVariant.Dark;
+        Dispatcher.UIThread.RunJobs();
+        var dark = Assert.IsAssignableFrom<ISolidColorBrush>(window.Background).Color;
+
+        Assert.Equal(255, light.A);
+        Assert.Equal(255, dark.A);
+        Assert.NotEqual(light, dark); // segue il tema
+        window.Close();
+    }
+
     /// <summary>
     /// Lo screenshot del README, con un piccolo archivio di esempio. Solo su richiesta:
     /// DUPLIFOTO_README_SCREENSHOT=docs/images/screenshot.png (e facoltativamente DUPLIFOTO_README_ROOT per la cartella).
