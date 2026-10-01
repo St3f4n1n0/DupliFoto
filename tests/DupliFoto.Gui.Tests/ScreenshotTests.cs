@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using DupliFoto.Core;
 using DupliFoto.Gui.Services;
 using DupliFoto.Gui.ViewModels;
@@ -74,6 +75,47 @@ public sealed class ScreenshotTests : IDisposable
         Assert.False(await confirm);
         window.Close();
     });
+    /// <summary>
+    /// Schermi piccoli: 1366×768 al 100% (circa 1366×697 utili, tolti titolo e barra delle applicazioni) e lo stesso
+    /// schermo al 125% (circa 1093×556). Le foto del confronto devono vedersi e nessuna parte deve finire sopra
+    /// un'altra; dove non ci sta tutto, la finestra scorre.
+    /// </summary>
+    [Theory]
+    [InlineData(1366, 697, "1366x768", true)]
+    [InlineData(1093, 556, "1366x768-125", false)]
+    public Task Small_screens_keep_every_part_apart(int width, int height, string name, bool fits) => Ui.Run(async () =>
+    {
+        var vm = MainViewModelTests.NewViewModel(_photos, RunMode.Assisted);
+        vm.AddFolders([Path.Combine(_photos.Photos, "WhatsApp")]);
+        vm.Folders[0].IsKept = true;
+        var window = new MainWindow { DataContext = vm, WindowState = WindowState.Normal, Width = width, Height = height };
+        window.Show();
+        await vm.StartCommand.ExecuteAsync(null);
+        vm.SelectedPair = vm.Pairs.Single(p => p.DuplicateName == "IMG-20260810-WA0001.jpg");
+        await MainViewModelTests.WaitFor(() => vm.Left.Image is not null && vm.Right.Image is not null);
+        Dispatcher.UIThread.RunJobs();
+
+        var frame = window.CaptureRenderedFrame() ?? throw new InvalidOperationException("Nessun fotogramma");
+        Directory.CreateDirectory(OutDir);
+        frame.Save(Path.Combine(OutDir, $"5-schermo-{name}.png"), new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+
+        // Con gli angoli trasformati: la colonna centrale sta in un Viewbox che la può rimpicciolire.
+        Rect At(string control) => window.FindControl<Control>(control) is { } c
+            ? new Rect(c.TranslatePoint(default, window)!.Value, c.TranslatePoint(new Point(c.Bounds.Width, c.Bounds.Height), window)!.Value)
+            : throw new InvalidOperationException($"Manca {control}");
+        Assert.True(At("MiddleColumn").Bottom <= At("DecisionBar").Top + 1, "affidabilità e motivi finiscono sopra i pulsanti");
+        Assert.True(At("DecisionBar").Bottom <= At("Stage").Bottom + 1, "i pulsanti escono dal riquadro del confronto");
+        Assert.True(At("Stage").Bottom <= At("Counters").Top + 1, "il confronto finisce sopra i contatori");
+        Assert.True(At("Counters").Bottom <= At("PairList").Top + 1, "i contatori finiscono sopra l'elenco");
+        Assert.False(At("PairActions").Intersects(At("BulkActions")), "i pulsanti della coppia e quelli per tutte si sovrappongono");
+        Assert.All(window.GetVisualDescendants().OfType<Image>().Where(i => i.Source is not null),
+            i => Assert.True(i.Bounds.Height >= 100, $"foto alta solo {i.Bounds.Height:0} punti"));
+        Assert.True(At("SwapButton").Bottom <= At("DecisionBar").Top + 1, "«Scambia» finisce sopra i pulsanti");
+        if (fits) Assert.True(At("PairList").Bottom <= height, "a 1366×768 deve starci tutto senza scorrere");
+        Assert.Equal(0, window.FindControl<ScrollViewer>("Scroller")!.Offset.Y); // scegliere una coppia non fa scorrere la finestra
+        window.Close();
+    });
+
     /// <summary>
     /// Senza Mica (Windows 10, e qui) la finestra deve avere lo sfondo pieno del tema: su Windows 10 Avalonia
     /// ripiega su una finestra trasparente, e con lo sfondo trasparente si vedeva il desktop attraverso l'app.

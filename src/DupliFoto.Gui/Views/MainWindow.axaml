@@ -5,17 +5,96 @@
         x:DataType="vm:MainViewModel"
         Title="DupliFoto"
         Icon="avares://DupliFoto/Assets/DupliFoto.ico"
-        Width="1360" Height="900" MinWidth="1040" MinHeight="720"
+        Width="1360" Height="900" MinWidth="1000" MinHeight="540"
         WindowStartupLocation="CenterScreen"
         WindowState="Maximized"
         TransparencyLevelHint="Mica"
         TransparencyBackgroundFallback="{DynamicResource WindowFallbackBrush}"
         DragDrop.AllowDrop="True">
 
+  <Window.Styles>
+    <!-- Misure normali. Stanno qui e non sui controlli, così la disposizione compatta le può cambiare. -->
+    <Style Selector="Grid#RootGrid">
+      <Setter Property="Margin" Value="16,12,16,16" />
+    </Style>
+    <Style Selector="Border#TopCard">
+      <Setter Property="Padding" Value="16,12" />
+    </Style>
+    <Style Selector="StackPanel.top">
+      <Setter Property="Spacing" Value="10" />
+    </Style>
+    <Style Selector="TextBlock.chip">
+      <Setter Property="MaxWidth" Value="460" />
+    </Style>
+    <Style Selector="Border.options">
+      <Setter Property="Margin" Value="0,8,0,0" />
+      <Setter Property="Padding" Value="0,12,0,0" />
+    </Style>
+    <Style Selector="Border#Stage">
+      <Setter Property="Margin" Value="0,12,0,0" />
+    </Style>
+    <Style Selector="Grid.photo">
+      <Setter Property="Margin" Value="20,14,20,10" />
+    </Style>
+    <Style Selector="Panel.photo-area">
+      <Setter Property="Margin" Value="0,10" />
+    </Style>
+    <Style Selector="TextBlock.details">
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.big">
+      <Setter Property="FontSize" Value="40" />
+    </Style>
+    <Style Selector="Border#DecisionBar">
+      <Setter Property="Padding" Value="12,10" />
+    </Style>
+
+    <!-- Disposizione compatta per gli schermi bassi (1366×768, o con il ridimensionamento al 125%):
+         la attiva MainWindow quando l'altezza utile scende sotto i 860 punti, e lì l'elenco in basso è più basso. -->
+    <Style Selector="Grid#RootGrid.compact">
+      <Setter Property="Margin" Value="12,8,12,8" />
+    </Style>
+    <Style Selector="Grid#RootGrid.compact Border#TopCard">
+      <Setter Property="Padding" Value="14,8" />
+    </Style>
+    <Style Selector="Grid#RootGrid.compact StackPanel.top">
+      <Setter Property="Spacing" Value="6" />
+    </Style>
+    <Style Selector="Grid#RootGrid.compact TextBlock.chip">
+      <Setter Property="MaxWidth" Value="300" />
+    </Style>
+    <Style Selector="Grid#RootGrid.compact Border.options">
+      <Setter Property="Margin" Value="0,4,0,0" />
+      <Setter Property="Padding" Value="0,6,0,0" />
+    </Style>
+    <Style Selector="Grid#RootGrid.compact TextBlock.hint">
+      <Setter Property="IsVisible" Value="False" />
+    </Style>
+    <Style Selector="Grid#RootGrid.compact Border#Stage">
+      <Setter Property="Margin" Value="0,8,0,0" />
+    </Style>
+    <Style Selector="Grid#RootGrid.compact Grid.photo">
+      <Setter Property="Margin" Value="14,8,14,4" />
+    </Style>
+    <Style Selector="Grid#RootGrid.compact Panel.photo-area">
+      <Setter Property="Margin" Value="0,4" />
+    </Style>
+    <Style Selector="Grid#RootGrid.compact TextBlock.details">
+      <Setter Property="TextWrapping" Value="NoWrap" />
+      <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+    <Style Selector="Grid#RootGrid.compact TextBlock.big">
+      <Setter Property="FontSize" Value="30" />
+    </Style>
+    <Style Selector="Grid#RootGrid.compact Border#DecisionBar">
+      <Setter Property="Padding" Value="12,5" />
+    </Style>
+  </Window.Styles>
+
   <Window.DataTemplates>
     <!-- Metà del confronto: etichetta, foto, informazioni, azioni -->
     <DataTemplate DataType="vm:PhotoPanel">
-      <Grid RowDefinitions="Auto,*,Auto" Margin="20,14,20,10">
+      <Grid RowDefinitions="Auto,*,Auto" Classes="photo">
         <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
           <PathIcon Data="{StaticResource IconCheck}" Width="14" Height="14"
                     Foreground="{DynamicResource SuccessBrush}" IsVisible="{Binding IsKeeper}" />
@@ -25,7 +104,7 @@
                      ToolTip.Tip="La cartella aggiunta da cui viene questa foto" />
         </StackPanel>
 
-        <Panel Grid.Row="1" Margin="0,10">
+        <Panel Grid.Row="1" Classes="photo-area">
           <Border CornerRadius="8" ClipToBounds="True" Background="{DynamicResource PhotoBackBrush}"
                   BoxShadow="0 2 12 0 #24000000"
                   HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -54,20 +133,29 @@
           </StackPanel>
           <TextBlock Text="{Binding Folder}" Classes="muted small" TextAlignment="Center" TextTrimming="PrefixCharacterEllipsis"
                      ToolTip.Tip="{Binding Folder}" />
-          <TextBlock Text="{Binding Details}" Classes="faint small" TextAlignment="Center" TextWrapping="Wrap" />
+          <TextBlock Text="{Binding Details}" Classes="faint small details" TextAlignment="Center" ToolTip.Tip="{Binding Details}" />
         </StackPanel>
       </Grid>
     </DataTemplate>
   </Window.DataTemplates>
 
   <Panel>
-    <Grid RowDefinitions="Auto,*,Auto,6,200" Margin="16,12,16,16">
+    <!-- Il confronto e l'elenco si dividono l'altezza; se nemmeno la disposizione compatta ci sta, la finestra scorre
+         (l'altezza di RootGrid la imposta MainWindow) invece di mettere una parte sopra l'altra. -->
+    <ScrollViewer x:Name="Scroller" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+    <Grid x:Name="RootGrid">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" MinHeight="280" />
+        <RowDefinition Height="6" />
+        <RowDefinition Height="230" MinHeight="150" />
+      </Grid.RowDefinitions>
 
       <!-- ============ In alto: cartelle, modalità, avvio ============ -->
-      <Border Grid.Row="0" Classes="card" Padding="16,12">
+      <Border Grid.Row="0" x:Name="TopCard" Classes="card">
         <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto">
 
-          <StackPanel Spacing="10">
+          <StackPanel Classes="top">
             <Grid ColumnDefinitions="*,Auto">
               <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                 <TextBlock Text="Cartelle da analizzare" Classes="h" VerticalAlignment="Center" />
@@ -93,7 +181,7 @@
                           BorderThickness="1" CornerRadius="6" Padding="10,2,3,2" Margin="0,0,8,8">
                     <StackPanel Orientation="Horizontal" Spacing="4">
                       <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14" Foreground="{DynamicResource MutedBrush}" />
-                      <TextBlock Text="{Binding Path}" VerticalAlignment="Center" MaxWidth="460" Margin="4,0"
+                      <TextBlock Text="{Binding Path}" Classes="chip" VerticalAlignment="Center" Margin="4,0"
                                  TextTrimming="PrefixCharacterEllipsis" ToolTip.Tip="{Binding Path}" />
                       <Button Classes="subtle icon" Command="{Binding RemoveCommand}" ToolTip.Tip="Togli dall'elenco"
                               AutomationProperties.Name="Togli la cartella dall'elenco">
@@ -105,11 +193,12 @@
               </ItemsControl.ItemTemplate>
             </ItemsControl>
 
-            <!-- Con due o più cartelle: quale copia tenere, e se confrontare anche dentro la stessa cartella -->
-            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" IsVisible="{Binding HasSeveralFolders}"
-                  IsEnabled="{Binding IsIdle}" Margin="0,0,0,2">
-              <TextBlock Text="Copia da tenere" Classes="label" VerticalAlignment="Center" Margin="0,0,16,0" />
-              <WrapPanel Grid.Column="1">
+            <!-- Con due o più cartelle: quale copia tenere, e se confrontare anche dentro la stessa cartella.
+                 Sulla stessa riga quando c'è posto. -->
+            <StackPanel Spacing="2" IsVisible="{Binding HasSeveralFolders}" IsEnabled="{Binding IsIdle}">
+            <WrapPanel>
+              <WrapPanel Margin="0,0,26,0">
+                <TextBlock Text="Copia da tenere" Classes="label" VerticalAlignment="Center" Margin="0,0,14,0" ToolTip.Tip="{Binding KeepHint}" />
                 <RadioButton GroupName="keep" Content="Scelta automatica" IsChecked="{Binding KeepAutomatic}" Margin="0,0,18,0"
                              ToolTip.Tip="Decide DupliFoto: risoluzione più alta, poi metadati più completi, nome senza «(1)»..." />
                 <ItemsControl ItemsSource="{Binding Folders}">
@@ -127,16 +216,16 @@
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
               </WrapPanel>
-              <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding KeepHint}" Classes="faint small" TextWrapping="Wrap" Margin="0,0,0,6" />
-
-              <TextBlock Grid.Row="2" Text="Cerca i doppioni" Classes="label" VerticalAlignment="Center" Margin="0,0,16,0" />
-              <WrapPanel Grid.Row="2" Grid.Column="1">
+              <WrapPanel>
+                <TextBlock Text="Cerca i doppioni" Classes="label" VerticalAlignment="Center" Margin="0,0,14,0" />
                 <RadioButton GroupName="compare" Content="in tutte le foto" IsChecked="{Binding CompareEverywhere}" Margin="0,0,18,0"
                              ToolTip.Tip="Anche le copie che stanno nella stessa cartella" />
                 <RadioButton GroupName="compare" Content="solo tra cartelle diverse" IsChecked="{Binding CrossFolderOnly}"
                              ToolTip.Tip="Ogni cartella viene confrontata solo con le altre: i doppioni dentro la stessa cartella restano dove sono" />
               </WrapPanel>
-            </Grid>
+            </WrapPanel>
+            <TextBlock Text="{Binding KeepHint}" Classes="faint small hint" TextWrapping="Wrap" />
+            </StackPanel>
           </StackPanel>
 
           <!-- Modalità e avvio -->
@@ -149,7 +238,7 @@
 
           <!-- Seconda riga: opzioni rapide -->
           <Border Grid.Row="1" Grid.ColumnSpan="2" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0"
-                  Margin="0,8,0,0" Padding="0,12,0,0">
+                  Classes="options">
             <Grid ColumnDefinitions="*,Auto">
               <WrapPanel VerticalAlignment="Center">
                 <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,24,0">
@@ -238,7 +327,7 @@
       </Border>
 
       <!-- ============ Al centro: il confronto ============ -->
-      <Border Grid.Row="1" Classes="card" Background="{DynamicResource StageBrush}" Margin="0,12,0,0">
+      <Border Grid.Row="1" x:Name="Stage" Classes="card" Background="{DynamicResource StageBrush}" ClipToBounds="True">
         <Panel>
           <!-- Benvenuto -->
           <StackPanel IsVisible="{Binding ShowWelcome}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" MaxWidth="520">
@@ -270,15 +359,17 @@
           <Grid IsVisible="{Binding ShowComparison}" RowDefinitions="*,Auto" ColumnDefinitions="*,190,*">
             <ContentControl Grid.Column="0" Content="{Binding Left}" />
 
-            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
+            <!-- Con poco spazio si rimpicciolisce, invece di finire sopra i pulsanti -->
+            <Viewbox Grid.Column="1" x:Name="MiddleColumn" StretchDirection="DownOnly" Stretch="Uniform" VerticalAlignment="Center">
+            <StackPanel Width="190" Spacing="4">
               <TextBlock Text="Affidabilità" Classes="muted small" HorizontalAlignment="Center" />
-              <TextBlock Text="{Binding ConfidenceText}" FontSize="40" FontWeight="SemiBold" HorizontalAlignment="Center"
-                         Classes="conf" Classes.ok="{Binding IsHigh}" Classes.mid="{Binding IsMid}" Classes.low="{Binding IsLow}" />
+              <TextBlock Text="{Binding ConfidenceText}" FontWeight="SemiBold" HorizontalAlignment="Center"
+                         Classes="conf big" Classes.ok="{Binding IsHigh}" Classes.mid="{Binding IsMid}" Classes.low="{Binding IsLow}" />
               <TextBlock Text="{Binding KindText}" FontWeight="SemiBold" HorizontalAlignment="Center" />
               <TextBlock Text="{Binding ReasonText}" Classes="muted small" TextAlignment="Center" TextWrapping="Wrap" Margin="0,4,0,0" />
               <TextBlock Text="{Binding KeeperReasonText}" Classes="faint small" TextAlignment="Center" TextWrapping="Wrap" Margin="0,6,0,0"
                          IsVisible="{Binding KeeperReasonText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-              <Button Classes="subtle" HorizontalAlignment="Center" Margin="0,14,0,0" Command="{Binding SwapCommand}"
+              <Button x:Name="SwapButton" Classes="subtle" HorizontalAlignment="Center" Margin="0,10,0,0" Command="{Binding SwapCommand}"
                       IsEnabled="{Binding CanSwap}" ToolTip.Tip="Tieni la foto a destra invece di quella a sinistra">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <PathIcon Data="{StaticResource IconSwap}" />
@@ -286,12 +377,13 @@
                 </StackPanel>
               </Button>
             </StackPanel>
+            </Viewbox>
 
             <ContentControl Grid.Column="2" Content="{Binding Right}" />
 
             <!-- Barra delle decisioni -->
-            <Border Grid.Row="1" Grid.ColumnSpan="3" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0" Padding="12,10">
-              <Grid ColumnDefinitions="*,Auto,*">
+            <Border Grid.Row="1" Grid.ColumnSpan="3" x:Name="DecisionBar" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0">
+              <Grid ColumnDefinitions="Auto,*,Auto">
                 <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
                   <Button Classes="subtle icon" Command="{Binding PreviousCommand}" IsEnabled="{Binding CanNavigate}" ToolTip.Tip="Coppia precedente"
                           AutomationProperties.Name="Coppia precedente">
@@ -302,10 +394,11 @@
                     <PathIcon Data="{StaticResource IconChevronRight}" />
                   </Button>
                   <TextBlock Text="{Binding DecisionHint}" Classes="muted small" VerticalAlignment="Center" Margin="8,0,0,0"
-                             TextWrapping="Wrap" MaxWidth="330" />
+                             TextWrapping="Wrap" MaxWidth="240" />
                 </StackPanel>
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" IsVisible="{Binding !IsReadOnlyMode}">
+                <StackPanel Grid.Column="1" x:Name="PairActions" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center"
+                            Margin="12,0" IsVisible="{Binding !IsReadOnlyMode}">
                   <Button Classes="accent" Command="{Binding MoveDuplicateCommand}" IsEnabled="{Binding CanDecide}" Padding="16,7"
                           ToolTip.Tip="{Binding MoveTip}">
                     <StackPanel Orientation="Horizontal" Spacing="8">
@@ -319,32 +412,14 @@
                       <TextBlock Text="Tieni entrambe" />
                     </StackPanel>
                   </Button>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" x:Name="BulkActions" Orientation="Horizontal" VerticalAlignment="Center"
+                            IsVisible="{Binding !IsReadOnlyMode}">
                   <Button Classes="subtle" Command="{Binding ApplyToAllOfKindCommand}" IsEnabled="{Binding CanDecide}">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                       <PathIcon Data="{StaticResource IconCheckAll}" />
                       <TextBlock Text="{Binding ApplyAllText}" />
-                    </StackPanel>
-                  </Button>
-                </StackPanel>
-
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right" VerticalAlignment="Center">
-                  <Button Classes="subtle" Command="{Binding ApplyAutomaticCommand}" IsVisible="{Binding CanApplyAutomatic}">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                      <PathIcon Data="{StaticResource IconCheckAll}" />
-                      <TextBlock Text="{Binding AutomaticText}" />
-                    </StackPanel>
-                  </Button>
-                  <Button Classes="subtle" Command="{Binding UndoCommand}" IsEnabled="{Binding CanUndo}"
-                          ToolTip.Tip="Riporta al loro posto i file spostati in questa sessione">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                      <PathIcon Data="{StaticResource IconUndo}" />
-                      <TextBlock Text="Annulla spostamenti" />
-                    </StackPanel>
-                  </Button>
-                  <Button Classes="subtle" Command="{Binding ExportReportCommand}" ToolTip.Tip="Report HTML con anteprime e CSV per Excel">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                      <PathIcon Data="{StaticResource IconReport}" />
-                      <TextBlock Text="Report" />
                     </StackPanel>
                   </Button>
                 </StackPanel>
@@ -354,8 +429,11 @@
         </Panel>
       </Border>
 
+      <GridSplitter Grid.Row="2" Background="Transparent" ResizeDirection="Rows" />
+
+      <Grid Grid.Row="3" RowDefinitions="Auto,*">
       <!-- ============ Contatori ============ -->
-      <Grid Grid.Row="2" ColumnDefinitions="Auto,*" Margin="4,10,4,4">
+      <Grid x:Name="Counters" ColumnDefinitions="Auto,*" Margin="4,2,4,4">
         <StackPanel Orientation="Horizontal" Spacing="22">
           <StackPanel Classes="stat" Orientation="Horizontal" Spacing="5">
             <TextBlock Classes="value" Text="{Binding FilesCount, StringFormat='{}{0:N0}'}" />
@@ -387,14 +465,34 @@
                    VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="24,0,0,0" IsVisible="{Binding !IsScanning}" />
       </Grid>
 
-      <GridSplitter Grid.Row="3" Background="Transparent" ResizeDirection="Rows" />
-
-      <!-- ============ In basso: elenco delle coppie ============ -->
-      <Border Grid.Row="4" Classes="card">
+      <!-- ============ In basso: elenco delle coppie, con le azioni che valgono per tutto l'elenco ============ -->
+      <Border Grid.Row="1" x:Name="PairList" Classes="card">
         <Grid RowDefinitions="Auto,Auto,*">
-          <Grid ColumnDefinitions="*,Auto" Margin="16,10,12,6">
+          <Grid ColumnDefinitions="Auto,*,Auto" Margin="16,6,12,4">
             <TextBlock Text="Coppie trovate" Classes="h" VerticalAlignment="Center" />
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" Margin="16,0" VerticalAlignment="Center">
+              <Button Classes="subtle" Command="{Binding ApplyAutomaticCommand}" IsVisible="{Binding CanApplyAutomatic}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Data="{StaticResource IconCheckAll}" />
+                  <TextBlock Text="{Binding AutomaticText}" />
+                </StackPanel>
+              </Button>
+              <Button Classes="subtle" Command="{Binding UndoCommand}" IsEnabled="{Binding CanUndo}"
+                      ToolTip.Tip="Riporta al loro posto i file spostati in questa sessione">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Data="{StaticResource IconUndo}" />
+                  <TextBlock Text="Annulla spostamenti" />
+                </StackPanel>
+              </Button>
+              <Button Classes="subtle" Command="{Binding ExportReportCommand}" IsEnabled="{Binding HasResults}"
+                      ToolTip.Tip="Report HTML con anteprime e CSV per Excel">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                  <PathIcon Data="{StaticResource IconReport}" />
+                  <TextBlock Text="Report" />
+                </StackPanel>
+              </Button>
+            </StackPanel>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
               <TextBlock Text="Mostra" Classes="label" />
               <ComboBox ItemsSource="{Binding Filters}" SelectedItem="{Binding SelectedFilter}" Width="180" />
             </StackPanel>
@@ -437,7 +535,9 @@
           </ListBox>
         </Grid>
       </Border>
+      </Grid>
     </Grid>
+    </ScrollViewer>
 
     <!-- ============ Domanda di conferma ============ -->
     <Border Background="{DynamicResource OverlayBrush}" IsVisible="{Binding ConfirmVisible}">

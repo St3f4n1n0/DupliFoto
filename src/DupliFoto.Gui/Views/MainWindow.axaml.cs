@@ -20,6 +20,34 @@ public partial class MainWindow : Window
         AddHandler(DragDrop.DragOverEvent, OnDragOver);
         AddHandler(DragDrop.DropEvent, OnDrop);
         Closing += (_, _) => Vm?.SaveSettings();
+        Scroller.SizeChanged += (_, _) => UpdateLayoutMode();
+        TopCard.SizeChanged += (_, _) => UpdateLayoutMode();
+        // Scegliere una coppia porta la sua riga in vista dentro l'elenco, e lì basta: se la finestra scorresse
+        // anche lei, i pulsanti si sposterebbero sotto il mouse.
+        PairList.AddHandler(RequestBringIntoViewEvent, (_, e) => e.Handled = true);
+    }
+
+    /// <summary>Sotto questa altezza utile (1366×768, o schermi più alti con il ridimensionamento al 125-150%): disposizione compatta.</summary>
+    internal const double CompactBelow = 860;
+
+    /// <summary>
+    /// Schermi bassi: margini e caratteri più piccoli; e se nemmeno così ci sta tutto, la finestra scorre invece di
+    /// mettere il confronto sopra l'elenco. Dentro lo ScrollViewer la griglia avrebbe un'altezza infinita: le si dà
+    /// quella della finestra, ma mai meno di quanto serve al riquadro in alto più il minimo per confronto ed elenco.
+    /// </summary>
+    private void UpdateLayoutMode()
+    {
+        double available = Scroller.Bounds.Height;
+        if (available <= 0) return;
+        bool compact = available < CompactBelow;
+        var rows = RootGrid.RowDefinitions;
+        if (compact != RootGrid.Classes.Contains("compact"))
+        {
+            RootGrid.Classes.Set("compact", compact);
+            rows[3].Height = new GridLength(compact ? 185 : 230); // contatori ed elenco; poi l'altezza la decide il divisore
+        }
+        double minimum = TopCard.Bounds.Height + rows[1].MinHeight + rows[2].Height.Value + rows[3].MinHeight;
+        RootGrid.Height = Math.Max(available - RootGrid.Margin.Top - RootGrid.Margin.Bottom, minimum);
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
