@@ -1,8 +1,11 @@
+using DupliFoto.Core.Scanning;
+
 namespace DupliFoto.Core.Matching;
 
 /// <summary>
 /// Sceglie quale copia tenere in un gruppo.
-/// - Doppioni della stessa immagine: vince la qualità del FILE (risoluzione, metadati, nome pulito, cartella preferita).
+/// - Doppioni della stessa immagine: prima la cartella da tenere scelta dall'utente, poi la qualità del FILE
+///   (risoluzione, metadati, nome pulito).
 /// - Scatti multipli: vince la qualità della FOTO (nitidezza), poi la risoluzione.
 /// </summary>
 public static class KeeperPolicy
@@ -29,15 +32,20 @@ public static class KeeperPolicy
         return (keeper, Explain(keeper, files, isBurst, options));
     }
 
+    /// <summary>
+    /// La copia sta in una cartella da tenere? Con cartelle annidate conta la cartella aggiunta più specifica:
+    /// se "Foto" è da tenere ma "Foto\Catalogate" è stata aggiunta a parte, le foto di Catalogate sono di Catalogate.
+    /// </summary>
     private static bool IsInPreferredFolder(PhotoFile f, ScanOptions o) =>
-        o.PreferredFolders.Any(p => Scanning.FileScanner.IsUnder(f.Path, p));
+        o.PreferredFolders.Any(p => FileScanner.IsUnder(f.Path, p)
+                                    && !(f.Root.Length > 0 && FileScanner.IsUnder(f.Root, p) && !FileScanner.SameFolder(f.Root, p)));
 
     private static string Explain(PhotoFile k, IReadOnlyList<PhotoFile> all, bool isBurst, ScanOptions o)
     {
         var others = all.Where(f => !ReferenceEquals(f, k)).ToList();
         if (others.Count == 0) return "";
         if (isBurst && others.All(f => k.Sharpness > f.Sharpness)) return "lo scatto più nitido";
-        if (IsInPreferredFolder(k, o) && others.Any(f => !IsInPreferredFolder(f, o))) return "si trova nella cartella preferita";
+        if (IsInPreferredFolder(k, o) && others.Any(f => !IsInPreferredFolder(f, o))) return "si trova nella cartella da tenere";
         if (others.All(f => k.PixelCount > f.PixelCount)) return "risoluzione più alta";
         if (others.All(f => k.MetadataRichness > f.MetadataRichness)) return "metadati più completi (data, GPS...)";
         if (!k.HasCopyMarker && others.Any(f => f.HasCopyMarker)) return "nome originale, senza \"(1)\" o \"Copia\"";

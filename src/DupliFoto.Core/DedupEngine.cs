@@ -37,6 +37,9 @@ public sealed class DedupEngine(IImageDecoder decoder, IMetadataReader metadata,
 
         foreach (var set in exactSets)
         {
+            // Solo tra cartelle diverse: le copie tutte nella stessa cartella non fanno gruppo, e restano
+            // nell'analisi visiva perché possono avere un doppione in un'altra cartella.
+            if (o.CrossFolderOnly && set.All(f => SameRoot(f, set[0]))) continue;
             var (keeper, why) = KeeperPolicy.Choose(set, isBurst: false, o);
             var group = new DuplicateGroup
             {
@@ -108,6 +111,13 @@ public sealed class DedupEngine(IImageDecoder decoder, IMetadataReader metadata,
             if (SimilarityScorer.Compare(p.A, p.B, o) is { } m) matches.Add((p.A, p.B, m));
         });
         groups.AddRange(BuildSimilarityGroups(analyzed, matches, o));
+
+        // Solo tra cartelle diverse: le copie nella stessa cartella della copia da tenere non sono doppioni.
+        if (o.CrossFolderOnly)
+        {
+            foreach (var g in groups) SetAsideSameFolderCopies(g);
+            groups.RemoveAll(g => g.Duplicates.Count == 0);
+        }
 
         // ---------- Ordinamento e numerazione ----------
         var ordered = groups
@@ -226,7 +236,8 @@ public sealed class DedupEngine(IImageDecoder decoder, IMetadataReader metadata,
         var parent = Enumerable.Range(0, analyzed.Count).ToArray();
         int Find(int x) { while (parent[x] != x) x = parent[x] = parent[parent[x]]; return x; }
 
-        var matchList = matches.ToList();
+        // Solo tra cartelle diverse: i gruppi nascono soltanto da somiglianze tra cartelle diverse.
+        var matchList = matches.Where(t => !o.CrossFolderOnly || !SameRoot(t.A, t.B)).ToList();
         foreach (var (a, b, _) in matchList) parent[Find(index[a])] = Find(index[b]);
 
         var burstInCluster = new HashSet<int>();
@@ -261,6 +272,15 @@ public sealed class DedupEngine(IImageDecoder decoder, IMetadataReader metadata,
             result.Add(new DuplicateGroup { Keeper = keeper, KeeperReason = why, Duplicates = dups });
         }
         return result;
+    }
+
+    internal static bool SameRoot(PhotoFile a, PhotoFile b) => string.Equals(a.Root, b.Root, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Sposta tra le <see cref="DuplicateGroup.SameFolderCopies"/> i membri nella cartella della copia da tenere.</summary>
+    internal static void SetAsideSameFolderCopies(DuplicateGroup g)
+    {
+        g.SameFolderCopies.AddRange(g.Duplicates.Where(d => SameRoot(d.File, g.Keeper)).Select(d => d.File));
+        g.Duplicates.RemoveAll(d => SameRoot(d.File, g.Keeper));
     }
 
     private static string DescribeExact(PhotoFile keeper, PhotoFile dup)
