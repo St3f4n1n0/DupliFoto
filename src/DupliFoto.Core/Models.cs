@@ -41,6 +41,8 @@ public sealed class PhotoFile
     public required string Path { get; init; }
     public long Size { get; init; }
     public DateTime LastWriteUtc { get; init; }
+    /// <summary>La cartella aggiunta da cui viene la foto; con cartelle annidate, la più specifica.</summary>
+    public string Root { get; set; } = "";
 
     public string Extension => System.IO.Path.GetExtension(Path).ToLowerInvariant();
     public string BaseName => System.IO.Path.GetFileNameWithoutExtension(Path);
@@ -105,6 +107,11 @@ public sealed class DuplicateGroup
     public required PhotoFile Keeper { get; set; }
     public required List<GroupMember> Duplicates { get; init; }
     public string KeeperReason { get; set; } = "";
+    /// <summary>
+    /// Con <see cref="ScanOptions.CrossFolderOnly"/>: le copie nella stessa cartella della copia da tenere. Non sono
+    /// doppioni e restano dove sono; contano solo se l'utente sceglie come copia da tenere una foto di un'altra cartella.
+    /// </summary>
+    public List<PhotoFile> SameFolderCopies { get; init; } = new();
 
     /// <summary>Il tipo "peggiore" del gruppo (il meno certo).</summary>
     public MatchKind Kind => Duplicates.Count == 0 ? MatchKind.ExactBytes : Duplicates.Max(d => d.Kind);

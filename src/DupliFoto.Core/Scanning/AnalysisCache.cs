@@ -34,8 +34,7 @@ public sealed class AnalysisCache
 
     public AnalysisCache(string? path) => _path = path;
 
-    public static string DefaultPath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DupliFoto", "cache-v1.json");
+    public static string DefaultPath => Path.Combine(AppFiles.Folder, "cache-v1.json");
 
     public int Count => _entries.Count;
 

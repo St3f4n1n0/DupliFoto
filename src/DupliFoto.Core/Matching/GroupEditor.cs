@@ -6,6 +6,8 @@ public static class GroupEditor
     /// <summary>
     /// Fa di <paramref name="newKeeper"/> la copia da tenere. Le affidabilità degli altri membri vengono
     /// ricalcolate rispetto alla nuova copia (mai lungo una catena A~B~C), come quando il gruppo è nato.
+    /// Solo tra cartelle diverse: le copie nella cartella della nuova copia restano dove sono, e quelle
+    /// messe da parte nell'altra cartella tornano a essere doppioni.
     /// </summary>
     public static void ChangeKeeper(DuplicateGroup group, PhotoFile newKeeper, ScanOptions o)
     {
@@ -13,9 +15,10 @@ public static class GroupEditor
         if (!group.Duplicates.Any(d => ReferenceEquals(d.File, newKeeper)))
             throw new ArgumentException("Il file non fa parte del gruppo", nameof(newKeeper));
 
-        var others = group.AllFiles.Where(f => !ReferenceEquals(f, newKeeper)).ToList();
+        var others = group.AllFiles.Concat(group.SameFolderCopies).Where(f => !ReferenceEquals(f, newKeeper)).ToList();
 
         group.Duplicates.Clear();
+        group.SameFolderCopies.Clear();
         foreach (var f in others)
         {
             if (SimilarityScorer.Compare(newKeeper, f, o) is { } m)
@@ -36,5 +39,6 @@ public static class GroupEditor
         }
         group.Keeper = newKeeper;
         group.KeeperReason = "scelta da te";
+        if (o.CrossFolderOnly) DedupEngine.SetAsideSameFolderCopies(group);
     }
 }

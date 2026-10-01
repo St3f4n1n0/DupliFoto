@@ -20,6 +20,9 @@
           <PathIcon Data="{StaticResource IconCheck}" Width="14" Height="14"
                     Foreground="{DynamicResource SuccessBrush}" IsVisible="{Binding IsKeeper}" />
           <TextBlock Text="{Binding Role}" Classes="h" />
+          <TextBlock Text="{Binding RootName, StringFormat='· {0}'}" Classes="muted" VerticalAlignment="Center"
+                     IsVisible="{Binding RootName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                     ToolTip.Tip="La cartella aggiunta da cui viene questa foto" />
         </StackPanel>
 
         <Panel Grid.Row="1" Margin="0,10">
@@ -92,13 +95,6 @@
                       <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14" Foreground="{DynamicResource MutedBrush}" />
                       <TextBlock Text="{Binding Path}" VerticalAlignment="Center" MaxWidth="460" Margin="4,0"
                                  TextTrimming="PrefixCharacterEllipsis" ToolTip.Tip="{Binding Path}" />
-                      <ToggleButton Classes="star" IsChecked="{Binding IsPreferred}" AutomationProperties.Name="Cartella preferita"
-                                    ToolTip.Tip="Cartella preferita: tra due doppioni tieni la copia che sta qui">
-                        <Panel>
-                          <PathIcon Data="{StaticResource IconStar}" Width="14" Height="14" IsVisible="{Binding IsPreferred}" />
-                          <PathIcon Data="{StaticResource IconStarOutline}" Width="14" Height="14" IsVisible="{Binding !IsPreferred}" />
-                        </Panel>
-                      </ToggleButton>
                       <Button Classes="subtle icon" Command="{Binding RemoveCommand}" ToolTip.Tip="Togli dall'elenco"
                               AutomationProperties.Name="Togli la cartella dall'elenco">
                         <PathIcon Data="{StaticResource IconClose}" Width="12" Height="12" />
@@ -108,6 +104,39 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
+
+            <!-- Con due o più cartelle: quale copia tenere, e se confrontare anche dentro la stessa cartella -->
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" IsVisible="{Binding HasSeveralFolders}"
+                  IsEnabled="{Binding IsIdle}" Margin="0,0,0,2">
+              <TextBlock Text="Copia da tenere" Classes="label" VerticalAlignment="Center" Margin="0,0,16,0" />
+              <WrapPanel Grid.Column="1">
+                <RadioButton GroupName="keep" Content="Scelta automatica" IsChecked="{Binding KeepAutomatic}" Margin="0,0,18,0"
+                             ToolTip.Tip="Decide DupliFoto: risoluzione più alta, poi metadati più completi, nome senza «(1)»..." />
+                <ItemsControl ItemsSource="{Binding Folders}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <WrapPanel />
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:FolderItem">
+                      <RadioButton GroupName="keep" Content="{Binding Name}" IsChecked="{Binding IsKept}" Margin="0,0,18,0"
+                                   ToolTip.Tip="{Binding Path, StringFormat='Tieni sempre le copie che stanno in {0}'}"
+                                   AutomationProperties.Name="{Binding Name, StringFormat='Tieni le copie in {0}'}" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </WrapPanel>
+              <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding KeepHint}" Classes="faint small" TextWrapping="Wrap" Margin="0,0,0,6" />
+
+              <TextBlock Grid.Row="2" Text="Cerca i doppioni" Classes="label" VerticalAlignment="Center" Margin="0,0,16,0" />
+              <WrapPanel Grid.Row="2" Grid.Column="1">
+                <RadioButton GroupName="compare" Content="in tutte le foto" IsChecked="{Binding CompareEverywhere}" Margin="0,0,18,0"
+                             ToolTip.Tip="Anche le copie che stanno nella stessa cartella" />
+                <RadioButton GroupName="compare" Content="solo tra cartelle diverse" IsChecked="{Binding CrossFolderOnly}"
+                             ToolTip.Tip="Ogni cartella viene confrontata solo con le altre: i doppioni dentro la stessa cartella restano dove sono" />
+              </WrapPanel>
+            </Grid>
           </StackPanel>
 
           <!-- Modalità e avvio -->
@@ -172,6 +201,16 @@
                         </StackPanel>
                         <TextBlock Text="Disponibile solo nella versione per Windows." Classes="faint small"
                                    IsVisible="{Binding !IsNeuralAvailable}" />
+
+                        <TextBlock Text="File di DupliFoto" Classes="h" Margin="0,8,0,0" />
+                        <TextBlock Text="Impostazioni, cache delle analisi e registro errori stanno qui. «Pulisci DupliFoto.bat», in questa cartella, li toglie da questo PC insieme a quelli delle versioni precedenti."
+                                   Classes="muted small" TextWrapping="Wrap" />
+                        <Grid ColumnDefinitions="*,Auto">
+                          <TextBox Text="{Binding DataFolder, Mode=OneWay}" IsReadOnly="True" />
+                          <Button Grid.Column="1" Content="Apri" Margin="8,0,0,0" Command="{Binding OpenDataFolderCommand}" />
+                        </Grid>
+                        <TextBlock Text="Versione portatile: con un file «DupliFoto.portable» accanto all'exe, questi file stanno nella cartella «DupliFoto-dati» accanto all'exe."
+                                   Classes="faint small" TextWrapping="Wrap" />
                       </StackPanel>
                     </Flyout>
                   </Button.Flyout>
@@ -237,6 +276,8 @@
                          Classes="conf" Classes.ok="{Binding IsHigh}" Classes.mid="{Binding IsMid}" Classes.low="{Binding IsLow}" />
               <TextBlock Text="{Binding KindText}" FontWeight="SemiBold" HorizontalAlignment="Center" />
               <TextBlock Text="{Binding ReasonText}" Classes="muted small" TextAlignment="Center" TextWrapping="Wrap" Margin="0,4,0,0" />
+              <TextBlock Text="{Binding KeeperReasonText}" Classes="faint small" TextAlignment="Center" TextWrapping="Wrap" Margin="0,6,0,0"
+                         IsVisible="{Binding KeeperReasonText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
               <Button Classes="subtle" HorizontalAlignment="Center" Margin="0,14,0,0" Command="{Binding SwapCommand}"
                       IsEnabled="{Binding CanSwap}" ToolTip.Tip="Tieni la foto a destra invece di quella a sinistra">
                 <StackPanel Orientation="Horizontal" Spacing="8">
@@ -266,10 +307,10 @@
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" IsVisible="{Binding !IsReadOnlyMode}">
                   <Button Classes="accent" Command="{Binding MoveDuplicateCommand}" IsEnabled="{Binding CanDecide}" Padding="16,7"
-                          ToolTip.Tip="Sposta la foto a destra; quella a sinistra resta dov'è">
+                          ToolTip.Tip="{Binding MoveTip}">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                       <PathIcon Data="{StaticResource IconMove}" />
-                      <TextBlock Text="Sposta il doppione" FontWeight="SemiBold" />
+                      <TextBlock Text="Sposta quella a destra" FontWeight="SemiBold" />
                     </StackPanel>
                   </Button>
                   <Button Command="{Binding KeepBothCommand}" IsEnabled="{Binding CanDecide}" Padding="14,7">
@@ -362,7 +403,7 @@
           <Grid Grid.Row="1" ColumnDefinitions="120,*,*,140,90" Margin="16,0,16,4">
             <TextBlock Text="Stato" Classes="faint small" />
             <TextBlock Grid.Column="1" Text="Da tenere" Classes="faint small" />
-            <TextBlock Grid.Column="2" Text="Doppione" Classes="faint small" />
+            <TextBlock Grid.Column="2" Text="Da spostare" Classes="faint small" />
             <TextBlock Grid.Column="3" Text="Tipo" Classes="faint small" />
             <TextBlock Grid.Column="4" Text="Affidabilità" Classes="faint small" HorizontalAlignment="Right" />
           </Grid>

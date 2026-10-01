@@ -56,7 +56,7 @@ public sealed class ScreenshotTests : IDisposable
 
         var vm = MainViewModelTests.NewViewModel(_photos, RunMode.Assisted);
         vm.AddFolders([Path.Combine(_photos.Photos, "WhatsApp")]);
-        vm.Folders[0].IsPreferred = true;
+        vm.Folders[0].IsKept = true;
         var window = Show(vm);
         Save(window, $"1-benvenuto-{theme}");
 
@@ -132,10 +132,11 @@ public sealed class ScreenshotTests : IDisposable
 
         Application.Current!.RequestedThemeVariant = ThemeVariant.Light;
         var vm = new MainViewModel(new SettingsStore(null)) { CachePath = null };
-        vm.AddFolders([root]);
+        vm.AddFolders([holidays, whatsapp, exported]);
+        vm.Folders[0].IsKept = true;
         vm.SelectedMode = vm.Modes.Single(m => m.Value == RunMode.Assisted);
         vm.QuarantineRoot = Path.Combine(Path.GetTempPath(), "DupliFoto-Quarantena");
-        var window = new MainWindow { DataContext = vm, WindowState = Avalonia.Controls.WindowState.Normal, Width = 1360, Height = 860 };
+        var window = new MainWindow { DataContext = vm, WindowState = Avalonia.Controls.WindowState.Normal, Width = 1360, Height = 930 };
         window.Show();
         await vm.StartCommand.ExecuteAsync(null);
         vm.SelectedPair = vm.Pairs.Single(p => p.DuplicateName == "IMG-20240810-WA0007.jpg");

@@ -46,8 +46,13 @@ public sealed class ScanOptions
     public DisposalMethod Disposal { get; set; } = DisposalMethod.Quarantine;
     public string QuarantineRoot { get; set; } = System.IO.Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "DupliFoto-Quarantena");
-    /// <summary>Cartelle le cui copie vanno preferite come "da tenere".</summary>
+    /// <summary>Cartelle le cui copie vanno sempre tenute: tra due copie vince quella che sta qui.</summary>
     public List<string> PreferredFolders { get; init; } = new();
+    /// <summary>
+    /// Confronta le foto solo con quelle delle altre cartelle aggiunte ("cosa di B c'è già in A"):
+    /// i doppioni dentro la stessa cartella vengono ignorati.
+    /// </summary>
+    public bool CrossFolderOnly { get; set; }
 
     public int MaxDegreeOfParallelism { get; set; } = Environment.ProcessorCount;
     public string? CachePath { get; set; }

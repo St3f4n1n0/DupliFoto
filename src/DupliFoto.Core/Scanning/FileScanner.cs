@@ -28,6 +28,9 @@ public static class FileScanner
         string quarantine = Normalize(options.QuarantineRoot);
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var result = new List<PhotoFile>();
+        // Con cartelle annidate ("Foto" e "Foto\Catalogate") una foto appartiene alla più specifica.
+        var rootsBySpecificity = options.Roots.Select(r => Path.TrimEndingDirectorySeparator(Path.GetFullPath(r)))
+                                              .OrderByDescending(r => r.Length).ToList();
 
         foreach (var root in options.Roots)
         {
@@ -59,7 +62,13 @@ public static class FileScanner
                 catch (Exception) { continue; }
                 if (fi.Length == 0) continue;
 
-                var file = new PhotoFile { Path = full, Size = fi.Length, LastWriteUtc = fi.LastWriteTimeUtc };
+                var file = new PhotoFile
+                {
+                    Path = full,
+                    Size = fi.Length,
+                    LastWriteUtc = fi.LastWriteTimeUtc,
+                    Root = rootsBySpecificity.First(r => IsUnder(full, r)),
+                };
                 var n = NameNormalizer.Normalize(file.BaseName);
                 file.NormalizedName = n.Normalized;
                 file.HasCopyMarker = n.HasCopyMarker;
@@ -89,6 +98,11 @@ public static class FileScanner
         return path.StartsWith(f, StringComparison.OrdinalIgnoreCase)
                || string.Equals(Path.TrimEndingDirectorySeparator(path), Path.TrimEndingDirectorySeparator(f), StringComparison.OrdinalIgnoreCase);
     }
+
+    /// <summary>Stessa cartella, anche se scritta in modo diverso ("D:\Foto" e "d:\foto\").</summary>
+    public static bool SameFolder(string a, string b) => string.Equals(
+        Path.TrimEndingDirectorySeparator(Path.GetFullPath(a)), Path.TrimEndingDirectorySeparator(Path.GetFullPath(b)),
+        StringComparison.OrdinalIgnoreCase);
 
     private static string Normalize(string p)
     {

@@ -119,6 +119,7 @@ async Task<int> Analyze(string[] a)
             case "--raffica": o.BurstWindowSeconds = Number(arg, Next(), 0.1, 3600); break;
             case "--no-raffiche": o.DetectBursts = false; break;
             case "--preferisci": o.PreferredFolders.Add(Path.GetFullPath(Next())); break;
+            case "--solo-tra-cartelle": o.CrossFolderOnly = true; break;
             case "--non-interattivo": interactive = false; break;
             case "--no-cache": o.CachePath = null; break;
             case "--thread": o.MaxDegreeOfParallelism = (int)Number(arg, Next(), 1, 1024); break;
@@ -129,10 +130,18 @@ async Task<int> Analyze(string[] a)
         }
     }
     if (o.Roots.Count == 0) throw new ArgumentException("Indica almeno una cartella da analizzare.");
+    if (o.CrossFolderOnly && o.Roots.Count < 2)
+        throw new ArgumentException("--solo-tra-cartelle confronta cartelle diverse: indicane almeno due.");
     if (o.Mode == RunMode.Assisted && !interactive)
         throw new ArgumentException("La modalità assistita richiede di rispondere alle domande: togli --non-interattivo.");
 
     Ui.Color(ConsoleColor.Cyan, $"{AppInfo.Name} {AppInfo.Version} · modalità: {ModeLabel(o)}");
+    // La cartella dei file di lavoro, con «Pulisci DupliFoto.bat»; le copie scompattate delle versioni precedenti
+    // si tolgono intanto, in sottofondo (se il programma finisce prima, si riprende la volta dopo).
+    AppFiles.Prepare();
+    new Thread(() => AppFiles.RemoveOldExtractions()) { IsBackground = true, Priority = ThreadPriority.BelowNormal }.Start();
+    if (o.CrossFolderOnly) Console.WriteLine("Solo tra cartelle diverse: i doppioni dentro la stessa cartella vengono ignorati.");
+    foreach (var keep in o.PreferredFolders) Console.WriteLine($"Copie da tenere: quelle in {keep}");
 
     // --- Acceleratore (facoltativo) ---
     IEmbeddingProvider? embeddings = null;
@@ -257,7 +266,9 @@ static void PrintHelp() => Console.WriteLine("""
     OPZIONI
       --azione quarantena|cestino   dove spostare i doppioni (predefinita: quarantena)
       --quarantena <cartella>       cartella di quarantena (predefinita: Immagini\DupliFoto-Quarantena)
-      --preferisci <cartella>       tieni di preferenza le copie in questa cartella (ripetibile)
+      --preferisci <cartella>       tieni sempre le copie che stanno in questa cartella (ripetibile)
+      --solo-tra-cartelle           confronta ogni cartella solo con le altre: i doppioni dentro
+                                    la stessa cartella vengono ignorati (servono almeno due cartelle)
       --report <file.html>          dove salvare il report (accanto viene creato anche il .csv)
       --modello <file.onnx>         modello neurale per riconoscere gli scatti multipli (es. DINOv2)
       --acceleratore auto|npu|gpu|cpu   dispositivo preferito per il modello (predefinito: auto)
@@ -266,9 +277,14 @@ static void PrintHelp() => Console.WriteLine("""
       --no-sottocartelle  --nascosti  --no-cache  --thread <n>
       --non-interattivo             non fare domande: ciò che richiede conferma resta da rivedere
 
+    FILE DI LAVORO
+      Cache e impostazioni stanno in %LOCALAPPDATA%\DupliFoto, oppure in "DupliFoto-dati" accanto all'exe
+      se lì c'è un file DupliFoto.portable. «Pulisci DupliFoto.bat», in quella cartella, li toglie tutti.
+
     ESEMPI
       duplifoto-cli "D:\Foto"
       duplifoto-cli "D:\Foto" "E:\Backup telefono" --modo semi-auto --preferisci "D:\Foto"
+      duplifoto-cli "D:\Catalogate" "D:\Da sistemare" --solo-tra-cartelle --preferisci "D:\Catalogate"
       duplifoto-cli "D:\Foto" --modo auto --soglia 98 --modello dinov2-small.onnx --non-interattivo
     """);
 

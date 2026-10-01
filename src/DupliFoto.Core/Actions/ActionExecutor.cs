@@ -1,3 +1,5 @@
+using DupliFoto.Core.Matching;
+
 namespace DupliFoto.Core.Actions;
 
 /// <summary>Risposta dell'utente per un gruppo.</summary>
@@ -80,13 +82,15 @@ public sealed class ActionExecutor(ScanOptions options, IDecisionPrompt? prompt,
                     approvedKinds.Add(group.Kind);
                     goto case UserChoice.Apply;
                 case UserChoice.Apply:
-                    var keeper = answer.NewKeeper ?? group.Keeper;
-                    var targets = ReferenceEquals(keeper, group.Keeper)
-                        ? ask
-                        : group.Duplicates.Where(m => !ReferenceEquals(m.File, keeper))
-                            .Append(new GroupMember { File = group.Keeper, Kind = group.Kind, Confidence = group.Confidence, Reason = "scelta dell'utente" })
-                            .ToList();
-                    summary.ConfirmedActions += Apply(session, group, keeper, targets, automatic: false) ?? 0;
+                    var targets = ask;
+                    if (answer.NewKeeper is { } keeper && !ReferenceEquals(keeper, group.Keeper))
+                    {
+                        // Gli altri membri si rivalutano rispetto alla nuova copia (e, solo tra cartelle diverse,
+                        // quelli nella sua stessa cartella restano dove sono).
+                        GroupEditor.ChangeKeeper(group, keeper, options);
+                        targets = group.Duplicates;
+                    }
+                    summary.ConfirmedActions += Apply(session, group, group.Keeper, targets, automatic: false) ?? 0;
                     break;
             }
         }
