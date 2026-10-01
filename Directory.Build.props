@@ -5,7 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <!-- Nelle release la versione arriva dal tag (v0.1.0 -> 0.1.0), vedi .github/workflows/build.yml -->
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <Version Condition="'$(DUPLIFOTO_VERSION)' != ''">$(DUPLIFOTO_VERSION)</Version>
     <Product>DupliFoto</Product>
     <Authors>St3f4n1n0</Authors>

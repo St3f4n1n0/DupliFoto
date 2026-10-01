@@ -1,4 +1,3 @@
-using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using DupliFoto.Core;
 using DupliFoto.Gui.Services;
@@ -38,8 +37,8 @@ public sealed class MainViewModelTests : IDisposable
     private PairItem PairOf(MainViewModel vm, string duplicateName) =>
         vm.Pairs.Single(p => p.DuplicateName == duplicateName);
 
-    [AvaloniaFact]
-    public async Task Search_finds_every_kind_of_pair()
+    [Fact]
+    public Task Search_finds_every_kind_of_pair() => Ui.Run(async () =>
     {
         var vm = NewViewModel(_photos, RunMode.Assisted);
         await vm.StartCommand.ExecuteAsync(null);
@@ -57,10 +56,10 @@ public sealed class MainViewModelTests : IDisposable
         Assert.NotNull(vm.SelectedPair);
         Assert.True(vm.CanDecide);
         Assert.Equal(4, vm.PendingCount);
-    }
+    });
 
-    [AvaloniaFact]
-    public async Task Moving_swapping_skipping_and_undo()
+    [Fact]
+    public Task Moving_swapping_skipping_and_undo() => Ui.Run(async () =>
     {
         var vm = NewViewModel(_photos, RunMode.Assisted);
         await vm.StartCommand.ExecuteAsync(null);
@@ -93,10 +92,10 @@ public sealed class MainViewModelTests : IDisposable
         Assert.True(File.Exists(_photos.P("WhatsApp/IMG-20260810-WA0001.jpg")));
         Assert.Equal(PairStatus.Pending, whatsapp.Status);
         Assert.Equal(0, vm.MovedCount);
-    }
+    });
 
-    [AvaloniaFact]
-    public async Task Semi_automatic_offers_to_move_only_exact_copies()
+    [Fact]
+    public Task Semi_automatic_offers_to_move_only_exact_copies() => Ui.Run(async () =>
     {
         var vm = NewViewModel(_photos, RunMode.SemiAutomatic);
         var start = vm.StartCommand.ExecuteAsync(null);
@@ -111,10 +110,10 @@ public sealed class MainViewModelTests : IDisposable
         Assert.Equal(PairStatus.Moved, PairOf(vm, "mare (1).jpg").Status);
         Assert.Equal(3, vm.PendingCount);
         Assert.True(Directory.GetFiles(_photos.Quarantine, "registro-*.jsonl").Length == 1);
-    }
+    });
 
-    [AvaloniaFact]
-    public async Task Read_only_never_touches_files_but_mode_can_change_afterwards()
+    [Fact]
+    public Task Read_only_never_touches_files_but_mode_can_change_afterwards() => Ui.Run(async () =>
     {
         var vm = NewViewModel(_photos, RunMode.ReadOnly);
         await vm.StartCommand.ExecuteAsync(null);
@@ -129,10 +128,10 @@ public sealed class MainViewModelTests : IDisposable
         vm.SelectedMode = vm.Modes.Single(m => m.Value == RunMode.Assisted);
         Assert.All(vm.Pairs, p => Assert.Equal(PairStatus.Pending, p.Status));
         Assert.True(vm.CanDecide);
-    }
+    });
 
-    [AvaloniaFact]
-    public async Task Comparison_shows_both_photos()
+    [Fact]
+    public Task Comparison_shows_both_photos() => Ui.Run(async () =>
     {
         var vm = NewViewModel(_photos, RunMode.Assisted);
         await vm.StartCommand.ExecuteAsync(null);
@@ -145,10 +144,10 @@ public sealed class MainViewModelTests : IDisposable
         Assert.Contains("600 × 450", vm.Right.Details);
         Assert.Equal(1200, vm.Left.Image!.PixelSize.Width);
         Assert.EndsWith("%", vm.ConfidenceText);
-    }
+    });
 
-    [AvaloniaFact]
-    public void Only_one_folder_can_be_the_one_to_keep()
+    [Fact]
+    public Task Only_one_folder_can_be_the_one_to_keep() => Ui.Run(() =>
     {
         var vm = new MainViewModel(new SettingsStore(null)) { CachePath = null };
         vm.AddFolders([_photos.Photos, _photos.P("WhatsApp")]);
@@ -174,10 +173,10 @@ public sealed class MainViewModelTests : IDisposable
         Assert.False(vm.HasSeveralFolders);
         vm.CrossFolderOnly = true;
         Assert.False(vm.BuildOptions().CrossFolderOnly);                   // con una cartella sola non c'è nulla da confrontare
-    }
+    });
 
-    [AvaloniaFact]
-    public void Keep_folder_and_comparison_are_remembered()
+    [Fact]
+    public Task Keep_folder_and_comparison_are_remembered() => Ui.Run(() =>
     {
         var store = new SettingsStore(Path.Combine(_photos.Root, "gui.json"));
         var vm = new MainViewModel(store) { CachePath = null };
@@ -190,10 +189,10 @@ public sealed class MainViewModelTests : IDisposable
         Assert.Equal([false, true], again.Folders.Select(f => f.IsKept));
         Assert.True(again.CrossFolderOnly);
         Assert.False(again.CompareEverywhere);
-    }
+    });
 
-    [AvaloniaFact]
-    public void Settings_of_older_versions_are_carried_over()
+    [Fact]
+    public Task Settings_of_older_versions_are_carried_over() => Ui.Run(() =>
     {
         // Le versioni 0.2 e precedenti salvavano in %APPDATA%\DupliFoto; ora tutto sta nella cartella dei file di lavoro.
         string legacy = Path.Combine(_photos.Root, "Roaming", "DupliFoto", "gui.json");
@@ -207,14 +206,14 @@ public sealed class MainViewModelTests : IDisposable
         vm.SaveSettings();
         Assert.True(File.Exists(current));
         Assert.False(Directory.Exists(Path.GetDirectoryName(legacy)));   // il vecchio file, e la sua cartella vuota, se ne vanno
-    }
+    });
 
     /// <summary>
     /// "Foto" e la sua sottocartella "WhatsApp" aggiunte entrambe, si tiene WhatsApp, solo tra cartelle diverse:
     /// le coppie sono tutte "copia in WhatsApp / copia in Foto", e i doppioni interni a Foto non compaiono.
     /// </summary>
-    [AvaloniaFact]
-    public async Task Keeping_one_folder_compares_it_with_the_other()
+    [Fact]
+    public Task Keeping_one_folder_compares_it_with_the_other() => Ui.Run(async () =>
     {
         var vm = NewViewModel(_photos, RunMode.Assisted);
         vm.AddFolders([_photos.P("WhatsApp")]);
@@ -232,6 +231,6 @@ public sealed class MainViewModelTests : IDisposable
         await vm.MoveDuplicateCommand.ExecuteAsync(null);
         Assert.True(File.Exists(_photos.P("WhatsApp/IMG-20260810-WA0001.jpg")));  // la cartella da tenere non si tocca
         Assert.Equal(1, vm.MovedCount);
-    }
+    });
 }
 

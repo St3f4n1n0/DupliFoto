@@ -144,7 +144,7 @@ public sealed class RealDecoderTests : IDisposable
         RealImages.SaveJpeg(TestImages.Scene(40, w: 640, h: 480), P("montagna.jpg"), exif: gps with { TakenAt = Shot.AddHours(1) });
 
         var o = new ScanOptions { Roots = { _dir }, QuarantineRoot = P("Quarantena"), CachePath = null };
-        var r = new DedupEngine(new MagickImageDecoder(), new ExifMetadataReader()).Run(o);
+        var r = new DedupEngine(new MagickImageDecoder(), new ExifMetadataReader()).Run(o, ct: TestContext.Current.CancellationToken);
 
         Assert.Equal(0, r.UnreadableFiles);
         string Name(PhotoFile f) => Path.GetFileName(f.Path);

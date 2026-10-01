@@ -1,6 +1,5 @@
 using Avalonia;
 using Avalonia.Headless;
-using Avalonia.Headless.XUnit;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Styling;
@@ -24,11 +23,8 @@ public sealed class ScreenshotTests : IDisposable
     private static readonly string OutDir = Environment.GetEnvironmentVariable("DUPLIFOTO_SCREENSHOTS")
                                             ?? Path.Combine(AppContext.BaseDirectory, "screenshots");
 
-    public void Dispose()
-    {
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Default;
-        _photos.Dispose();
-    }
+    // Ogni test ha un'applicazione sua (vedi Ui.Run): il tema scelto da un test non passa al successivo.
+    public void Dispose() => _photos.Dispose();
 
     private static MainWindow Show(MainViewModel vm)
     {
@@ -47,10 +43,10 @@ public sealed class ScreenshotTests : IDisposable
         Assert.Equal(1360, frame.PixelSize.Width);
     }
 
-    [AvaloniaTheory]
+    [Theory]
     [InlineData("chiaro")]
     [InlineData("scuro")]
-    public async Task Main_window_states(string theme)
+    public Task Main_window_states(string theme) => Ui.Run(async () =>
     {
         Application.Current!.RequestedThemeVariant = theme == "scuro" ? ThemeVariant.Dark : ThemeVariant.Light;
 
@@ -77,13 +73,13 @@ public sealed class ScreenshotTests : IDisposable
         vm.ConfirmNoCommand.Execute(null);
         Assert.False(await confirm);
         window.Close();
-    }
+    });
     /// <summary>
     /// Senza Mica (Windows 10, e qui) la finestra deve avere lo sfondo pieno del tema: su Windows 10 Avalonia
     /// ripiega su una finestra trasparente, e con lo sfondo trasparente si vedeva il desktop attraverso l'app.
     /// </summary>
-    [AvaloniaFact]
-    public void Window_background_is_opaque_without_Mica()
+    [Fact]
+    public Task Window_background_is_opaque_without_Mica() => Ui.Run(() =>
     {
         Application.Current!.RequestedThemeVariant = ThemeVariant.Light;
         var window = Show(new MainViewModel(new SettingsStore(null)) { CachePath = null });
@@ -98,14 +94,14 @@ public sealed class ScreenshotTests : IDisposable
         Assert.Equal(255, dark.A);
         Assert.NotEqual(light, dark); // segue il tema
         window.Close();
-    }
+    });
 
     /// <summary>
     /// Lo screenshot del README, con un piccolo archivio di esempio. Solo su richiesta:
     /// DUPLIFOTO_README_SCREENSHOT=docs/images/screenshot.png (e facoltativamente DUPLIFOTO_README_ROOT per la cartella).
     /// </summary>
-    [AvaloniaFact]
-    public async Task Readme_screenshot()
+    [Fact]
+    public Task Readme_screenshot() => Ui.Run(async () =>
     {
         if (Environment.GetEnvironmentVariable("DUPLIFOTO_README_SCREENSHOT") is not { Length: > 0 } output) return;
         string root = Environment.GetEnvironmentVariable("DUPLIFOTO_README_ROOT") ?? Path.Combine(Path.GetTempPath(), "Foto");
@@ -148,5 +144,5 @@ public sealed class ScreenshotTests : IDisposable
         frame.Save(output, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
         window.Close();
         Directory.Delete(root, recursive: true);
-    }
+    });
 }

@@ -42,7 +42,7 @@ jobs:
       - name: Build
         run: dotnet build DupliFoto.slnx -c Release
       - name: Test
-        run: dotnet test DupliFoto.slnx -c Release --no-build
+        run: dotnet test --solution DupliFoto.slnx -c Release --no-build
 
   windows:
     name: Windows 11 (Server 2025)
@@ -81,7 +81,7 @@ jobs:
       - name: Test (engine and app)
         env:
           DUPLIFOTO_SCREENSHOTS: ${{ runner.temp }}\screenshots\test
-        run: dotnet test DupliFoto.slnx -c Release --no-build --logger "console;verbosity=normal"
+        run: dotnet test --solution DupliFoto.slnx -c Release --no-build
 
       - name: Publish portable executables
         run: |

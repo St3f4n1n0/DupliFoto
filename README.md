@@ -193,7 +193,7 @@ You need the [.NET 10 SDK](https://dotnet.microsoft.com/download) or Visual Stud
 
 ```powershell
 dotnet build DupliFoto.slnx -c Release
-dotnet test  DupliFoto.slnx
+dotnet test --solution DupliFoto.slnx
 
 # portable single-file executables (use win-arm64 for Windows on ARM)
 dotnet publish src/DupliFoto.Gui -c Release -f net10.0-windows10.0.26100.0 -r win-x64 -o publish
