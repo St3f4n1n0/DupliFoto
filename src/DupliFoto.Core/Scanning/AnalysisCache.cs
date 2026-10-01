@@ -45,7 +45,7 @@ public sealed class AnalysisCache
         try
         {
             using var fs = File.OpenRead(_path);
-            var data = JsonSerializer.Deserialize<Dictionary<string, Entry>>(fs);
+            var data = JsonSerializer.Deserialize(fs, CoreJson.Default.DictionaryStringEntry);
             if (data is null) return;
             foreach (var kv in data) _entries[kv.Key] = kv.Value;
         }
@@ -61,7 +61,7 @@ public sealed class AnalysisCache
         Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
         string tmp = _path + ".tmp";
         using (var fs = File.Create(tmp))
-            JsonSerializer.Serialize(fs, new Dictionary<string, Entry>(_entries, StringComparer.OrdinalIgnoreCase));
+            JsonSerializer.Serialize(fs, new Dictionary<string, Entry>(_entries, StringComparer.OrdinalIgnoreCase), CoreJson.Default.DictionaryStringEntry);
         File.Move(tmp, _path, overwrite: true);
     }
 

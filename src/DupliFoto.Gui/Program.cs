@@ -30,7 +30,13 @@ internal static class Program
     }
 
     public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<App>()
+#if WINDOWS
+        .UseWin32()
+        .UseSkia()
+        .UseHarfBuzz()
+#else
         .UsePlatformDetect()
+#endif
         .WithInterFont()
         .LogToTrace();
 }

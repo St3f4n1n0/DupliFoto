@@ -30,7 +30,7 @@ public sealed class ActionJournal : IDisposable
         _writer = new StreamWriter(new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read)) { AutoFlush = true };
     }
 
-    public void Write(JournalEntry e) => _writer.WriteLine(JsonSerializer.Serialize(e));
+    public void Write(JournalEntry e) => _writer.WriteLine(JsonSerializer.Serialize(e, CoreJson.Default.JournalEntry));
 
     public void Dispose() => _writer.Dispose();
 
@@ -40,7 +40,7 @@ public sealed class ActionJournal : IDisposable
         {
             if (string.IsNullOrWhiteSpace(line)) continue;
             JournalEntry? e;
-            try { e = JsonSerializer.Deserialize<JournalEntry>(line); }
+            try { e = JsonSerializer.Deserialize(line, CoreJson.Default.JournalEntry); }
             catch (JsonException) { continue; }
             if (e is not null) yield return e;
         }

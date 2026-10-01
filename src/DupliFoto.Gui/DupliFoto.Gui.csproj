@@ -28,9 +28,14 @@
   <!--
     Pubblicazione su Windows: un unico exe portabile, niente da installare. Al primo avvio si scompatta da solo
     in %TEMP%\.net\<nome> (serve a Windows App SDK e alle librerie native) e poi parte come un'app normale.
+    Il trimming toglie le parti di .NET e delle librerie che il programma non usa: metà dei file da scompattare
+    (e da far controllare all'antivirus) al primo avvio. "partial" lascia intatti il nostro codice, Magick.NET e
+    le altre librerie non dichiarate compatibili.
   -->
   <PropertyGroup Condition="'$(OS)' == 'Windows_NT' and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
     <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
     <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <EnableMsixTooling>true</EnableMsixTooling>
@@ -40,10 +45,18 @@
 
   <ItemGroup>
     <PackageReference Include="Avalonia" />
-    <PackageReference Include="Avalonia.Desktop" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
     <PackageReference Include="Avalonia.Fonts.Inter" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
+  </ItemGroup>
+  <!-- Nell'exe per Windows solo il backend Windows; Avalonia.Desktop porterebbe anche quelli per Linux e macOS -->
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
+    <PackageReference Include="Avalonia.Win32" />
+    <PackageReference Include="Avalonia.Skia" />
+    <PackageReference Include="Avalonia.HarfBuzz" />
+  </ItemGroup>
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) != 'windows'">
+    <PackageReference Include="Avalonia.Desktop" />
   </ItemGroup>
 
   <ItemGroup>

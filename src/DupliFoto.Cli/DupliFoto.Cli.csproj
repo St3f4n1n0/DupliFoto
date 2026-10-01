@@ -21,9 +21,12 @@
   <!--
     Pubblicazione su Windows: un unico exe portabile, niente da installare. Al primo avvio si scompatta da solo
     in %TEMP%\.net\<nome> (serve a Windows App SDK e alle librerie native) e poi parte come un'app normale.
+    Trimming "partial" come per DupliFoto.exe: via le parti di .NET non usate, il nostro codice resta intatto.
   -->
   <PropertyGroup Condition="'$(OS)' == 'Windows_NT' and $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
     <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
     <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <EnableMsixTooling>true</EnableMsixTooling>
