@@ -3,6 +3,20 @@
 All notable changes to DupliFoto are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.1.1] - 2026-10-01
+
+### Fixed
+
+- **See-through window on Windows 10.** Windows 10 has no Mica, and in that case the window was left fully transparent: the desktop showed through the app. The window now gets the solid background of the light or dark theme. Windows 11 keeps Mica.
+
+### Changed
+
+- **Lighter executables, quicker first start.** The executables no longer carry parts that Windows never uses (the Linux and macOS back ends of the user interface), nor the parts of .NET that DupliFoto does not use. On the first start of each version, the app now unpacks 162 files (134 MB) instead of 312 (220 MB), so there is about half as much for the antivirus to check.
+
+### Added
+
+- A start that takes longer than 8 seconds is noted in `%LOCALAPPDATA%\DupliFoto\errori.log`, with the time spent unpacking and the time spent opening the window, to help track down slow starts.
+
 ## [0.1.0] - 2026-09-30
 
 First public release.
@@ -26,4 +40,5 @@ First public release.
 - Tested automatically on Windows Server 2025 and Windows Server 2022 (the Windows 10 base); not yet on physical Windows 10 PCs, dedicated NPUs, or large HEIC/RAW archives.
 - The ARM64 executables are built but not run in CI, which only has x64 machines.
 
+[0.1.1]: https://github.com/St3f4n1n0/DupliFoto/releases/tag/v0.1.1
 [0.1.0]: https://github.com/St3f4n1n0/DupliFoto/releases/tag/v0.1.0
