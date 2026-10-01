@@ -87,30 +87,94 @@ if ($Full) {
 
 # 4) Interfaccia grafica: si apre con la cartella passata come argomento e resta aperta.
 #    Al primo avvio l'exe portabile si scompatta: si aspetta la finestra fino a un minuto.
-$app = Start-Process $gui -ArgumentList "`"$dir`"" -PassThru
-for ($i = 0; $i -lt 60; $i++) {
-    Start-Sleep -Seconds 1
-    $app.Refresh()
-    if ($app.HasExited -or $app.MainWindowHandle -ne 0) { break }
-}
-Check (-not $app.HasExited) "l'interfaccia grafica resta aperta (nessun errore all'avvio, codice $(if ($app.HasExited) { $app.ExitCode }))"
-Check ($app.MainWindowHandle -ne 0) "la finestra principale compare dopo $i secondi"
-Start-Sleep -Seconds 5  # il tempo di disegnare il contenuto prima dello screenshot
-Write-Host "Finestra principale: '$($app.MainWindowTitle)'"
-if ($Screenshot) {
-    try {
-        Add-Type -AssemblyName System.Windows.Forms
-        $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-        $shot = New-Object System.Drawing.Bitmap $b.Width, $b.Height
-        $g = [System.Drawing.Graphics]::FromImage($shot)
-        $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
-        New-Item -ItemType Directory -Force (Split-Path $Screenshot) | Out-Null
-        $shot.Save($Screenshot, [System.Drawing.Imaging.ImageFormat]::Png)
-        Write-Host "Screenshot: $Screenshot ($($b.Width)x$($b.Height))"
+#    Dietro l'app, in fondo a tutte le finestre, un pannello magenta a tutto schermo: se la finestra fosse
+#    trasparente (com'era su Windows 10, dove Mica non c'e') il magenta si vedrebbe attraverso l'app.
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -Namespace DupliFotoProva -Name Win32 -MemberDefinition @"
+[DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+[DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+[DllImport("user32.dll")] public static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+[StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; }
+"@
+$HWND_TOP = [IntPtr]0; $HWND_BOTTOM = [IntPtr]1; $SWP_NOSIZE_NOMOVE_NOACTIVATE = 0x13; $WM_CLOSE = 0x10
+
+$sync = [hashtable]::Synchronized(@{})
+$backdropSpace = [runspacefactory]::CreateRunspace()
+$backdropSpace.ApartmentState = 'STA'
+$backdropSpace.Open()
+$backdropSpace.SessionStateProxy.SetVariable('sync', $sync)
+$backdrop = [PowerShell]::Create()
+$backdrop.Runspace = $backdropSpace
+[void]$backdrop.AddScript({
+    Add-Type -AssemblyName System.Windows.Forms
+    $f = New-Object System.Windows.Forms.Form
+    $f.BackColor = [System.Drawing.Color]::Magenta
+    $f.FormBorderStyle = 'None'
+    $f.WindowState = 'Maximized'
+    $f.ShowInTaskbar = $false
+    $f.Add_Shown({ $sync.Handle = $f.Handle })
+    [System.Windows.Forms.Application]::Run($f)
+})
+$backdropRun = $backdrop.BeginInvoke()
+try {
+    for ($i = 0; $i -lt 40 -and -not $sync.Handle; $i++) { Start-Sleep -Milliseconds 250 }
+    Check ([bool]$sync.Handle) 'pannello magenta dietro l''app'
+    [DupliFotoProva.Win32]::SetWindowPos($sync.Handle, $HWND_BOTTOM, 0, 0, 0, 0, $SWP_NOSIZE_NOMOVE_NOACTIVATE) | Out-Null
+
+    $launched = Get-Date
+    $app = Start-Process $gui -ArgumentList "`"$dir`"" -PassThru
+    for ($i = 0; $i -lt 60; $i++) {
+        Start-Sleep -Seconds 1
+        $app.Refresh()
+        if ($app.HasExited -or $app.MainWindowHandle -ne 0) { break }
     }
-    catch { Write-Host "Screenshot non disponibile su questo runner: $_" }
+    Check (-not $app.HasExited) "l'interfaccia grafica resta aperta (nessun errore all'avvio, codice $(if ($app.HasExited) { $app.ExitCode }))"
+    Check ($app.MainWindowHandle -ne 0) "la finestra principale compare dopo $i secondi"
+    Start-Sleep -Seconds 5  # il tempo di disegnare il contenuto
+    Write-Host "Finestra principale: '$($app.MainWindowTitle)'"
+
+    # L'app sopra, il magenta sotto; poi si contano i punti magenta dentro la finestra dell'app.
+    # Mica mostra lo sfondo del desktop, non le finestre dietro: con Mica o con uno sfondo pieno non ce ne sono.
+    [DupliFotoProva.Win32]::SetWindowPos($sync.Handle, $HWND_BOTTOM, 0, 0, 0, 0, $SWP_NOSIZE_NOMOVE_NOACTIVATE) | Out-Null
+    [DupliFotoProva.Win32]::SetWindowPos($app.MainWindowHandle, $HWND_TOP, 0, 0, 0, 0, $SWP_NOSIZE_NOMOVE_NOACTIVATE) | Out-Null
+    Start-Sleep -Seconds 1
+    $r = New-Object DupliFotoProva.Win32+RECT
+    [DupliFotoProva.Win32]::GetWindowRect($app.MainWindowHandle, [ref]$r) | Out-Null
+    $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+    $left = [Math]::Max($r.Left, $b.Left); $top = [Math]::Max($r.Top, $b.Top)
+    $width = [Math]::Min($r.Right, $b.Right) - $left; $height = [Math]::Min($r.Bottom, $b.Bottom) - $top
+    $area = New-Object System.Drawing.Bitmap $width, $height
+    [System.Drawing.Graphics]::FromImage($area).CopyFromScreen($left, $top, 0, 0, $area.Size)
+    $magenta = 0; $total = 0
+    for ($y = 0; $y -lt $height; $y += 8) {
+        for ($x = 0; $x -lt $width; $x += 8) {
+            $p = $area.GetPixel($x, $y); $total++
+            if ($p.R -gt 200 -and $p.G -lt 80 -and $p.B -gt 200) { $magenta++ }
+        }
+    }
+    $percent = [Math]::Round(100.0 * $magenta / $total, 1)
+    if ($Screenshot) {
+        try {
+            $shot = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+            [System.Drawing.Graphics]::FromImage($shot).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+            New-Item -ItemType Directory -Force (Split-Path $Screenshot) | Out-Null
+            $shot.Save($Screenshot, [System.Drawing.Imaging.ImageFormat]::Png)
+            Write-Host "Screenshot: $Screenshot ($($b.Width)x$($b.Height))"
+        }
+        catch { Write-Host "Screenshot non disponibile su questo runner: $_" }
+    }
+    Check ($percent -lt 2) "la finestra non e' trasparente (magenta visto attraverso l'app: $percent% dei punti)"
+
+    # Alla chiusura l'app salva le impostazioni (JSON): devono ricordare la cartella aperta.
+    $app.CloseMainWindow() | Out-Null
+    if (-not $app.WaitForExit(10000)) { $app.Kill() }
+    $settings = Join-Path $env:APPDATA 'DupliFoto\gui.json'
+    Check ((Test-Path $settings) -and (Get-Item $settings).LastWriteTime -ge $launched) 'impostazioni salvate alla chiusura'
+    Check (@((Get-Content $settings -Raw -Encoding UTF8 | ConvertFrom-Json).Folders.Path) -contains $dir) 'le impostazioni ricordano la cartella'
 }
-$app.CloseMainWindow() | Out-Null
-Start-Sleep -Seconds 3
-if (-not $app.HasExited) { $app.Kill() }
+finally {
+    if ($app -and -not $app.HasExited) { $app.Kill() }
+    if ($sync.Handle) { [DupliFotoProva.Win32]::PostMessage($sync.Handle, $WM_CLOSE, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null }
+    if ($backdropRun.AsyncWaitHandle.WaitOne(5000)) { $backdrop.Dispose(); $backdropSpace.Dispose() }
+}
 Write-Host 'Tutte le prove sono passate.'
