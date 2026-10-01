@@ -5,9 +5,13 @@ namespace DupliFoto.Gui;
 
 internal static class Program
 {
+    /// <summary>Quando parte il nostro codice: prima ci sono solo l'avvio di .NET e, al primo avvio, lo scompattamento dell'exe.</summary>
+    internal static DateTime MainStarted { get; private set; }
+
     [STAThread]
     public static void Main(string[] args)
     {
+        MainStarted = DateTime.Now;
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
         {
             if (e.ExceptionObject is Exception ex) ErrorLog.Write(ex, "fatale");

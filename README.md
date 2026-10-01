@@ -163,7 +163,7 @@ Reading and decoding files, the real bottleneck together with the disk, run in p
 | Quarantine (default) and undo journals | `Pictures\DupliFoto-Quarantena` |
 | Analysis cache | `%LOCALAPPDATA%\DupliFoto\cache-v1.json` |
 | App settings | `%APPDATA%\DupliFoto\gui.json` |
-| Unexpected errors (app) | `%LOCALAPPDATA%\DupliFoto\errori.log` |
+| Unexpected errors and slow starts (app) | `%LOCALAPPDATA%\DupliFoto\errori.log` |
 | Reports (app, or command line started by double-click) | `Documents\DupliFoto` |
 | Unpacked program files | `%TEMP%\.net\DupliFoto` and `%TEMP%\.net\duplifoto-cli` |
 
