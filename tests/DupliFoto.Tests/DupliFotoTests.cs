@@ -362,7 +362,7 @@ public sealed class EngineEndToEndTests : IDisposable
         var o = Options(RunMode.ReadOnly);
         Scan(o);
         var decoder = new CountingDecoder(new PpmDecoder());
-        new DedupEngine(decoder, _meta).Run(o);
+        new DedupEngine(decoder, _meta).Run(o, ct: TestContext.Current.CancellationToken);
         Assert.Equal(0, decoder.Thumbnails);
     }
 
@@ -459,7 +459,7 @@ public sealed class SafetyTests : IDisposable
         catch (Exception) { return; } // Windows senza privilegi per i collegamenti simbolici: niente da provare
 
         var o = new ScanOptions { Roots = { photos }, Extensions = { ".ppm" }, QuarantineRoot = Path.Combine(_dir, "Q") };
-        var files = DupliFoto.Core.Scanning.FileScanner.Scan(o);
+        var files = DupliFoto.Core.Scanning.FileScanner.Scan(o, ct: TestContext.Current.CancellationToken);
 
         Assert.Equal(["a.ppm", "b.ppm"], files.Select(f => Path.GetFileName(f.Path)).Order());
     }
@@ -551,7 +551,7 @@ public sealed class SafetyTests : IDisposable
             CachePath = Path.Combine(_dir, "cache.json"),
         };
 
-        var r = new DedupEngine(new PpmDecoder(), new FakeMetadata()).Run(o);
+        var r = new DedupEngine(new PpmDecoder(), new FakeMetadata()).Run(o, ct: TestContext.Current.CancellationToken);
         var s = new ActionExecutor(o, prompt: null).Execute(r);
 
         Assert.Equal(0, s.Moved);
