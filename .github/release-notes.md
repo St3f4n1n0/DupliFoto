@@ -13,8 +13,7 @@
 
 DupliFoto is **portable**: download the `.exe` and run it. There is nothing to install, since .NET and every library are included.
 
-- **First start.** The first start of a new version takes a few seconds while the program unpacks itself into `%TEMP%\.net`; copies of older versions are removed automatically.
-- **Leaving no trace.** `Pulisci DupliFoto.bat`, in `%LOCALAPPDATA%\DupliFoto`, removes every working file DupliFoto has created, for all versions. For a portable copy, put an empty `DupliFoto.portable` file next to the `.exe`.
+- **Leaving no trace.** Settings, cache, error log and reports go to a `DupliFoto-dati` folder next to the `.exe`, so on a USB stick they travel with it. At start the program unpacks itself into `%TEMP%\.net`, which takes a few seconds, and removes that copy when you close it. `Pulisci DupliFoto.bat`, in `DupliFoto-dati`, removes what earlier versions left on the PC.
 - **SmartScreen.** The executables are not code-signed yet, so Windows may show *"Windows protected your PC"*. Click **More info**, then **Run anyway**.
 - **Checking a download (optional).** The output of `Get-FileHash .\DupliFoto-{{VERSION}}-x64.exe` must match the line in `SHA256SUMS.txt`.
 

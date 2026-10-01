@@ -292,13 +292,18 @@
                                    IsVisible="{Binding !IsNeuralAvailable}" />
 
                         <TextBlock Text="File di DupliFoto" Classes="h" Margin="0,8,0,0" />
-                        <TextBlock Text="Impostazioni, cache delle analisi e registro errori stanno qui. «Pulisci DupliFoto.bat», in questa cartella, li toglie da questo PC insieme a quelli delle versioni precedenti."
+                        <TextBlock Text="Impostazioni, cache delle analisi, registro errori e report stanno nella cartella «DupliFoto-dati» accanto all'exe: sul PC non resta niente di sparso. «Pulisci DupliFoto.bat», lì dentro, toglie anche i file delle versioni precedenti."
                                    Classes="muted small" TextWrapping="Wrap" />
                         <Grid ColumnDefinitions="*,Auto">
                           <TextBox Text="{Binding DataFolder, Mode=OneWay}" IsReadOnly="True" />
                           <Button Grid.Column="1" Content="Apri" Margin="8,0,0,0" Command="{Binding OpenDataFolderCommand}" />
                         </Grid>
-                        <TextBlock Text="Versione portatile: con un file «DupliFoto.portable» accanto all'exe, questi file stanno nella cartella «DupliFoto-dati» accanto all'exe."
+                        <TextBlock Text="Accanto all'exe non si può scrivere (disco protetto o cartella di sistema): per questo i file stanno qui, e i report in Documenti\DupliFoto."
+                                   Classes="faint small" TextWrapping="Wrap" IsVisible="{Binding !DataFolderIsNextToExe}" />
+                        <CheckBox IsChecked="{Binding RemoveTempOnExit}">
+                          <TextBlock Text="Alla chiusura togli anche i file temporanei del programma" TextWrapping="Wrap" />
+                        </CheckBox>
+                        <TextBlock Text="L'exe, a ogni avvio, si scompatta in %TEMP%\.net. Togliendo quella copia alla chiusura sul PC non resta niente; il prossimo avvio però richiede qualche secondo in più."
                                    Classes="faint small" TextWrapping="Wrap" />
                       </StackPanel>
                     </Flyout>

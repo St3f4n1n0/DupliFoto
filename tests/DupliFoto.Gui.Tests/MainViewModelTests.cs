@@ -192,20 +192,19 @@ public sealed class MainViewModelTests : IDisposable
     });
 
     [Fact]
-    public Task Settings_of_older_versions_are_carried_over() => Ui.Run(() =>
+    public Task Temporary_files_go_away_at_exit_unless_the_user_keeps_them() => Ui.Run(() =>
     {
-        // Le versioni 0.2 e precedenti salvavano in %APPDATA%\DupliFoto; ora tutto sta nella cartella dei file di lavoro.
-        string legacy = Path.Combine(_photos.Root, "Roaming", "DupliFoto", "gui.json");
-        string current = Path.Combine(_photos.Root, "Local", "DupliFoto", "gui.json");
-        new SettingsStore(legacy).Save(new GuiSettings { Folders = [new(_photos.Photos, false)], CrossFolderOnly = true });
-
-        var vm = new MainViewModel(new SettingsStore(current, legacy)) { CachePath = null };
-        Assert.Equal([_photos.Photos], vm.Folders.Select(f => f.Path));
+        // Le impostazioni delle versioni precedenti non hanno la voce: vale il predefinito, sul PC non resta niente.
+        string path = Path.Combine(_photos.Root, "gui.json");
+        File.WriteAllText(path, """{ "Folders": [], "Mode": 0, "CrossFolderOnly": true }""");
+        var store = new SettingsStore(path);
+        var vm = new MainViewModel(store) { CachePath = null };
         Assert.True(vm.CrossFolderOnly);
+        Assert.True(vm.RemoveTempOnExit);
 
+        vm.RemoveTempOnExit = false;
         vm.SaveSettings();
-        Assert.True(File.Exists(current));
-        Assert.False(Directory.Exists(Path.GetDirectoryName(legacy)));   // il vecchio file, e la sua cartella vuota, se ne vanno
+        Assert.False(new MainViewModel(store) { CachePath = null }.RemoveTempOnExit);
     });
 
     /// <summary>

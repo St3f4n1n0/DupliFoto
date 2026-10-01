@@ -56,7 +56,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     public ObservableCollection<FolderItem> Folders { get; } = new();
 
-    /// <summary>Cache delle analisi (in %LOCALAPPDATA%); <c>null</c> per non usarla.</summary>
+    /// <summary>Cache delle analisi (in DupliFoto-dati accanto all'exe); <c>null</c> per non usarla.</summary>
     public string? CachePath { get; init; } = AnalysisCache.DefaultPath;
 
     public IReadOnlyList<Choice<RunMode>> Modes { get; } =
@@ -132,8 +132,12 @@ public sealed partial class MainViewModel : ObservableObject
     public bool IsAutomaticMode => SelectedMode.Value == RunMode.Automatic;
     public bool IsNeuralAvailable => Neural.IsAvailable;
     public string VersionText => $"Versione {AppInfo.Version}";
-    /// <summary>La cartella dei file di lavoro (impostazioni, cache, registro errori e «Pulisci DupliFoto.bat»).</summary>
+    /// <summary>La cartella dei file di lavoro (impostazioni, cache, registro errori, report e «Pulisci DupliFoto.bat»).</summary>
     public string DataFolder => AppFiles.Folder;
+    public bool DataFolderIsNextToExe => AppFiles.IsNextToExe;
+
+    /// <summary>Alla chiusura togliere la copia del programma scompattata in %TEMP%: sul PC non resta niente.</summary>
+    [ObservableProperty] private bool _removeTempOnExit = true;
 
     [RelayCommand]
     private void OpenDataFolder()
@@ -563,7 +567,7 @@ public sealed partial class MainViewModel : ObservableObject
     private void ExportReport()
     {
         if (_result is null) return;
-        string dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "DupliFoto");
+        string dir = AppFiles.ReportFolder;
         string path = Path.Combine(dir, $"DupliFoto-report-{DateTime.Now:yyyyMMdd-HHmmss}.html");
         try
         {
@@ -792,6 +796,7 @@ public sealed partial class MainViewModel : ObservableObject
         BurstSeconds = (decimal)Math.Clamp(s.BurstSeconds, 1, 120);
         ModelPath = s.ModelPath;
         SelectedAccelerator = Accelerators.FirstOrDefault(a => a.Value == s.Accelerator) ?? Accelerators[0];
+        RemoveTempOnExit = s.RemoveTempOnExit;
     }
 
     public void SaveSettings() => _store.Save(new GuiSettings
@@ -807,5 +812,6 @@ public sealed partial class MainViewModel : ObservableObject
         BurstSeconds = (double)BurstSeconds,
         ModelPath = ModelPath,
         Accelerator = SelectedAccelerator.Value,
+        RemoveTempOnExit = RemoveTempOnExit,
     });
 }

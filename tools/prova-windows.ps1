@@ -1,8 +1,11 @@
 ﻿# Prova i programmi pubblicati (gli exe portabili di DupliFoto e duplifoto-cli) su foto vere, su Windows.
 # Usato da .github/workflows/build.yml; funziona anche a mano:
 #   powershell -File tools\prova-windows.ps1 -Gui dist\DupliFoto-0.1.0-x64.exe -Cli dist\duplifoto-cli-0.1.0-x64.exe -Full
-# -Pulizia prova anche la pulizia dei file di lavoro e «Pulisci DupliFoto.bat»: alla fine toglie da questo PC
-# impostazioni, cache e copie scompattate di DupliFoto (non la quarantena né i report).
+# Gli exe vengono copiati in una cartella di prova e lanciati da lì, come da una chiavetta: la cartella
+# "DupliFoto-dati" nasce accanto a loro, e la cartella da cui li si prende resta com'è.
+# -Pulizia prova anche il passaggio dai file delle versioni precedenti, la pulizia alla chiusura e
+# «Pulisci DupliFoto.bat»: alla fine toglie da questo PC impostazioni, cache e copie scompattate di DupliFoto
+# (non la quarantena né i report).
 param(
     [Parameter(Mandatory = $true)] [string] $Gui,
     [Parameter(Mandatory = $true)] [string] $Cli,
@@ -13,10 +16,28 @@ param(
     [switch] $Pulizia
 )
 $ErrorActionPreference = 'Stop'
-$cli = Resolve-Path $Cli
-$gui = Resolve-Path $Gui
+$appDir = Join-Path $Work 'app'
+Remove-Item $appDir -Recurse -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force $appDir | Out-Null
+Copy-Item (Resolve-Path $Gui), (Resolve-Path $Cli) $appDir
+$gui = Join-Path $appDir (Split-Path $Gui -Leaf)
+$cli = Join-Path $appDir (Split-Path $Cli -Leaf)
+$data = Join-Path $appDir 'DupliFoto-dati'
+$oldLocal = Join-Path $env:LOCALAPPDATA 'DupliFoto'
+$netBase = Join-Path ([IO.Path]::GetTempPath()) '.net'
+$guiName = [IO.Path]::GetFileNameWithoutExtension($gui); $cliName = [IO.Path]::GetFileNameWithoutExtension($cli)
 function Run { & $cli @args; if ($LASTEXITCODE -ne 0) { throw "duplifoto-cli $args -> codice $LASTEXITCODE" } }
 function Check($ok, $msg) { if (-not $ok) { throw "FALLITO: $msg" } else { Write-Host "ok: $msg" } }
+# Le copie scompattate di DupliFoto (riconosciute da DupliFoto.Core.dll) sotto %TEMP%\.net; con un nome, quelle di quell'exe.
+function Get-Extracted($name) {
+    Get-ChildItem $netBase -Directory -ErrorAction SilentlyContinue | Get-ChildItem -Directory |
+        Where-Object { (Test-Path (Join-Path $_.FullName 'DupliFoto.Core.dll')) -and (-not $name -or $_.Parent.Name -eq $name) }
+}
+# Aspetta che l'app chiusa tolga la sua copia scompattata (la toglie un Prompt dei comandi nascosto, appena può).
+function Wait-ExtractionGone {
+    for ($s = 0; $s -lt 30 -and @(Get-Extracted $guiName).Count; $s++) { Start-Sleep -Seconds 1 }
+    Check (@(Get-Extracted $guiName).Count -eq 0) "alla chiusura l'app toglie la sua copia scompattata in %TEMP%\.net (dopo $s secondi)"
+}
 
 Write-Host "Sistema: $((Get-CimInstance Win32_OperatingSystem).Caption) build $([Environment]::OSVersion.Version.Build)"
 Run aiuto
@@ -62,6 +83,8 @@ Check ($rows | Where-Object { $_.ruolo -eq 'doppione' -and $_.tipo -eq 'Identici
 Check ($rows | Where-Object { $_.ruolo -eq 'doppione' -and $_.percorso -like '*\IMG-20260810-WA0001.jpg' }) 'versione WhatsApp trovata'
 Check (-not ($rows | Where-Object { $_.percorso -like '*\montagna.jpg' })) 'la foto diversa non e'' un doppione'
 Check ((Get-ChildItem $dir -Recurse -File).Count -eq 5) 'sola lettura: nessun file spostato'
+Check (Test-Path (Join-Path $data 'Pulisci DupliFoto.bat')) 'i file di lavoro stanno in DupliFoto-dati accanto all''exe'
+Check (-not (Test-Path $oldLocal)) 'niente in %LOCALAPPDATA%\DupliFoto'
 
 if ($Full) {
     # 2) Semi-automatica: sposta da sola solo la copia identica; poi "annulla" la riporta al suo posto.
@@ -124,9 +147,8 @@ try {
     Check ([bool]$sync.Handle) 'pannello magenta dietro l''app'
     [DupliFotoProva.Win32]::SetWindowPos($sync.Handle, $HWND_BOTTOM, 0, 0, 0, 0, $SWP_NOSIZE_NOMOVE_NOACTIVATE) | Out-Null
 
-    # Con -Pulizia: una copia scompattata di una versione vecchia e le impostazioni dove le salvava la 0.2.
-    # L'app deve togliere la prima e portare le seconde nella cartella dei file di lavoro.
-    $netBase = Join-Path ([IO.Path]::GetTempPath()) '.net'
+    # Con -Pulizia: una copia scompattata di una versione vecchia e i file dove li tenevano la 0.3.0 (in Local)
+    # e la 0.2 (le impostazioni in Roaming). L'app deve togliere la prima e portare gli altri in DupliFoto-dati.
     $legacySettings = Join-Path $env:APPDATA 'DupliFoto\gui.json'
     if ($Pulizia) {
         $oldCopy = Join-Path $netBase 'DupliFoto-0.0.1-x64\vecchia'
@@ -134,6 +156,10 @@ try {
         Set-Content (Join-Path $oldCopy 'DupliFoto.Core.dll') 'versione vecchia'
         New-Item -ItemType Directory -Force (Split-Path $legacySettings) | Out-Null
         Set-Content $legacySettings '{"Folders":[],"Mode":0}' -Encoding UTF8
+        New-Item -ItemType Directory -Force $oldLocal | Out-Null
+        Set-Content (Join-Path $oldLocal 'gui.json') '{"Folders":[],"Mode":0,"Threshold":97}' -Encoding UTF8
+        Set-Content (Join-Path $oldLocal 'errori.log') 'registro della 0.3.0' -Encoding UTF8
+        Set-Content (Join-Path $oldLocal 'Pulisci DupliFoto.bat') 'script della 0.3.0'
     }
 
     $launched = Get-Date
@@ -180,51 +206,66 @@ try {
     }
     Check ($percent -lt 2) "la finestra non e' trasparente (magenta visto attraverso l'app: $percent% dei punti)"
 
-    # Alla chiusura l'app salva le impostazioni (JSON): devono ricordare la cartella aperta.
+    # Alla chiusura l'app salva le impostazioni (JSON, accanto all'exe): devono ricordare la cartella aperta.
+    # E toglie la copia di sé scompattata in %TEMP%\.net.
     $app.CloseMainWindow() | Out-Null
     if (-not $app.WaitForExit(10000)) { $app.Kill() }
-    $data = Join-Path $env:LOCALAPPDATA 'DupliFoto'
     $settings = Join-Path $data 'gui.json'
-    Check ((Test-Path $settings) -and (Get-Item $settings).LastWriteTime -ge $launched) 'impostazioni salvate alla chiusura'
+    Check ((Test-Path $settings) -and (Get-Item $settings).LastWriteTime -ge $launched) 'impostazioni salvate alla chiusura, in DupliFoto-dati'
     Check (@((Get-Content $settings -Raw -Encoding UTF8 | ConvertFrom-Json).Folders.Path) -contains $dir) 'le impostazioni ricordano la cartella'
+    Wait-ExtractionGone
+
+    # Secondo avvio: l'exe si scompatta di nuovo e parte normalmente; quanto ci mette è il prezzo della pulizia.
+    $app = Start-Process $gui -PassThru
+    for ($i = 0; $i -lt 90; $i++) {
+        Start-Sleep -Seconds 1
+        $app.Refresh()
+        if ($app.HasExited -or $app.MainWindowHandle -ne 0) { break }
+    }
+    Check ($app.MainWindowHandle -ne 0) "secondo avvio, scompattandosi di nuovo: la finestra compare dopo $i secondi"
+    $app.CloseMainWindow() | Out-Null
+    if (-not $app.WaitForExit(10000)) { $app.Kill() }
+    Wait-ExtractionGone
 }
 finally {
     if ($app -and -not $app.HasExited) { $app.Kill() }
     if ($sync.Handle) { [DupliFotoProva.Win32]::PostMessage($sync.Handle, $WM_CLOSE, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null }
     if ($backdropRun.AsyncWaitHandle.WaitOne(5000)) { $backdrop.Dispose(); $backdropSpace.Dispose() }
 }
-# Funzione: le copie scompattate di DupliFoto (riconosciute da DupliFoto.Core.dll) sotto %TEMP%\.net
-function Get-Extracted { Get-ChildItem $netBase -Directory -ErrorAction SilentlyContinue | Get-ChildItem -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'DupliFoto.Core.dll') } }
-
 if ($Pulizia) {
-    # 5) Pulizia all'avvio e impostazioni spostate (l'app ha avuto alcuni secondi a finestra aperta).
+    # 5) All'avvio: via la copia scompattata vecchia, e i file delle versioni precedenti passati in DupliFoto-dati.
     Check (-not (Test-Path (Join-Path $netBase 'DupliFoto-0.0.1-x64'))) 'la copia scompattata della versione vecchia e'' stata tolta'
-    Check (-not (Test-Path $legacySettings)) 'le impostazioni della 0.2 sono passate nella nuova cartella'
-    $guiName = [IO.Path]::GetFileNameWithoutExtension($gui); $cliName = [IO.Path]::GetFileNameWithoutExtension($cli)
-    Check (@(Get-Extracted | Where-Object { $_.Parent.Name -in $guiName, $cliName }).Count -ge 2) 'le copie della versione in uso (app e riga di comando) restano'
+    Check (-not (Test-Path $legacySettings)) 'via le impostazioni della 0.2 da %APPDATA%'
+    Check (-not (Test-Path $oldLocal)) 'via i file della 0.3.0 da %LOCALAPPDATA%'
+    Check ((Get-Content (Join-Path $data 'errori.log') -Raw -Encoding UTF8) -match 'registro della 0.3.0') 'il registro della 0.3.0 e'' passato in DupliFoto-dati'
+    Check (@(Get-Extracted $cliName).Count -ge 1) 'la riga di comando, lanciata da uno script, tiene la sua copia scompattata'
     $bat = Join-Path $data 'Pulisci DupliFoto.bat'
-    Check (Test-Path $bat) 'Pulisci DupliFoto.bat nella cartella dei file di lavoro'
+    Check ((Get-Content $bat -Raw) -match 'DupliFoto.Core.dll') 'Pulisci DupliFoto.bat aggiornato in DupliFoto-dati'
 
-    # 6) Versione portatile: con DupliFoto.portable accanto all'exe, i file di lavoro stanno in DupliFoto-dati.
-    $portable = Join-Path $Work 'portatile'
-    New-Item -ItemType Directory -Force $portable | Out-Null
-    Copy-Item $cli (Join-Path $portable 'duplifoto-cli.exe')
-    Set-Content (Join-Path $portable 'DupliFoto.portable') ''
-    & (Join-Path $portable 'duplifoto-cli.exe') $dir --non-interattivo --report "$reportDir\portatile.html" | Out-Null
-    Check ($LASTEXITCODE -eq 0) 'versione portatile: analisi riuscita'
-    Check (Test-Path (Join-Path $portable 'DupliFoto-dati\cache-v1.json')) 'versione portatile: la cache sta accanto all''exe'
-    Check (Test-Path (Join-Path $portable 'DupliFoto-dati\Pulisci DupliFoto.bat')) 'versione portatile: lo script di pulizia sta accanto all''exe'
+    # 6) Un'altra cartella, come una chiavetta: i file di lavoro nascono accanto a quell'exe, senza fare niente.
+    $stick = Join-Path $Work 'chiavetta'
+    Remove-Item $stick -Recurse -Force -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Force $stick | Out-Null
+    Copy-Item $cli (Join-Path $stick 'duplifoto-cli.exe')
+    & (Join-Path $stick 'duplifoto-cli.exe') $dir --non-interattivo --report "$reportDir\chiavetta.html" | Out-Null
+    Check ($LASTEXITCODE -eq 0) 'da un''altra cartella: analisi riuscita'
+    Check (Test-Path (Join-Path $stick 'DupliFoto-dati\cache-v1.json')) 'da un''altra cartella: la cache sta accanto a quell''exe'
+    Check (Test-Path (Join-Path $stick 'DupliFoto-dati\Pulisci DupliFoto.bat')) 'da un''altra cartella: lo script di pulizia sta accanto a quell''exe'
+    New-Item -ItemType Directory -Force (Join-Path $stick 'DupliFoto-dati\Report') | Out-Null
+    Set-Content (Join-Path $stick 'DupliFoto-dati\Report\report.html') 'un report'
 
     # 7) Pulisci DupliFoto.bat (senza conferma): via copie scompattate e file di lavoro, di tutte le versioni.
     $ErrorActionPreference = 'Continue'
     cmd.exe /c "`"$bat`" /si" 2>&1 | Out-String | Write-Host
-    cmd.exe /c "`"$(Join-Path $portable 'DupliFoto-dati\Pulisci DupliFoto.bat')`" /si" 2>&1 | Out-String | Write-Host
+    cmd.exe /c "`"$(Join-Path $stick 'DupliFoto-dati\Pulisci DupliFoto.bat')`" /si" 2>&1 | Out-String | Write-Host
     $ErrorActionPreference = 'Stop'
     Check (@(Get-Extracted).Count -eq 0) 'pulizia: nessuna copia scompattata di DupliFoto in %TEMP%\.net'
     Check (-not (Test-Path $data)) 'pulizia: tolta la cartella dei file di lavoro'
-    Check (-not (Test-Path (Join-Path $env:APPDATA 'DupliFoto'))) 'pulizia: tolta la cartella delle versioni 0.2 e precedenti'
-    Check (-not (Test-Path (Join-Path $portable 'DupliFoto-dati'))) 'pulizia: tolta la cartella dei dati della versione portatile'
-    Check ((Test-Path (Join-Path $portable 'duplifoto-cli.exe')) -and (Test-Path $cli) -and (Test-Path $gui)) 'pulizia: gli exe restano'
+    Check (-not (Test-Path $oldLocal)) 'pulizia: niente in %LOCALAPPDATA%\DupliFoto'
+    Check (-not (Test-Path (Join-Path $env:APPDATA 'DupliFoto'))) 'pulizia: niente in %APPDATA%\DupliFoto'
+    $left = @(Get-ChildItem (Join-Path $stick 'DupliFoto-dati') -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object Name) -join ','
+    Check ($left -eq 'report.html') "pulizia: accanto all'altro exe restano solo i report (trovato: '$left')"
+    Check ((Test-Path (Join-Path $stick 'duplifoto-cli.exe')) -and (Test-Path $cli) -and (Test-Path $gui)) 'pulizia: gli exe restano'
     Check (Test-Path "$reportDir\report.html") 'pulizia: i report restano'
 }
 Write-Host 'Tutte le prove sono passate.'

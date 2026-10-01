@@ -48,7 +48,7 @@ Get the latest version from the [Releases page](https://github.com/St3f4n1n0/Dup
 
 Download the `.exe` and double-click it. Keep it wherever you like: Desktop, a USB stick, a tools folder.
 
-- **First launch.** On the first start of each version the program unpacks itself into `%TEMP%\.net`, which takes a few seconds. Later starts are quick, and the copies of older versions are removed automatically.
+- **Starting.** At start the program unpacks itself into `%TEMP%\.net`, which takes a few seconds, and removes that copy when you close it: nothing stays on the PC. Everything else it writes goes to a `DupliFoto-dati` folder next to the `.exe` (see [Files and folders](#files-and-folders)).
 - **Unsigned executables.** They are not code-signed yet, so Windows SmartScreen may say "Windows protected your PC". Choose **More info**, then **Run anyway**.
 
 ## Requirements
@@ -67,7 +67,9 @@ Download the `.exe` and double-click it. Keep it wherever you like: Desktop, a U
    - **Tieni entrambe** keeps both.
    - **Scambia** keeps the right-hand one instead.
    - The next pair to decide comes up automatically.
-4. **Review.** Counters and the full list of pairs sit at the bottom, and the list can be filtered. **Annulla spostamenti** puts back everything moved to quarantine during the session. **Report** saves an HTML report with thumbnails and a CSV file for Excel.
+4. **Review.** Counters and the full list of pairs sit at the bottom, and the list can be filtered. Above the list, **Annulla spostamenti** puts back everything moved to quarantine during the session, and **Report** saves an HTML report with thumbnails and a CSV file for Excel in `DupliFoto-dati\Report`.
+
+On low screens (1366×768, or a higher resolution with 125–150% scaling) the window uses a compact layout, and scrolls if even that does not fit.
 
 In the semi-automatic and automatic modes, the app offers to move right away the duplicates that the mode allows. Everything else is decided pair by pair. The mode can be changed after a search without searching again.
 
@@ -164,18 +166,19 @@ Reading and decoding files, the real bottleneck together with the disk, run in p
 
 ## Files and folders
 
-DupliFoto adds nothing to the registry, installs no services and nothing that runs with Windows. Its working files (settings, analysis cache, error log) live in **one folder**, `%LOCALAPPDATA%\DupliFoto`, which it creates at start together with **`Pulisci DupliFoto.bat`**, the script that removes them from the PC.
+DupliFoto adds nothing to the registry, installs no services and nothing that runs with Windows. Everything it writes for itself goes to **one folder next to the `.exe`**, `DupliFoto-dati`, which it creates at start together with **`Pulisci DupliFoto.bat`**, the script that removes it. Run DupliFoto from a USB stick and the folder travels with it.
 
 | What | Where | When |
 |---|---|---|
-| Settings, analysis cache, error log, `Pulisci DupliFoto.bat` | `%LOCALAPPDATA%\DupliFoto` | the folder and the script at start; settings when the app closes, the cache after each search, the log only after an error or a slow start |
-| Unpacked program | `%TEMP%\.net\<exe name>`, for example `%TEMP%\.net\DupliFoto-0.2.0-x64` | first start of each version; older versions are removed automatically |
+| Settings, analysis cache, error log, `Pulisci DupliFoto.bat` | `DupliFoto-dati` next to the `.exe` | the folder and the script at start; settings when the app closes, the cache after each search, the log only after an error or a slow start |
+| Reports | `DupliFoto-dati\Report` (the command line run from a terminal writes to the current folder) | when you ask for one |
+| Unpacked program | `%TEMP%\.net\<exe name>`, for example `%TEMP%\.net\DupliFoto-0.3.1-x64` | at start; removed when the app closes |
 | Quarantine and move journals | `Pictures\DupliFoto-Quarantena` (or the folder chosen in the app) | first move; the journal is written there also when files go to the Recycle Bin |
-| Reports | `Documents\DupliFoto` (the command line run from a terminal writes to the current folder) | when you ask for one |
 
-- **Portable version.** Put an empty file named `DupliFoto.portable` next to the `.exe`: the working files then go to a `DupliFoto-dati` folder next to the `.exe`, for example on a USB stick. Only the unpacked program still goes to `%TEMP%`, because .NET unpacks it before DupliFoto starts.
-- **Old versions.** At every start, DupliFoto removes the unpacked copies of earlier versions. A copy that is in use, because that version is still open, is left alone.
-- **Removing DupliFoto.** Close it, run `Pulisci DupliFoto.bat` (**Altre opzioni → File di DupliFoto → Apri** shows where it is), then delete the `.exe`. The script removes the unpacked copies of every version and the working files, including those of versions 0.2 and earlier (`%APPDATA%\DupliFoto`). It never touches the quarantine, the reports or the `.exe` files: delete those yourself if you no longer need them.
+- **Read-only places.** If the folder next to the `.exe` cannot be written (a CD, or a protected folder such as Program Files), the working files go to `%LOCALAPPDATA%\DupliFoto` and the reports to `Documents\DupliFoto`. **Altre opzioni → File di DupliFoto** shows where they are.
+- **The unpacked program.** .NET unpacks the `.exe` into `%TEMP%\.net` before DupliFoto starts: this is the one place outside its folder that DupliFoto cannot avoid. When the app closes, a hidden Command Prompt removes that copy as soon as no DupliFoto window uses it any more. The next start unpacks again, which takes a few seconds. To keep the copy for quicker starts, untick *Alla chiusura togli anche i file temporanei del programma* in **Altre opzioni → File di DupliFoto**. The command-line tool removes its copy only when it is started with a double-click, so that commands run one after another from a terminal or a script start at once. Copies of older versions are removed at every start; a copy that is in use is left alone.
+- **Earlier versions.** Versions up to 0.3.0 kept their files in `%LOCALAPPDATA%\DupliFoto`, and versions 0.2 and earlier kept the settings in `%APPDATA%\DupliFoto`. At start, DupliFoto moves settings, cache and error log into `DupliFoto-dati` and removes those folders. It touches only the files it wrote itself.
+- **Removing DupliFoto.** Close it, run `Pulisci DupliFoto.bat` in `DupliFoto-dati`, then delete the `.exe`. The script removes the unpacked copies and the working files of every version, and leaves the `Report` folder. It never touches the quarantine or the `.exe` files: delete those yourself if you no longer need them.
 - **Windows ML.** If you select a neural model, Windows may download the NPU/GPU components; Windows installs and manages them.
 
 ## Privacy

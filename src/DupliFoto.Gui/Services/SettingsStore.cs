@@ -18,6 +18,8 @@ public sealed class GuiSettings
     public double BurstSeconds { get; set; } = 10;
     public string? ModelPath { get; set; }
     public string Accelerator { get; set; } = "auto";
+    /// <summary>Alla chiusura togliere la copia del programma scompattata in %TEMP% (vedi AppFiles.RemoveExtractionAtExit).</summary>
+    public bool RemoveTempOnExit { get; set; } = true;
 
     /// <summary>Una cartella; <c>Preferred</c> = le copie che stanno qui si tengono sempre.</summary>
     public sealed record FolderSetting(string Path, bool Preferred);
@@ -30,26 +32,21 @@ internal sealed partial class GuiJson : JsonSerializerContext
 {
 }
 
-/// <summary>
-/// Le impostazioni in un file JSON. <paramref name="legacyPath"/> è dove le salvava una versione precedente: si leggono
-/// da lì finché non c'è il file nuovo, e al primo salvataggio il vecchio file viene tolto.
-/// </summary>
-public sealed class SettingsStore(string? path, string? legacyPath = null)
+/// <summary>Le impostazioni in un file JSON.</summary>
+public sealed class SettingsStore(string? path)
 {
     /// <summary>
-    /// Nella cartella dei file di lavoro. Le versioni 0.2 e precedenti le tenevano in %APPDATA%\DupliFoto: la versione
-    /// portatile parte invece dai valori predefiniti, perché le sue impostazioni viaggiano con l'exe.
+    /// Nella cartella dei file di lavoro, accanto all'exe. Quelle delle versioni precedenti (in %LOCALAPPDATA% o in
+    /// %APPDATA%) le porta qui AppFiles.Prepare, all'avvio.
     /// </summary>
-    public static SettingsStore Default => new(
-        System.IO.Path.Combine(AppFiles.Folder, "gui.json"), AppFiles.IsPortable ? null : AppFiles.LegacySettingsPath);
+    public static SettingsStore Default => new(System.IO.Path.Combine(AppFiles.Folder, "gui.json"));
 
     public GuiSettings Load()
     {
         try
         {
-            string? source = File.Exists(path) ? path : File.Exists(legacyPath) ? legacyPath : null;
-            if (source is not null)
-                return JsonSerializer.Deserialize(File.ReadAllText(source), GuiJson.Default.GuiSettings) ?? new GuiSettings();
+            if (File.Exists(path))
+                return JsonSerializer.Deserialize(File.ReadAllText(path), GuiJson.Default.GuiSettings) ?? new GuiSettings();
         }
         catch (Exception) { /* impostazioni illeggibili: si riparte dai valori predefiniti */ }
         return new GuiSettings();
@@ -63,15 +60,6 @@ public sealed class SettingsStore(string? path, string? legacyPath = null)
             Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
             File.WriteAllText(path, JsonSerializer.Serialize(settings, GuiJson.Default.GuiSettings));
         }
-        catch (Exception) { return; /* non poter salvare le preferenze non deve fermare il programma */ }
-
-        if (legacyPath is null || !File.Exists(legacyPath)) return;
-        try
-        {
-            File.Delete(legacyPath);
-            string folder = System.IO.Path.GetDirectoryName(legacyPath)!;
-            if (!Directory.EnumerateFileSystemEntries(folder).Any()) Directory.Delete(folder);
-        }
-        catch (Exception) { /* resta il vecchio file: non dà fastidio, e «Pulisci DupliFoto.bat» lo toglie */ }
+        catch (Exception) { /* non poter salvare le preferenze non deve fermare il programma */ }
     }
 }

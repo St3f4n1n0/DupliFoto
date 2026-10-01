@@ -3,6 +3,19 @@
 All notable changes to DupliFoto are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.3.1] - 2026-10-01
+
+### Changed
+
+- **Everything next to the `.exe`.** Settings, analysis cache, error log, reports and `Pulisci DupliFoto.bat` now always go to a `DupliFoto-dati` folder next to the `.exe`, wherever it runs from: a USB stick, the Desktop, a tools folder. The `DupliFoto.portable` file is no longer needed, and an existing one is ignored. Only when that folder cannot be written (a CD, or a protected folder such as Program Files) do the files go to `%LOCALAPPDATA%\DupliFoto`, and the reports to `Documents\DupliFoto`.
+- **Files of earlier versions move along.** At start, the settings, cache and error log that earlier versions left in `%LOCALAPPDATA%\DupliFoto` and `%APPDATA%\DupliFoto` move into `DupliFoto-dati`, and those folders are removed. Only files that DupliFoto itself wrote are touched.
+- **Nothing left in `%TEMP%`.** When the app closes, it removes the copy of itself that the `.exe` unpacked into `%TEMP%\.net` at start. The next start unpacks again and takes a few seconds longer; *Altre opzioni → File di DupliFoto* can keep the copy for quicker starts. The command-line tool does the same when it is started with a double-click. From a terminal or a script it keeps its copy, so that consecutive commands start at once.
+- `Pulisci DupliFoto.bat` leaves the `Report` folder alone.
+
+### Fixed
+
+- **Small screens.** On a 1366×768 screen, or with 125% scaling, the middle of the comparison ran over the buttons and the counters, and the photos were tiny. Below about 860 points of usable height the window now switches to a compact layout. When even that does not fit, the window scrolls instead of stacking parts on top of each other. *Sposta automatici*, *Annulla spostamenti* and *Report* moved above the list of pairs.
+
 ## [0.3.0] - 2026-10-01
 
 ### Added

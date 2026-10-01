@@ -20,6 +20,10 @@ if (ownsConsole)
 {
     Console.Write("\nPremi Invio per chiudere...");
     Console.ReadLine();
+    // Aperto con un doppio clic, alla chiusura toglie anche la copia di sé scompattata in %TEMP%: sul PC non resta
+    // niente. Da un terminale o da uno script no: i comandi uno dopo l'altro partono subito, senza riscompattarsi
+    // ogni volta (alla fine basta «Pulisci DupliFoto.bat /si»).
+    AppFiles.RemoveExtractionAtExit();
 }
 return exitCode;
 
@@ -166,11 +170,9 @@ async Task<int> Analyze(string[] a)
     embeddings?.Dispose();
 
     // --- Report (sempre, in ogni modalità) ---
-    // Da Esplora risorse la cartella corrente può essere C:\Windows\System32: meglio Documenti\DupliFoto.
+    // Da Esplora risorse la cartella corrente può essere C:\Windows\System32: meglio DupliFoto-dati\Report accanto all'exe.
     string reportName = $"DupliFoto-report-{DateTime.Now:yyyyMMdd-HHmmss}.html";
-    report ??= ownsConsole
-        ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "DupliFoto", reportName)
-        : Path.GetFullPath(reportName);
+    report ??= ownsConsole ? Path.Combine(AppFiles.ReportFolder, reportName) : Path.GetFullPath(reportName);
     Directory.CreateDirectory(Path.GetDirectoryName(report)!);
     ReportWriter.WriteHtml(result, report);
     ReportWriter.WriteCsv(result, Path.ChangeExtension(report, ".csv"));
@@ -278,8 +280,10 @@ static void PrintHelp() => Console.WriteLine("""
       --non-interattivo             non fare domande: ciò che richiede conferma resta da rivedere
 
     FILE DI LAVORO
-      Cache e impostazioni stanno in %LOCALAPPDATA%\DupliFoto, oppure in "DupliFoto-dati" accanto all'exe
-      se lì c'è un file DupliFoto.portable. «Pulisci DupliFoto.bat», in quella cartella, li toglie tutti.
+      Cache, registro e report (aperto con un doppio clic) stanno in "DupliFoto-dati" accanto all'exe:
+      sul PC non resta niente di sparso. Aperto con un doppio clic, alla chiusura toglie anche la copia
+      di sé scompattata in %TEMP%\.net; da un terminale la lascia, per ripartire subito al comando dopo.
+      «Pulisci DupliFoto.bat /si», in DupliFoto-dati, toglie tutto (report esclusi).
 
     ESEMPI
       duplifoto-cli "D:\Foto"

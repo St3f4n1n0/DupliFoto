@@ -18,6 +18,9 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            // Prima di leggere le impostazioni: «Pulisci DupliFoto.bat» e i file delle versioni precedenti, portati
+            // nella cartella accanto all'exe.
+            AppFiles.Prepare();
             var vm = new MainViewModel(SettingsStore.Default);
             // Cartelle passate all'avvio, per esempio trascinandole sull'icona del programma.
             vm.AddFolders(desktop.Args ?? []);
@@ -25,15 +28,15 @@ public partial class App : Application
             window.Opened += (_, _) =>
             {
                 NoteSlowStartup();
-                // A finestra aperta, senza rallentare l'avvio: la cartella dei file di lavoro con «Pulisci DupliFoto.bat»,
-                // e via le copie scompattate delle versioni precedenti.
-                Task.Run(() =>
-                {
-                    AppFiles.Prepare();
-                    AppFiles.RemoveOldExtractions();
-                });
+                // A finestra aperta, senza rallentare l'avvio: via le copie scompattate delle versioni precedenti.
+                Task.Run(() => AppFiles.RemoveOldExtractions());
             };
             desktop.MainWindow = window;
+            // Alla chiusura anche la copia scompattata di questa versione, se l'utente non ha scelto di tenerla.
+            desktop.Exit += (_, _) =>
+            {
+                if (vm.RemoveTempOnExit) AppFiles.RemoveExtractionAtExit();
+            };
 
             // Un errore imprevisto non deve chiudere il programma a metà lavoro: lo si registra e lo si segnala.
             // Ogni spostamento è indipendente e annotato nel registro, quindi si può continuare in sicurezza.
