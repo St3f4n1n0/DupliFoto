@@ -104,7 +104,7 @@ jobs:
 
       - name: Test the executables on real photos
         shell: powershell
-        run: tools\prova-windows.ps1 -Gui "dist\DupliFoto-$env:VERSION-x64.exe" -Cli "dist\duplifoto-cli-$env:VERSION-x64.exe" -Full -Screenshot "$env:RUNNER_TEMP\screenshots\app-windows-2025.png"
+        run: tools\prova-windows.ps1 -Gui "dist\DupliFoto-$env:VERSION-x64.exe" -Cli "dist\duplifoto-cli-$env:VERSION-x64.exe" -Full -Pulizia -Screenshot "$env:RUNNER_TEMP\screenshots\app-windows-2025.png"
 
       - uses: actions/upload-artifact@v7
         with:
@@ -138,7 +138,7 @@ jobs:
 
       - name: Test the executables on real photos
         shell: powershell
-        run: tools\prova-windows.ps1 -Gui "dist\DupliFoto-$env:VERSION-x64.exe" -Cli "dist\duplifoto-cli-$env:VERSION-x64.exe" -Screenshot "$env:RUNNER_TEMP\screenshots\app-windows-2022.png"
+        run: tools\prova-windows.ps1 -Gui "dist\DupliFoto-$env:VERSION-x64.exe" -Cli "dist\duplifoto-cli-$env:VERSION-x64.exe" -Pulizia -Screenshot "$env:RUNNER_TEMP\screenshots\app-windows-2022.png"
 
       - uses: actions/upload-artifact@v7
         if: always()
