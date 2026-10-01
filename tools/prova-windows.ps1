@@ -257,8 +257,11 @@ if ($Pulizia) {
     # 7) Pulisci DupliFoto.bat (senza conferma): via copie scompattate e file di lavoro, di tutte le versioni.
     $ErrorActionPreference = 'Continue'
     cmd.exe /c "`"$bat`" /si" 2>&1 | Out-String | Write-Host
+    $batExit = $LASTEXITCODE
     cmd.exe /c "`"$(Join-Path $stick 'DupliFoto-dati\Pulisci DupliFoto.bat')`" /si" 2>&1 | Out-String | Write-Host
+    $stickBatExit = $LASTEXITCODE
     $ErrorActionPreference = 'Stop'
+    Check ($batExit -eq 0 -and $stickBatExit -eq 0) "pulizia: lo script finisce con codice 0 (anche quando restano i report: $batExit, $stickBatExit)"
     Check (@(Get-Extracted).Count -eq 0) 'pulizia: nessuna copia scompattata di DupliFoto in %TEMP%\.net'
     Check (-not (Test-Path $data)) 'pulizia: tolta la cartella dei file di lavoro'
     Check (-not (Test-Path $oldLocal)) 'pulizia: niente in %LOCALAPPDATA%\DupliFoto'

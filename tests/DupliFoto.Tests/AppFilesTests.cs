@@ -174,7 +174,7 @@ public sealed class AppFilesTests : IDisposable
         Assert.Contains("\r\n", text);
         Assert.Contains("DupliFoto.Core.dll", text);                     // riconosce le copie scompattate di ogni versione
         Assert.Contains(@"rd /s /q ""%APPDATA%\DupliFoto""", text);      // impostazioni delle versioni 0.2 e precedenti
-        Assert.Contains("(goto) 2>nul & del /f /q \"%~f0\" & rd \"%SELF%\" 2>nul", text);  // per ultimo sé stesso
+        Assert.Contains("(goto) 2>nul & del /f /q \"%~f0\" & rd \"%SELF%\" 2>nul || (call )", text);  // per ultimo sé stesso
         Assert.Contains("if /i not \"%%~nxD\"==\"Report\"", text);                       // i report restano
         Assert.DoesNotContain("rd /s /q \"%SELF%\"", text);
         var deletions = text.Split("\r\n").Where(l => l.Contains("rd ") || l.Contains("del ")).ToList();

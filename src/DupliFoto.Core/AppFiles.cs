@@ -322,9 +322,10 @@ public static class AppFiles
         ")",
         "echo.",
         "if /i not \"%~1\"==\"/si\" pause",
-        "rem Per ultima la cartella di questo file, tranne i report; poi il file stesso, e la cartella se resta vuota.",
+        "rem Per ultima la cartella di questo file, tranne i report; poi il file stesso, e la cartella se resta vuota",
+        "rem (se ci sono i report resta, e non e' un errore: \"(call )\" riporta il codice di uscita a 0).",
         "for %%F in (\"%SELF%\\*\") do if /i not \"%%~nxF\"==\"%~nx0\" del /f /q \"%%F\" 2>nul",
         "for /d %%D in (\"%SELF%\\*\") do if /i not \"%%~nxD\"==\"Report\" rd /s /q \"%%D\" 2>nul",
-        "(goto) 2>nul & del /f /q \"%~f0\" & rd \"%SELF%\" 2>nul",
+        "(goto) 2>nul & del /f /q \"%~f0\" & rd \"%SELF%\" 2>nul || (call )",
         "");
 }
