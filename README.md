@@ -131,6 +131,7 @@ These rules hold in every mode:
 - **Undo journal.** Every move is written to a JSON Lines journal as it happens. `duplifoto-cli annulla` and **Annulla spostamenti** restore everything in quarantine; the Recycle Bin is restored from Windows.
 - **Files changed after the scan are not touched,** and neither is anything whose copy-to-keep has gone missing or changed.
 - **Byte-by-byte check.** "Identical" files are compared byte by byte again right before being moved.
+- **One file, two paths.** A folder added twice by different routes (`Z:\Foto` and `\\NAS\Foto`, a SUBST drive, a junction) does not turn each photo into its own duplicate: the file is recognised by its identity on disk. After every move DupliFoto also checks that the copy to keep is still there; if it is not, the file goes straight back.
 - **OneDrive and links.** Online-only OneDrive files are skipped, so they are not downloaded. Symbolic links and junctions are not followed: no loops, no photo counted twice.
 - **Locked files.** A file briefly locked by another program (antivirus, indexer) is retried; a file still open is left in place.
 
@@ -225,7 +226,7 @@ assets/               icon and the script that draws it
 On every push, GitHub Actions builds the solution and runs all tests on Linux and on Windows. The tests cover:
 
 - **The engine:** every level of the funnel, the modes, the byte-by-byte check, undo and the cache.
-- **The safety rules:** links, preferred folders, journals, locked files, and the Recycle Bin on Windows.
+- **The safety rules:** links, the same file reached through two paths, the last copy that automatic mode must always keep, preferred folders, journals, locked files, and the Recycle Bin on Windows.
 - **Real libraries:** Magick.NET and MetadataExtractor on generated JPEG and PNG files, checking EXIF with sub-seconds and GPS, orientation, greyscale and transparency.
 - **The app:** the full flow on real photos (search, move, swap, keep both, undo, semi-automatic, read-only), plus screenshots in light and dark theme.
 

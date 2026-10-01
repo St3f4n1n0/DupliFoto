@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using DupliFoto.Core;
 using DupliFoto.Core.Actions;
 using DupliFoto.Core.Imaging;
@@ -483,6 +484,85 @@ public sealed class SafetyTests : IDisposable
         using var s1 = new ActionSession(o);
         using var s2 = new ActionSession(o);
         Assert.NotEqual(s1.JournalPath, s2.JournalPath);
+    }
+
+    /// <summary>
+    /// Un secondo percorso verso la cartella <paramref name="target"/>: una giunzione su Windows (non servono
+    /// privilegi, come per le unità SUBST e le cartelle di rete aggiunte due volte), un collegamento simbolico altrove.
+    /// </summary>
+    private static void CreateFolderAlias(string alias, string target)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            using var mklink = Process.Start(new ProcessStartInfo("cmd.exe", $"/c mklink /J \"{alias}\" \"{target}\"")
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+            })!;
+            mklink.WaitForExit();
+            Assert.Equal(0, mklink.ExitCode);
+        }
+        else
+        {
+            Directory.CreateSymbolicLink(alias, target);
+        }
+    }
+
+    private static PhotoFile Existing(string path) =>
+        new() { Path = path, Size = new FileInfo(path).Length, LastWriteUtc = File.GetLastWriteTimeUtc(path) };
+
+    [Fact]
+    public void The_same_file_reached_through_another_path_is_never_moved()
+    {
+        string real = Path.Combine(_dir, "Foto"), alias = Path.Combine(_dir, "Stessa cartella");
+        Directory.CreateDirectory(real);
+        File.WriteAllBytes(Path.Combine(real, "a.jpg"), [1, 2, 3]);
+        CreateFolderAlias(alias, real);
+        var keeper = Existing(Path.Combine(real, "a.jpg"));
+        var twin = Existing(Path.Combine(alias, "a.jpg"));
+
+        using var session = new ActionSession(new ScanOptions { QuarantineRoot = Path.Combine(_dir, "Q") });
+        var outcome = session.Move(keeper, new GroupMember { File = twin, Kind = MatchKind.ExactBytes, Confidence = 100, Reason = "" }, automatic: true);
+
+        // Su Windows lo riconosce l'identità del file prima di spostarlo; altrove il controllo dopo lo spostamento
+        // vede sparire la copia da tenere e rimette subito il file al suo posto.
+        Assert.Equal(MoveResult.SameFile, outcome.Result);
+        Assert.True(File.Exists(keeper.Path));
+        Assert.Equal(0, session.Summary.Moved);
+        Assert.False(File.Exists(session.JournalPath));
+    }
+
+    [Fact]
+    public void A_folder_added_twice_through_another_path_never_loses_its_photos()
+    {
+        string real = Path.Combine(_dir, "Foto"), alias = Path.Combine(_dir, "Stessa cartella");
+        Directory.CreateDirectory(real);
+        TestImages.SavePpm(TestImages.Scene(1), Path.Combine(real, "a.ppm"));
+        TestImages.SavePpm(TestImages.Scene(2), Path.Combine(real, "b.ppm"));
+        CreateFolderAlias(alias, real);
+        var o = new ScanOptions
+        {
+            Roots = { real, alias },
+            Extensions = { ".ppm" },
+            Mode = RunMode.Automatic,
+            AutoThreshold = 90,
+            QuarantineRoot = Path.Combine(_dir, "Q"),
+            CachePath = Path.Combine(_dir, "cache.json"),
+        };
+
+        var r = new DedupEngine(new PpmDecoder(), new FakeMetadata()).Run(o);
+        var s = new ActionExecutor(o, prompt: null).Execute(r);
+
+        Assert.Equal(0, s.Moved);
+        Assert.True(File.Exists(Path.Combine(real, "a.ppm")));
+        Assert.True(File.Exists(Path.Combine(real, "b.ppm")));
+        if (OperatingSystem.IsWindows())
+        {
+            // Su Windows i due percorsi vengono riconosciuti già nella ricerca: ogni foto contata una volta, nessun doppione.
+            Assert.Equal(2, r.Files.Count);
+            Assert.Empty(r.Groups);
+        }
     }
 
     [Fact]

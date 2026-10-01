@@ -27,6 +27,10 @@ public sealed class DedupEngine(IImageDecoder decoder, IMetadataReader metadata,
 
         // ---------- Livello 1: identici al byte ----------
         var exactSets = ExactMatcher.FindExactGroups(files, o, progress, ct);
+        // Lo stesso file raggiunto da due percorsi (Z:\Foto e \\NAS\Foto, un'unità SUBST, una giunzione) non è una
+        // copia: si tiene un percorso solo, altrimenti "spostare il doppione" toglierebbe anche la copia da tenere.
+        var aliases = ExactMatcher.RemoveAliases(exactSets, progress);
+        if (aliases.Count > 0) files = files.Where(f => !aliases.Contains(f)).ToList();
         var groups = new List<DuplicateGroup>();
         var hiddenDuplicates = new HashSet<PhotoFile>(ReferenceEqualityComparer.Instance);
         var exactKeeperOf = new Dictionary<PhotoFile, DuplicateGroup>(ReferenceEqualityComparer.Instance);

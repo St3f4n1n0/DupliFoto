@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- **The same file reached through two paths is no longer taken for two copies.** If the same folder was added twice by different routes (for example `Z:\Foto` and `\\NAS\Foto`, a SUBST drive, or a junction), each photo looked like an identical copy of itself, and moving "the duplicate" moved the only copy into quarantine, where *Undo* could still restore it. DupliFoto now recognises a file by its identity on disk and counts it once. As a further safeguard, after every move it checks that the copy to keep is still in place, and if it is not, it puts the file back at once.
 - **See-through window on Windows 10.** Windows 10 has no Mica, and in that case the window was left fully transparent: the desktop showed through the app. The window now gets the solid background of the light or dark theme. Windows 11 keeps Mica.
 
 ### Changed

@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.IO.Hashing;
+using DupliFoto.Core.Scanning;
 
 namespace DupliFoto.Core.Matching;
 
@@ -50,6 +51,30 @@ public static class ExactMatcher
             .Where(g => g.Count() > 1)
             .Select(g => g.ToList())
             .ToList();
+    }
+
+    /// <summary>
+    /// Toglie dai gruppi, e restituisce, i percorsi che portano a un file già presente nello stesso gruppo:
+    /// lo stesso file raggiunto per due strade (vedi <see cref="FileIdentity"/>) non è una copia.
+    /// </summary>
+    public static HashSet<PhotoFile> RemoveAliases(List<List<PhotoFile>> groups, IProgress<string>? progress = null)
+    {
+        var aliases = new HashSet<PhotoFile>(ReferenceEqualityComparer.Instance);
+        foreach (var group in groups)
+        {
+            var ids = group.Select(f => FileIdentity.TryGetId(f.Path)).ToList();
+            for (int i = 1; i < group.Count; i++)
+            {
+                if (ids[i] is not { } id) continue;
+                int first = ids.FindIndex(0, i, other => other == id);
+                if (first < 0) continue;
+                aliases.Add(group[i]);
+                progress?.Report($"Stesso file raggiunto da due percorsi, contato una volta sola: {group[i].Path} = {group[first].Path}");
+            }
+            group.RemoveAll(aliases.Contains);
+        }
+        groups.RemoveAll(g => g.Count < 2);
+        return aliases;
     }
 
     public static ulong ComputePartialHash(string path, long size, int chunk)

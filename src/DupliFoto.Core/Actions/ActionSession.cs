@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using DupliFoto.Core.Matching;
+using DupliFoto.Core.Scanning;
 
 namespace DupliFoto.Core.Actions;
 
@@ -15,6 +16,8 @@ public enum MoveResult
     ChangedSinceScan,
     /// <summary>La verifica byte per byte dei file "identici" è fallita.</summary>
     ByteCheckFailed,
+    /// <summary>È lo stesso file della copia da tenere, raggiunto da un altro percorso: spostarlo toglierebbe entrambi.</summary>
+    SameFile,
     /// <summary>Errore del file system (permessi, file aperto, disco pieno...).</summary>
     Failed,
 }
@@ -41,7 +44,9 @@ public static class ActionPolicy
 /// 1. la copia da tenere deve esistere ed essere invariata;
 /// 2. il file da spostare deve essere invariato dalla scansione (peso e data);
 /// 3. i file "identici" vengono riconfrontati byte per byte subito prima;
-/// 4. niente viene cancellato: solo spostato in quarantena o nel Cestino, e annotato nel registro.
+/// 4. non deve essere lo stesso file della copia da tenere raggiunto da un altro percorso, e dopo lo spostamento
+///    la copia da tenere deve essere ancora al suo posto (altrimenti il file torna subito dov'era);
+/// 5. niente viene cancellato: solo spostato in quarantena o nel Cestino, e annotato nel registro.
 /// Non è thread-safe: gli spostamenti vanno fatti uno alla volta.
 /// </summary>
 public sealed class ActionSession(ScanOptions options, IProgress<string>? progress = null) : IDisposable
@@ -75,12 +80,20 @@ public sealed class ActionSession(ScanOptions options, IProgress<string>? progre
             return Warn(MoveResult.KeeperUnavailable, $"La copia da tenere non è più disponibile o è cambiata, non tocco: {f.Path}");
         if (!IsUnchanged(f))
             return Warn(MoveResult.ChangedSinceScan, $"Modificato dopo la scansione, saltato: {f.Path}");
+        if (FileIdentity.AreSameFile(keeper.Path, f.Path))
+            return Warn(MoveResult.SameFile, $"È lo stesso file della copia da tenere ({keeper.Path}), raggiunto da un altro percorso: non lo sposto: {f.Path}");
         if (member.Kind == MatchKind.ExactBytes && !ExactMatcher.FilesAreIdentical(keeper.Path, f.Path))
             return Warn(MoveResult.ByteCheckFailed, $"La verifica byte per byte è fallita, saltato: {f.Path}");
 
         try
         {
             string? movedTo = Dispose(f.Path);
+
+            // Ultima difesa: se ora la copia da tenere non è più al suo posto, i due percorsi portavano allo stesso
+            // file per una strada non riconosciuta prima. Il file torna subito dov'era.
+            if (!IsUnchanged(keeper) && movedTo is not null && TryPutBack(movedTo, f.Path))
+                return Warn(MoveResult.SameFile, $"Era lo stesso file della copia da tenere ({keeper.Path}): rimesso subito al suo posto: {f.Path}");
+
             _journal ??= new ActionJournal(JournalPath);
             Summary.JournalPath = JournalPath;
             _journal.Write(new JournalEntry(DateTime.UtcNow, options.Disposal, f.Path, movedTo, f.Size,
@@ -88,6 +101,9 @@ public sealed class ActionSession(ScanOptions options, IProgress<string>? progre
             _removed.Add(f.Path);
             Summary.Moved++;
             Summary.BytesFreed += f.Size;
+            if (!IsUnchanged(keeper)) // non si è potuto rimettere a posto: è nel registro, "annulla" lo riporta
+                Summary.Warnings.Add($"ATTENZIONE: dopo aver spostato {f.Path} la copia da tenere {keeper.Path} non c'è più. " +
+                                     (movedTo is null ? "Ripristina il file dal Cestino." : "Riportalo al suo posto con «annulla»."));
             progress?.Report($"{(automatic ? "[auto]" : "[ok]  ")} {f.Path}");
             return new MoveOutcome(MoveResult.Moved, movedTo is null ? "nel Cestino" : $"in quarantena: {movedTo}");
         }
@@ -101,6 +117,17 @@ public sealed class ActionSession(ScanOptions options, IProgress<string>? progre
     {
         Summary.Warnings.Add(message);
         return new MoveOutcome(result, message);
+    }
+
+    private static bool TryPutBack(string movedTo, string original)
+    {
+        try
+        {
+            if (File.Exists(original)) return false;
+            File.Move(movedTo, original);
+            return true;
+        }
+        catch (Exception) { return false; }
     }
 
     private static bool IsUnchanged(PhotoFile f)
