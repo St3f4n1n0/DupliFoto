@@ -3,6 +3,19 @@
 All notable changes to DupliFoto are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] - 2026-10-01
+
+### Added
+
+- **Choose the folder whose copies to keep.** With two or more folders, *Copia da tenere* lists *Scelta automatica* and each folder. When a folder is chosen, its copies always stay and only copies elsewhere are moved. This replaces the star for "preferred" folders, which was easy to miss.
+- **Compare folders only against each other.** *Cerca i doppioni → solo tra cartelle diverse* (`--solo-tra-cartelle` on the command line) compares each folder only with the others, for example to find what in a download folder is already in the catalogued one. Duplicates inside the same folder are left alone.
+
+### Changed
+
+- **Clearer comparison.** The right-hand photo is now labelled *Da spostare* (to move) and the button reads *Sposta quella a destra* (move the right-hand one). Each photo shows the folder it comes from, and the reason the left-hand copy is kept is always visible.
+- **Nested folders.** When both *Foto* and *Foto\Catalogate* are added, a photo in *Catalogate* belongs to *Catalogate*: choosing to keep *Foto* no longer claims it.
+- Choosing another copy to keep from the command line re-scores the group, as the app does.
+
 ## [0.1.1] - 2026-10-01
 
 ### Fixed
@@ -41,5 +54,6 @@ First public release.
 - Tested automatically on Windows Server 2025 and Windows Server 2022 (the Windows 10 base); not yet on physical Windows 10 PCs, dedicated NPUs, or large HEIC/RAW archives.
 - The ARM64 executables are built but not run in CI, which only has x64 machines.
 
+[0.2.0]: https://github.com/St3f4n1n0/DupliFoto/releases/tag/v0.2.0
 [0.1.1]: https://github.com/St3f4n1n0/DupliFoto/releases/tag/v0.1.1
 [0.1.0]: https://github.com/St3f4n1n0/DupliFoto/releases/tag/v0.1.0

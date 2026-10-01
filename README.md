@@ -24,7 +24,8 @@
   - the same pixels with different metadata;
   - the same picture recompressed, resized or rotated (for example, a copy that went through WhatsApp);
   - several shots of the same scene taken seconds apart.
-- **Side-by-side comparison.** The copy to keep is on the left and the duplicate on the right, with a confidence score and the reason. You can move the duplicate, keep both, or swap which one to keep.
+- **Side-by-side comparison.** The copy to keep is on the left and the one to move on the right, with a confidence score and the reason. You can move the right-hand copy, keep both, or swap which one to keep.
+- **You choose which folder wins.** Pick the folder whose copies must always stay (for example, the one you have already catalogued), and compare folders only against each other if you like: "what in *Downloads* is already in *Photos*?".
 - **Never deletes anything.** Duplicates go to a quarantine folder that can be restored with one click, or to the Recycle Bin.
 - **Portable.** A single `.exe` with nothing to install: .NET and every library are included.
 - **Many formats:** JPEG, PNG, HEIC, AVIF, WebP, TIFF, JPEG XL and the common RAW formats.
@@ -57,10 +58,12 @@ Download the `.exe` and double-click it. Keep it wherever you like: Desktop, a U
 
 ## Using the app
 
-1. **Folders.** Add one or more folders with **Aggiungi cartella**, or drag them from File Explorer. The star marks a *preferred* folder: when two copies are found, the one in that folder is kept.
+1. **Folders.** Add one or more folders with **Aggiungi cartella**, or drag them from File Explorer. With two or more folders, two more choices appear:
+   - **Copia da tenere** (copy to keep): *Scelta automatica* lets the rules below decide; picking a folder means its copies always stay, and only copies elsewhere are moved. When folders are nested (*Foto* and *Foto\Catalogate*), each photo belongs to the most specific folder you added.
+   - **Cerca i doppioni** (look for duplicates): *in tutte le foto* compares every photo with every other; *solo tra cartelle diverse* compares each folder only with the others, so duplicates within the same folder are left alone.
 2. **Mode.** Pick a mode (see [Modes](#modes)) and where duplicates go: quarantine or Recycle Bin. Then press **Avvia ricerca**.
-3. **Compare.** Each pair appears side by side: the copy to keep on the left, the duplicate on the right, and the confidence in the middle.
-   - **Sposta il doppione** moves the right-hand photo away.
+3. **Compare.** Each pair appears side by side: the copy to keep (*Da tenere*) on the left, the copy to move (*Da spostare*) on the right, each with the folder it comes from. In the middle are the confidence and the reason the left-hand copy is kept.
+   - **Sposta quella a destra** moves the right-hand photo away; the left-hand one stays where it is.
    - **Tieni entrambe** keeps both.
    - **Scambia** keeps the right-hand one instead.
    - The next pair to decide comes up automatically.
@@ -74,6 +77,7 @@ In the semi-automatic and automatic modes, the app offers to move right away the
 duplifoto-cli "D:\Foto"                                  # read-only: report only
 duplifoto-cli "D:\Foto" --modo assistita                 # ask for every group
 duplifoto-cli "D:\Foto" "E:\Phone" --modo semi-auto --preferisci "D:\Foto"
+duplifoto-cli "D:\Catalogate" "D:\Download" --solo-tra-cartelle --preferisci "D:\Catalogate"
 duplifoto-cli "D:\Foto" --modo auto --soglia 98 --modello dinov2-small.onnx --non-interattivo
 duplifoto-cli annulla "...\DupliFoto-Quarantena\registro-20260930-101500-3fa2c1.jsonl"
 duplifoto-cli hardware                                   # NPU / GPU / CPU available
@@ -83,7 +87,8 @@ duplifoto-cli --versione
 `duplifoto-cli aiuto` lists every option:
 
 - where duplicates go: `--azione quarantena|cestino`, `--quarantena`;
-- which copies to keep: `--preferisci`;
+- which copies to keep: `--preferisci` (copies in that folder always stay);
+- comparing folders only against each other: `--solo-tra-cartelle`;
 - output: `--report`;
 - neural model: `--modello`, `--acceleratore`;
 - burst shots: `--raffica`, `--no-raffiche`;
@@ -137,7 +142,7 @@ These rules hold in every mode:
 
 ## Which copy is kept
 
-- **Duplicates.** The copy in the preferred folder wins. After that:
+- **Duplicates.** The copy in the folder to keep wins (chosen in the app, or with `--preferisci`). After that:
   1. the higher resolution;
   2. the richer metadata;
   3. the name without "(1)" or "Copia";
@@ -226,7 +231,8 @@ assets/               icon and the script that draws it
 On every push, GitHub Actions builds the solution and runs all tests on Linux and on Windows. The tests cover:
 
 - **The engine:** every level of the funnel, the modes, the byte-by-byte check, undo and the cache.
-- **The safety rules:** links, the same file reached through two paths, the last copy that automatic mode must always keep, preferred folders, journals, locked files, and the Recycle Bin on Windows.
+- **The safety rules:** links, the same file reached through two paths, the last copy that automatic mode must always keep, the folder to keep (also with nested folders), journals, locked files, and the Recycle Bin on Windows.
+- **Comparing folders:** only pairs between different folders, duplicates inside a folder left alone, and swapping the copy to keep.
 - **Real libraries:** Magick.NET and MetadataExtractor on generated JPEG and PNG files, checking EXIF with sub-seconds and GPS, orientation, greyscale and transparency.
 - **The app:** the full flow on real photos (search, move, swap, keep both, undo, semi-automatic, read-only), plus screenshots in light and dark theme.
 
