@@ -129,6 +129,6 @@ public sealed class CrossFolderTests : IDisposable
 
         var keepCatalogued = Scan(Nested(catalogued)).Groups.Single();
         Assert.Equal("Matrimonio 001.ppm", Path.GetFileName(keepCatalogued.Keeper.Path));
-        Assert.Equal("si trova nella cartella da tenere", keepCatalogued.KeeperReason);
+        Assert.Equal("si trova nella cartella da tenere", keepCatalogued.KeeperReason.ToString());
     }
 }

@@ -58,19 +58,19 @@ public sealed class ActionJournal : IDisposable
             if (e.Method != DisposalMethod.Quarantine || e.MovedTo is null)
             {
                 skipped++;
-                messages.Add($"Nel Cestino di Windows, da ripristinare da lì: {e.OriginalPath}");
+                messages.Add(Lang.T($"Nel Cestino di Windows, da ripristinare da lì: {e.OriginalPath}", $"In the Windows Recycle Bin, restore it from there: {e.OriginalPath}"));
                 continue;
             }
             if (!File.Exists(e.MovedTo))
             {
                 skipped++;
-                messages.Add($"Non più presente in quarantena: {e.MovedTo}");
+                messages.Add(Lang.T($"Non più presente in quarantena: {e.MovedTo}", $"No longer in quarantine: {e.MovedTo}"));
                 continue;
             }
             if (File.Exists(e.OriginalPath))
             {
                 skipped++;
-                messages.Add($"Esiste già un file nella posizione originale, non sovrascritto: {e.OriginalPath}");
+                messages.Add(Lang.T($"Esiste già un file nella posizione originale, non sovrascritto: {e.OriginalPath}", $"A file already exists at the original location, not overwritten: {e.OriginalPath}"));
                 continue;
             }
             try
@@ -82,7 +82,7 @@ public sealed class ActionJournal : IDisposable
             catch (Exception ex)
             {
                 skipped++;
-                messages.Add($"Errore ripristinando {e.OriginalPath}: {ex.Message}");
+                messages.Add(Lang.T($"Errore ripristinando {e.OriginalPath}: {ex.Message}", $"Error restoring {e.OriginalPath}: {ex.Message}"));
             }
         }
         return new UndoResult(restored, skipped, messages);

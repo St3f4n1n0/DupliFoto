@@ -20,6 +20,8 @@ public sealed class GuiSettings
     public string Accelerator { get; set; } = "auto";
     /// <summary>Alla chiusura togliere la copia del programma scompattata in %TEMP% (vedi AppFiles.RemoveExtractionAtExit).</summary>
     public bool RemoveTempOnExit { get; set; } = true;
+    /// <summary>"auto" (come Windows), "it" o "en".</summary>
+    public string Language { get; set; } = "auto";
 
     /// <summary>Una cartella; <c>Preferred</c> = le copie che stanno qui si tengono sempre.</summary>
     public sealed record FolderSetting(string Path, bool Preferred);

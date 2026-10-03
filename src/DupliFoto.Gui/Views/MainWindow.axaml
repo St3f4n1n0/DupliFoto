@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:DupliFoto.Gui.ViewModels"
+        xmlns:l="using:DupliFoto.Gui.Views"
         x:Class="DupliFoto.Gui.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="DupliFoto"
@@ -92,6 +93,10 @@
   </Window.Styles>
 
   <Window.DataTemplates>
+    <!-- Le voci dei menu a tendina: l'etichetta nella lingua in uso, che cambia insieme alla lingua -->
+    <DataTemplate DataType="vm:IChoice">
+      <TextBlock Text="{Binding Label}" />
+    </DataTemplate>
     <!-- Metà del confronto: etichetta, foto, informazioni, azioni -->
     <DataTemplate DataType="vm:PhotoPanel">
       <Grid RowDefinitions="Auto,*,Auto" Classes="photo">
@@ -101,7 +106,7 @@
           <TextBlock Text="{Binding Role}" Classes="h" />
           <TextBlock Text="{Binding RootName, StringFormat='· {0}'}" Classes="muted" VerticalAlignment="Center"
                      IsVisible="{Binding RootName, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                     ToolTip.Tip="La cartella aggiunta da cui viene questa foto" />
+                     ToolTip.Tip="{l:T RootTip}" />
         </StackPanel>
 
         <Panel Grid.Row="1" Classes="photo-area">
@@ -123,11 +128,11 @@
             <TextBlock Text="{Binding FileName}" FontWeight="SemiBold" VerticalAlignment="Center" MaxWidth="420"
                        TextTrimming="CharacterEllipsis" Margin="0,0,6,0" />
             <Button Classes="subtle icon" Command="{Binding OpenCommand}" IsEnabled="{Binding HasPhoto}"
-                    ToolTip.Tip="Apri con il visualizzatore di foto" AutomationProperties.Name="Apri la foto">
+                    ToolTip.Tip="{l:T OpenInViewer}" AutomationProperties.Name="{l:T OpenPhoto}">
               <PathIcon Data="{StaticResource IconEye}" />
             </Button>
             <Button Classes="subtle icon" Command="{Binding RevealCommand}" IsEnabled="{Binding HasPhoto}"
-                    ToolTip.Tip="Mostra nella cartella" AutomationProperties.Name="Mostra nella cartella">
+                    ToolTip.Tip="{l:T ShowInFolder}" AutomationProperties.Name="{l:T ShowInFolder}">
               <PathIcon Data="{StaticResource IconFolderOpen}" />
             </Button>
           </StackPanel>
@@ -158,17 +163,17 @@
           <StackPanel Classes="top">
             <Grid ColumnDefinitions="*,Auto">
               <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                <TextBlock Text="Cartelle da analizzare" Classes="h" VerticalAlignment="Center" />
-                <TextBlock Text="puoi anche trascinarle qui da Esplora risorse" Classes="faint small" VerticalAlignment="Center" />
+                <TextBlock Text="{l:T FoldersToScan}" Classes="h" VerticalAlignment="Center" />
+                <TextBlock Text="{l:T DragHint}" Classes="faint small" VerticalAlignment="Center" />
               </StackPanel>
               <Button Grid.Column="1" x:Name="AddFolderButton" Click="OnAddFolder" IsEnabled="{Binding IsIdle}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <PathIcon Data="{StaticResource IconFolderAdd}" />
-                  <TextBlock Text="Aggiungi cartella" />
+                  <TextBlock Text="{l:T AddFolder}" />
                 </StackPanel>
               </Button>
             </Grid>
-            <TextBlock Text="Nessuna cartella: aggiungine una o trascinala qui." Classes="muted" IsVisible="{Binding !HasFolders}" Margin="0,2,0,6" />
+            <TextBlock Text="{l:T NoFolders}" Classes="muted" IsVisible="{Binding !HasFolders}" Margin="0,2,0,6" />
             <ItemsControl ItemsSource="{Binding Folders}">
               <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
@@ -183,8 +188,8 @@
                       <PathIcon Data="{StaticResource IconFolder}" Width="14" Height="14" Foreground="{DynamicResource MutedBrush}" />
                       <TextBlock Text="{Binding Path}" Classes="chip" VerticalAlignment="Center" Margin="4,0"
                                  TextTrimming="PrefixCharacterEllipsis" ToolTip.Tip="{Binding Path}" />
-                      <Button Classes="subtle icon" Command="{Binding RemoveCommand}" ToolTip.Tip="Togli dall'elenco"
-                              AutomationProperties.Name="Togli la cartella dall'elenco">
+                      <Button Classes="subtle icon" Command="{Binding RemoveCommand}" ToolTip.Tip="{l:T RemoveFromList}"
+                              AutomationProperties.Name="{l:T RemoveFolderFromList}">
                         <PathIcon Data="{StaticResource IconClose}" Width="12" Height="12" />
                       </Button>
                     </StackPanel>
@@ -198,9 +203,9 @@
             <StackPanel Spacing="2" IsVisible="{Binding HasSeveralFolders}" IsEnabled="{Binding IsIdle}">
             <WrapPanel>
               <WrapPanel Margin="0,0,26,0">
-                <TextBlock Text="Copia da tenere" Classes="label" VerticalAlignment="Center" Margin="0,0,14,0" ToolTip.Tip="{Binding KeepHint}" />
-                <RadioButton GroupName="keep" Content="Scelta automatica" IsChecked="{Binding KeepAutomatic}" Margin="0,0,18,0"
-                             ToolTip.Tip="Decide DupliFoto: risoluzione più alta, poi metadati più completi, nome senza «(1)»..." />
+                <TextBlock Text="{l:T CopyToKeep}" Classes="label" VerticalAlignment="Center" Margin="0,0,14,0" ToolTip.Tip="{Binding KeepHint}" />
+                <RadioButton GroupName="keep" Content="{l:T AutomaticChoice}" IsChecked="{Binding KeepAutomatic}" Margin="0,0,18,0"
+                             ToolTip.Tip="{l:T AutomaticChoiceTip}" />
                 <ItemsControl ItemsSource="{Binding Folders}">
                   <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
@@ -210,18 +215,17 @@
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:FolderItem">
                       <RadioButton GroupName="keep" Content="{Binding Name}" IsChecked="{Binding IsKept}" Margin="0,0,18,0"
-                                   ToolTip.Tip="{Binding Path, StringFormat='Tieni sempre le copie che stanno in {0}'}"
-                                   AutomationProperties.Name="{Binding Name, StringFormat='Tieni le copie in {0}'}" />
+                                   ToolTip.Tip="{Binding KeepTip}" AutomationProperties.Name="{Binding KeepName}" />
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
               </WrapPanel>
               <WrapPanel>
-                <TextBlock Text="Cerca i doppioni" Classes="label" VerticalAlignment="Center" Margin="0,0,14,0" />
-                <RadioButton GroupName="compare" Content="in tutte le foto" IsChecked="{Binding CompareEverywhere}" Margin="0,0,18,0"
-                             ToolTip.Tip="Anche le copie che stanno nella stessa cartella" />
-                <RadioButton GroupName="compare" Content="solo tra cartelle diverse" IsChecked="{Binding CrossFolderOnly}"
-                             ToolTip.Tip="Ogni cartella viene confrontata solo con le altre: i doppioni dentro la stessa cartella restano dove sono" />
+                <TextBlock Text="{l:T LookFor}" Classes="label" VerticalAlignment="Center" Margin="0,0,14,0" />
+                <RadioButton GroupName="compare" Content="{l:T InAllPhotos}" IsChecked="{Binding CompareEverywhere}" Margin="0,0,18,0"
+                             ToolTip.Tip="{l:T InAllPhotosTip}" />
+                <RadioButton GroupName="compare" Content="{l:T AcrossFolders}" IsChecked="{Binding CrossFolderOnly}"
+                             ToolTip.Tip="{l:T AcrossFoldersTip}" />
               </WrapPanel>
             </WrapPanel>
             <TextBlock Text="{Binding KeepHint}" Classes="faint small hint" TextWrapping="Wrap" />
@@ -230,7 +234,7 @@
 
           <!-- Modalità e avvio -->
           <StackPanel Grid.Column="1" Spacing="6" Margin="24,0,0,0" Width="300">
-            <TextBlock Text="Modalità" Classes="label" />
+            <TextBlock Text="{l:T Mode}" Classes="label" />
             <ComboBox ItemsSource="{Binding Modes}" SelectedItem="{Binding SelectedMode}" HorizontalAlignment="Stretch"
                       IsEnabled="{Binding IsIdle}" />
             <TextBlock Text="{Binding SelectedMode.Description}" Classes="muted small" TextWrapping="Wrap" MinHeight="32" />
@@ -242,68 +246,71 @@
             <Grid ColumnDefinitions="*,Auto">
               <WrapPanel VerticalAlignment="Center">
                 <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,24,0">
-                  <TextBlock Text="I doppioni vanno in" Classes="label" />
+                  <TextBlock Text="{l:T DuplicatesGoTo}" Classes="label" />
                   <ComboBox ItemsSource="{Binding Disposals}" SelectedItem="{Binding SelectedDisposal}" Width="150"
                             IsEnabled="{Binding CanChangeDisposal}" ToolTip.Tip="{Binding SelectedDisposal.Description}" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,24,0" IsVisible="{Binding IsAutomaticMode}">
-                  <TextBlock Text="Sposta da sola da" Classes="label" />
+                  <TextBlock Text="{l:T AutoFrom}" Classes="label" />
                   <NumericUpDown Value="{Binding Threshold}" Minimum="90" Maximum="100" Increment="1" FormatString="0"
                                  Width="120" IsEnabled="{Binding IsIdle}" />
-                  <TextBlock Text="% in su" Classes="label" />
+                  <TextBlock Text="{l:T PercentUp}" Classes="label" />
                 </StackPanel>
-                <CheckBox IsChecked="{Binding IncludeSubfolders}" Content="Sottocartelle" Margin="0,0,20,0" IsEnabled="{Binding IsIdle}" />
-                <CheckBox IsChecked="{Binding DetectBursts}" Content="Cerca scatti multipli" Margin="0,0,20,0" IsEnabled="{Binding IsIdle}" />
+                <CheckBox IsChecked="{Binding IncludeSubfolders}" Content="{l:T Subfolders}" Margin="0,0,20,0" IsEnabled="{Binding IsIdle}" />
+                <CheckBox IsChecked="{Binding DetectBursts}" Content="{l:T LookForBursts}" Margin="0,0,20,0" IsEnabled="{Binding IsIdle}" />
                 <Button Classes="subtle" IsEnabled="{Binding IsIdle}">
                   <StackPanel Orientation="Horizontal" Spacing="8">
                     <PathIcon Data="{StaticResource IconTune}" />
-                    <TextBlock Text="Altre opzioni" />
+                    <TextBlock Text="{l:T MoreOptions}" />
                   </StackPanel>
                   <Button.Flyout>
                     <Flyout Placement="BottomEdgeAlignedLeft">
                       <StackPanel Width="400" Spacing="8" Margin="4">
-                        <TextBlock Text="Cartella di quarantena" Classes="h" />
+                        <TextBlock Text="{l:T Language}" Classes="h" />
+                        <ComboBox x:Name="LanguageBox" ItemsSource="{Binding Languages}" SelectedItem="{Binding SelectedLanguage}" Width="240" />
+
+                        <TextBlock Text="{l:T QuarantineFolder}" Classes="h" Margin="0,8,0,0" />
                         <Grid ColumnDefinitions="*,Auto">
                           <TextBox Text="{Binding QuarantineRoot}" IsEnabled="{Binding CanChangeDisposal}" />
-                          <Button Grid.Column="1" Content="Sfoglia…" Margin="8,0,0,0" Click="OnBrowseQuarantine"
+                          <Button Grid.Column="1" Content="{l:T Browse}" Margin="8,0,0,0" Click="OnBrowseQuarantine"
                                   IsEnabled="{Binding CanChangeDisposal}" />
                         </Grid>
-                        <TextBlock Text="Da qui «Annulla spostamenti» rimette tutto a posto." Classes="muted small" />
+                        <TextBlock Text="{l:T QuarantineHint}" Classes="muted small" />
 
-                        <TextBlock Text="Scatti multipli" Classes="h" Margin="0,8,0,0" />
+                        <TextBlock Text="{l:T BurstShots}" Classes="h" Margin="0,8,0,0" />
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                          <TextBlock Text="Al massimo" Classes="label" />
+                          <TextBlock Text="{l:T AtMost}" Classes="label" />
                           <NumericUpDown Value="{Binding BurstSeconds}" Minimum="1" Maximum="120" Increment="1" FormatString="0" Width="120" />
-                          <TextBlock Text="secondi tra uno scatto e l'altro" Classes="label" />
+                          <TextBlock Text="{l:T SecondsBetween}" Classes="label" />
                         </StackPanel>
 
-                        <TextBlock Text="Rete neurale (facoltativa)" Classes="h" Margin="0,8,0,0" />
-                        <TextBlock Text="Un modello ONNX come DINOv2 riconosce meglio gli scatti multipli. Usa la NPU o la GPU, se ci sono."
+                        <TextBlock Text="{l:T NeuralOptional}" Classes="h" Margin="0,8,0,0" />
+                        <TextBlock Text="{l:T NeuralHint}"
                                    Classes="muted small" TextWrapping="Wrap" />
                         <Grid ColumnDefinitions="*,Auto">
-                          <TextBox Text="{Binding ModelPath}" PlaceholderText="nessun modello: solo algoritmi classici" />
-                          <Button Grid.Column="1" Content="Sfoglia…" Margin="8,0,0,0" Click="OnBrowseModel" />
+                          <TextBox Text="{Binding ModelPath}" PlaceholderText="{l:T NoModel}" />
+                          <Button Grid.Column="1" Content="{l:T Browse}" Margin="8,0,0,0" Click="OnBrowseModel" />
                         </Grid>
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                          <TextBlock Text="Esegui su" Classes="label" />
+                          <TextBlock Text="{l:T RunOn}" Classes="label" />
                           <ComboBox ItemsSource="{Binding Accelerators}" SelectedItem="{Binding SelectedAccelerator}" Width="220" />
                         </StackPanel>
-                        <TextBlock Text="Disponibile solo nella versione per Windows." Classes="faint small"
+                        <TextBlock Text="{l:T WindowsOnly}" Classes="faint small"
                                    IsVisible="{Binding !IsNeuralAvailable}" />
 
-                        <TextBlock Text="File di DupliFoto" Classes="h" Margin="0,8,0,0" />
-                        <TextBlock Text="Impostazioni, cache delle analisi, registro errori e report stanno nella cartella «DupliFoto-dati» accanto all'exe: sul PC non resta niente di sparso. «Pulisci DupliFoto.bat», lì dentro, toglie anche i file delle versioni precedenti."
+                        <TextBlock Text="{l:T DupliFotoFiles}" Classes="h" Margin="0,8,0,0" />
+                        <TextBlock Text="{l:T DataFolderHint}"
                                    Classes="muted small" TextWrapping="Wrap" />
                         <Grid ColumnDefinitions="*,Auto">
                           <TextBox Text="{Binding DataFolder, Mode=OneWay}" IsReadOnly="True" />
-                          <Button Grid.Column="1" Content="Apri" Margin="8,0,0,0" Command="{Binding OpenDataFolderCommand}" />
+                          <Button Grid.Column="1" Content="{l:T Open}" Margin="8,0,0,0" Command="{Binding OpenDataFolderCommand}" />
                         </Grid>
-                        <TextBlock Text="Accanto all'exe non si può scrivere (disco protetto o cartella di sistema): per questo i file stanno qui, e i report in Documenti\DupliFoto."
+                        <TextBlock Text="{l:T DataFolderFallback}"
                                    Classes="faint small" TextWrapping="Wrap" IsVisible="{Binding !DataFolderIsNextToExe}" />
                         <CheckBox IsChecked="{Binding RemoveTempOnExit}">
-                          <TextBlock Text="Alla chiusura togli anche i file temporanei del programma" TextWrapping="Wrap" />
+                          <TextBlock Text="{l:T RemoveTemp}" TextWrapping="Wrap" />
                         </CheckBox>
-                        <TextBlock Text="L'exe, a ogni avvio, si scompatta in %TEMP%\.net. Togliendo quella copia alla chiusura sul PC non resta niente; il prossimo avvio però richiede qualche secondo in più."
+                        <TextBlock Text="{l:T RemoveTempHint}"
                                    Classes="faint small" TextWrapping="Wrap" />
                       </StackPanel>
                     </Flyout>
@@ -316,13 +323,13 @@
                         IsEnabled="{Binding CanStart}" Padding="18,8" MinWidth="180">
                   <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
                     <PathIcon Data="{StaticResource IconPlay}" />
-                    <TextBlock Text="Avvia ricerca" FontWeight="SemiBold" />
+                    <TextBlock Text="{l:T StartSearch}" FontWeight="SemiBold" />
                   </StackPanel>
                 </Button>
                 <Button Command="{Binding CancelCommand}" IsVisible="{Binding IsScanning}" Padding="18,8" MinWidth="180">
                   <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
                     <PathIcon Data="{StaticResource IconStop}" />
-                    <TextBlock Text="Interrompi" />
+                    <TextBlock Text="{l:T Stop}" />
                   </StackPanel>
                 </Button>
               </StackPanel>
@@ -337,15 +344,15 @@
           <!-- Benvenuto -->
           <StackPanel IsVisible="{Binding ShowWelcome}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" MaxWidth="520">
             <PathIcon Data="{StaticResource IconImages}" Width="44" Height="44" Foreground="{DynamicResource FaintBrush}" />
-            <TextBlock Text="Trova le foto doppie" Classes="title" HorizontalAlignment="Center" />
+            <TextBlock Text="{l:T WelcomeTitle}" Classes="title" HorizontalAlignment="Center" />
             <TextBlock Classes="muted" TextAlignment="Center" TextWrapping="Wrap"
-                       Text="Aggiungi le cartelle da controllare, scegli la modalità e premi «Avvia ricerca». In sola lettura nessun file viene toccato; negli altri casi i doppioni vanno in quarantena, da dove si possono sempre ripristinare." />
+                       Text="{l:T WelcomeText}" />
             <TextBlock Text="{Binding VersionText}" Classes="faint small" HorizontalAlignment="Center" Margin="0,6,0,0" />
           </StackPanel>
 
           <!-- Ricerca in corso -->
           <StackPanel IsVisible="{Binding IsScanning}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" Width="420">
-            <TextBlock Text="Ricerca in corso" Classes="title" HorizontalAlignment="Center" />
+            <TextBlock Text="{l:T Searching}" Classes="title" HorizontalAlignment="Center" />
             <ProgressBar IsIndeterminate="True" />
             <TextBlock Text="{Binding StatusText}" Classes="muted" TextAlignment="Center" TextWrapping="Wrap" />
           </StackPanel>
@@ -353,11 +360,11 @@
           <!-- Nessun doppione -->
           <StackPanel IsVisible="{Binding ShowNoDuplicates}" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="10" MaxWidth="520">
             <PathIcon Data="{StaticResource IconCheck}" Width="40" Height="40" Foreground="{DynamicResource SuccessBrush}" />
-            <TextBlock Text="Nessun doppione" Classes="title" HorizontalAlignment="Center" />
+            <TextBlock Text="{l:T NoDuplicates}" Classes="title" HorizontalAlignment="Center" />
             <TextBlock Text="{Binding StatusText}" Classes="muted" TextAlignment="Center" TextWrapping="Wrap" />
           </StackPanel>
 
-          <TextBlock IsVisible="{Binding ShowPickHint}" Text="Scegli una coppia dall'elenco qui sotto."
+          <TextBlock IsVisible="{Binding ShowPickHint}" Text="{l:T PickPair}"
                      Classes="muted" HorizontalAlignment="Center" VerticalAlignment="Center" />
 
           <!-- Confronto affiancato -->
@@ -367,7 +374,7 @@
             <!-- Con poco spazio si rimpicciolisce, invece di finire sopra i pulsanti -->
             <Viewbox Grid.Column="1" x:Name="MiddleColumn" StretchDirection="DownOnly" Stretch="Uniform" VerticalAlignment="Center">
             <StackPanel Width="190" Spacing="4">
-              <TextBlock Text="Affidabilità" Classes="muted small" HorizontalAlignment="Center" />
+              <TextBlock Text="{l:T Confidence}" Classes="muted small" HorizontalAlignment="Center" />
               <TextBlock Text="{Binding ConfidenceText}" FontWeight="SemiBold" HorizontalAlignment="Center"
                          Classes="conf big" Classes.ok="{Binding IsHigh}" Classes.mid="{Binding IsMid}" Classes.low="{Binding IsLow}" />
               <TextBlock Text="{Binding KindText}" FontWeight="SemiBold" HorizontalAlignment="Center" />
@@ -375,10 +382,10 @@
               <TextBlock Text="{Binding KeeperReasonText}" Classes="faint small" TextAlignment="Center" TextWrapping="Wrap" Margin="0,6,0,0"
                          IsVisible="{Binding KeeperReasonText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
               <Button x:Name="SwapButton" Classes="subtle" HorizontalAlignment="Center" Margin="0,10,0,0" Command="{Binding SwapCommand}"
-                      IsEnabled="{Binding CanSwap}" ToolTip.Tip="Tieni la foto a destra invece di quella a sinistra">
+                      IsEnabled="{Binding CanSwap}" ToolTip.Tip="{l:T SwapTip}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <PathIcon Data="{StaticResource IconSwap}" />
-                  <TextBlock Text="Scambia" />
+                  <TextBlock Text="{l:T Swap}" />
                 </StackPanel>
               </Button>
             </StackPanel>
@@ -390,12 +397,12 @@
             <Border Grid.Row="1" Grid.ColumnSpan="3" x:Name="DecisionBar" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0">
               <Grid ColumnDefinitions="Auto,*,Auto">
                 <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
-                  <Button Classes="subtle icon" Command="{Binding PreviousCommand}" IsEnabled="{Binding CanNavigate}" ToolTip.Tip="Coppia precedente"
-                          AutomationProperties.Name="Coppia precedente">
+                  <Button Classes="subtle icon" Command="{Binding PreviousCommand}" IsEnabled="{Binding CanNavigate}" ToolTip.Tip="{l:T PreviousPair}"
+                          AutomationProperties.Name="{l:T PreviousPair}">
                     <PathIcon Data="{StaticResource IconChevronLeft}" />
                   </Button>
-                  <Button Classes="subtle icon" Command="{Binding NextCommand}" IsEnabled="{Binding CanNavigate}" ToolTip.Tip="Coppia successiva"
-                          AutomationProperties.Name="Coppia successiva">
+                  <Button Classes="subtle icon" Command="{Binding NextCommand}" IsEnabled="{Binding CanNavigate}" ToolTip.Tip="{l:T NextPair}"
+                          AutomationProperties.Name="{l:T NextPair}">
                     <PathIcon Data="{StaticResource IconChevronRight}" />
                   </Button>
                   <TextBlock Text="{Binding DecisionHint}" Classes="muted small" VerticalAlignment="Center" Margin="8,0,0,0"
@@ -408,13 +415,13 @@
                           ToolTip.Tip="{Binding MoveTip}">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                       <PathIcon Data="{StaticResource IconMove}" />
-                      <TextBlock Text="Sposta quella a destra" FontWeight="SemiBold" />
+                      <TextBlock Text="{l:T MoveRight}" FontWeight="SemiBold" />
                     </StackPanel>
                   </Button>
                   <Button Command="{Binding KeepBothCommand}" IsEnabled="{Binding CanDecide}" Padding="14,7">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                       <PathIcon Data="{StaticResource IconCheck}" />
-                      <TextBlock Text="Tieni entrambe" />
+                      <TextBlock Text="{l:T KeepBoth}" />
                     </StackPanel>
                   </Button>
                 </StackPanel>
@@ -442,27 +449,27 @@
         <StackPanel Orientation="Horizontal" Spacing="22">
           <StackPanel Classes="stat" Orientation="Horizontal" Spacing="5">
             <TextBlock Classes="value" Text="{Binding FilesCount, StringFormat='{}{0:N0}'}" />
-            <TextBlock Classes="name" Text="foto analizzate" />
+            <TextBlock Classes="name" Text="{l:T PhotosAnalysed}" />
           </StackPanel>
           <StackPanel Classes="stat" Orientation="Horizontal" Spacing="5">
             <TextBlock Classes="value" Text="{Binding GroupsCount, StringFormat='{}{0:N0}'}" />
-            <TextBlock Classes="name" Text="gruppi" />
+            <TextBlock Classes="name" Text="{l:T Groups}" />
           </StackPanel>
           <StackPanel Classes="stat" Orientation="Horizontal" Spacing="5">
             <TextBlock Classes="value" Text="{Binding DuplicatesCount, StringFormat='{}{0:N0}'}" />
-            <TextBlock Classes="name" Text="doppioni" />
+            <TextBlock Classes="name" Text="{l:T Duplicates}" />
           </StackPanel>
           <StackPanel Classes="stat" Orientation="Horizontal" Spacing="5">
             <TextBlock Classes="value" Text="{Binding ReclaimableText}" />
-            <TextBlock Classes="name" Text="recuperabili" />
+            <TextBlock Classes="name" Text="{l:T Reclaimable}" />
           </StackPanel>
           <StackPanel Classes="stat" Orientation="Horizontal" Spacing="5">
             <TextBlock Classes="value" Text="{Binding PendingCount, StringFormat='{}{0:N0}'}" />
-            <TextBlock Classes="name" Text="da decidere" />
+            <TextBlock Classes="name" Text="{l:T ToDecide}" />
           </StackPanel>
           <StackPanel Classes="stat" Orientation="Horizontal" Spacing="5">
             <TextBlock Classes="value" Text="{Binding MovedCount, StringFormat='{}{0:N0}'}" />
-            <TextBlock Classes="name" Text="spostati" />
+            <TextBlock Classes="name" Text="{l:T Moved}" />
             <TextBlock Classes="name" Text="{Binding MovedBytesText, StringFormat='({0})'}" />
           </StackPanel>
         </StackPanel>
@@ -474,7 +481,7 @@
       <Border Grid.Row="1" x:Name="PairList" Classes="card">
         <Grid RowDefinitions="Auto,Auto,*">
           <Grid ColumnDefinitions="Auto,*,Auto" Margin="16,6,12,4">
-            <TextBlock Text="Coppie trovate" Classes="h" VerticalAlignment="Center" />
+            <TextBlock Text="{l:T PairsFound}" Classes="h" VerticalAlignment="Center" />
             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" Margin="16,0" VerticalAlignment="Center">
               <Button Classes="subtle" Command="{Binding ApplyAutomaticCommand}" IsVisible="{Binding CanApplyAutomatic}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
@@ -483,32 +490,32 @@
                 </StackPanel>
               </Button>
               <Button Classes="subtle" Command="{Binding UndoCommand}" IsEnabled="{Binding CanUndo}"
-                      ToolTip.Tip="Riporta al loro posto i file spostati in questa sessione">
+                      ToolTip.Tip="{l:T UndoTip}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <PathIcon Data="{StaticResource IconUndo}" />
-                  <TextBlock Text="Annulla spostamenti" />
+                  <TextBlock Text="{l:T UndoMoves}" />
                 </StackPanel>
               </Button>
               <Button Classes="subtle" Command="{Binding ExportReportCommand}" IsEnabled="{Binding HasResults}"
-                      ToolTip.Tip="Report HTML con anteprime e CSV per Excel">
+                      ToolTip.Tip="{l:T ReportTip}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                   <PathIcon Data="{StaticResource IconReport}" />
-                  <TextBlock Text="Report" />
+                  <TextBlock Text="{l:T Report}" />
                 </StackPanel>
               </Button>
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-              <TextBlock Text="Mostra" Classes="label" />
+              <TextBlock Text="{l:T Show}" Classes="label" />
               <ComboBox ItemsSource="{Binding Filters}" SelectedItem="{Binding SelectedFilter}" Width="180" />
             </StackPanel>
           </Grid>
 
           <Grid Grid.Row="1" ColumnDefinitions="120,*,*,140,90" Margin="16,0,16,4">
-            <TextBlock Text="Stato" Classes="faint small" />
-            <TextBlock Grid.Column="1" Text="Da tenere" Classes="faint small" />
-            <TextBlock Grid.Column="2" Text="Da spostare" Classes="faint small" />
-            <TextBlock Grid.Column="3" Text="Tipo" Classes="faint small" />
-            <TextBlock Grid.Column="4" Text="Affidabilità" Classes="faint small" HorizontalAlignment="Right" />
+            <TextBlock Text="{l:T Status}" Classes="faint small" />
+            <TextBlock Grid.Column="1" Text="{l:T ToKeep}" Classes="faint small" />
+            <TextBlock Grid.Column="2" Text="{l:T ToMove}" Classes="faint small" />
+            <TextBlock Grid.Column="3" Text="{l:T Kind}" Classes="faint small" />
+            <TextBlock Grid.Column="4" Text="{l:T Confidence}" Classes="faint small" HorizontalAlignment="Right" />
           </Grid>
 
           <TextBlock Grid.Row="2" Text="{Binding ListEmptyText}" Classes="muted" IsVisible="{Binding ShowListEmpty}"
@@ -553,7 +560,7 @@
           <TextBlock Text="{Binding ConfirmTitle}" Classes="title" TextWrapping="Wrap" />
           <TextBlock Text="{Binding ConfirmText}" TextWrapping="Wrap" LineHeight="21" />
           <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="0,8,0,0">
-            <Button Command="{Binding ConfirmNoCommand}" Content="Annulla" MinWidth="110" />
+            <Button Command="{Binding ConfirmNoCommand}" Content="{l:T Cancel}" MinWidth="110" />
             <Button Classes="accent" Command="{Binding ConfirmYesCommand}" MinWidth="110">
               <TextBlock Text="{Binding ConfirmYesText}" FontWeight="SemiBold" />
             </Button>

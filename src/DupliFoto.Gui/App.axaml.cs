@@ -21,7 +21,9 @@ public partial class App : Application
             // Prima di leggere le impostazioni: «Pulisci DupliFoto.bat» e i file delle versioni precedenti, portati
             // nella cartella accanto all'exe.
             AppFiles.Prepare();
-            var vm = new MainViewModel(SettingsStore.Default);
+            var vm = new MainViewModel(SettingsStore.Default); // applica anche la lingua salvata
+            AppFiles.Prepare(); // lo script nella lingua scelta
+            Lang.Changed += () => Task.Run(AppFiles.Prepare);
             // Cartelle passate all'avvio, per esempio trascinandole sull'icona del programma.
             vm.AddFolders(desktop.Args ?? []);
             var window = new MainWindow { DataContext = vm };
@@ -43,7 +45,8 @@ public partial class App : Application
             Dispatcher.UIThread.UnhandledException += (_, e) =>
             {
                 ErrorLog.Write(e.Exception, "interfaccia");
-                vm.StatusText = $"Errore imprevisto: {e.Exception.Message} (dettagli in {ErrorLog.FilePath})";
+                vm.StatusText = Lang.T($"Errore imprevisto: {e.Exception.Message} (dettagli in {ErrorLog.FilePath})",
+                                       $"Unexpected error: {e.Exception.Message} (details in {ErrorLog.FilePath})");
                 e.Handled = true;
             };
         }

@@ -21,13 +21,13 @@ public static class ExactMatcher
 
         // 1) Peso identico: gratis, e scarta la gran parte dei file.
         var sameSize = files.GroupBy(f => f.Size).Where(g => g.Count() > 1).SelectMany(g => g).ToList();
-        progress?.Report($"Stesso peso: {sameSize.Count:N0} file candidati su {files.Count:N0}.");
+        progress?.Report(Lang.T($"Stesso peso: {sameSize.Count:N0} file candidati su {files.Count:N0}.", $"Same size: {sameSize.Count:N0} candidate files out of {files.Count:N0}."));
 
         // 2) Hash parziale: legge solo 2 × 64 KB per file.
         Parallel.ForEach(sameSize.Where(f => f.PartialHash is null), parallel, f =>
         {
             try { f.PartialHash = ComputePartialHash(f.Path, f.Size, options.PartialHashBytes); }
-            catch (Exception ex) { f.AnalysisError = $"Lettura: {ex.Message}"; }
+            catch (Exception ex) { f.AnalysisError = Lang.T($"Lettura: {ex.Message}", $"Reading: {ex.Message}"); }
         });
 
         var samePartial = sameSize
@@ -36,13 +36,13 @@ public static class ExactMatcher
             .Where(g => g.Count() > 1)
             .SelectMany(g => g)
             .ToList();
-        progress?.Report($"Stesso hash parziale: {samePartial.Count:N0} file. Calcolo hash completi...");
+        progress?.Report(Lang.T($"Stesso hash parziale: {samePartial.Count:N0} file. Calcolo hash completi...", $"Same partial hash: {samePartial.Count:N0} files. Computing full hashes..."));
 
         // 3) Hash completo (xxHash128), solo per i sopravvissuti.
         Parallel.ForEach(samePartial.Where(f => f.FullHash is null), parallel, f =>
         {
             try { f.FullHash = ComputeFullHash(f.Path); }
-            catch (Exception ex) { f.AnalysisError = $"Lettura: {ex.Message}"; }
+            catch (Exception ex) { f.AnalysisError = Lang.T($"Lettura: {ex.Message}", $"Reading: {ex.Message}"); }
         });
 
         return samePartial
@@ -69,7 +69,8 @@ public static class ExactMatcher
                 int first = ids.FindIndex(0, i, other => other == id);
                 if (first < 0) continue;
                 aliases.Add(group[i]);
-                progress?.Report($"Stesso file raggiunto da due percorsi, contato una volta sola: {group[i].Path} = {group[first].Path}");
+                progress?.Report(Lang.T($"Stesso file raggiunto da due percorsi, contato una volta sola: {group[i].Path} = {group[first].Path}",
+                    $"Same file reached through two paths, counted once: {group[i].Path} = {group[first].Path}"));
             }
             group.RemoveAll(aliases.Contains);
         }

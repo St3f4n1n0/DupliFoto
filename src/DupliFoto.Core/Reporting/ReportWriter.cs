@@ -7,14 +7,15 @@ namespace DupliFoto.Core.Reporting;
 /// <summary>Report in sola lettura: HTML con anteprime (si apre nel browser) e CSV per Excel.</summary>
 public static class ReportWriter
 {
-    private static readonly CultureInfo It = CultureInfo.GetCultureInfo("it-IT");
+    /// <summary>Date e numeri del report nella lingua in uso.</summary>
+    private static CultureInfo It => Lang.Culture;
 
     public static string KindLabel(MatchKind k) => k switch
     {
-        MatchKind.ExactBytes => "Identici al byte",
-        MatchKind.IdenticalPixels => "Stessi pixel",
-        MatchKind.Perceptual => "Stessa immagine",
-        MatchKind.Burst => "Scatti multipli",
+        MatchKind.ExactBytes => Lang.T("Identici al byte", "Byte-identical"),
+        MatchKind.IdenticalPixels => Lang.T("Stessi pixel", "Same pixels"),
+        MatchKind.Perceptual => Lang.T("Stessa immagine", "Same picture"),
+        MatchKind.Burst => Lang.T("Scatti multipli", "Burst shots"),
         _ => k.ToString(),
     };
 
@@ -29,12 +30,13 @@ public static class ReportWriter
     public static void WriteCsv(ScanResult r, string path)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("gruppo;ruolo;tipo;affidabilita;motivo;percorso;peso_byte;larghezza;altezza;data_scatto;nitidezza");
+        sb.AppendLine(Lang.T("gruppo;ruolo;tipo;affidabilita;motivo;percorso;peso_byte;larghezza;altezza;data_scatto;nitidezza",
+                             "group;role;kind;confidence;reason;path;size_bytes;width;height;taken_at;sharpness"));
         foreach (var g in r.Groups)
         {
-            Row(g.Id, "TENERE", KindLabel(g.Kind), "", g.KeeperReason, g.Keeper);
+            Row(g.Id, Lang.T("TENERE", "KEEP"), KindLabel(g.Kind), "", g.KeeperReason, g.Keeper);
             foreach (var d in g.Duplicates)
-                Row(g.Id, "doppione", KindLabel(d.Kind), d.Confidence.ToString("0", It), d.Reason, d.File);
+                Row(g.Id, Lang.T("doppione", "duplicate"), KindLabel(d.Kind), d.Confidence.ToString("0", It), d.Reason, d.File);
         }
         File.WriteAllText(path, sb.ToString(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: true)); // BOM: Excel legge gli accenti
 
@@ -51,7 +53,7 @@ public static class ReportWriter
         long reclaim = r.Groups.Sum(g => g.ReclaimableBytes);
         var sb = new StringBuilder();
         sb.Append("""
-            <!doctype html><html lang="it"><head><meta charset="utf-8">
+            <!doctype html><html lang="{{LANG}}"><head><meta charset="utf-8">
             <meta name="viewport" content="width=device-width, initial-scale=1">
             <title>DupliFoto – report</title>
             <style>
@@ -71,23 +73,24 @@ public static class ReportWriter
             .keep img{outline:3px solid var(--ok);outline-offset:-3px}
             .tag{font-weight:600}
             </style></head><body>
-            """);
-        sb.Append($"<h1>DupliFoto</h1><div class=mut>Analisi del {DateTime.Now.ToString("f", It)} · durata {r.Elapsed:mm\\:ss} · {Enc(r.AcceleratorDescription)}</div>");
+            """.Replace("{{LANG}}", Lang.Code));
+        string when = DateTime.Now.ToString("f", It);
+        sb.Append($"<h1>DupliFoto</h1><div class=mut>{Lang.T($"Analisi del {when} · durata {r.Elapsed:mm\\:ss}", $"Analysis of {when} · took {r.Elapsed:mm\\:ss}")} · {Enc(r.AcceleratorDescription)}</div>");
         sb.Append("<div class=stats>");
-        Stat("Foto analizzate", r.Files.Count.ToString("N0", It));
-        Stat("Gruppi di doppioni", r.Groups.Count.ToString("N0", It));
-        Stat("Spazio recuperabile", FormatBytes(reclaim));
+        Stat(Lang.T("Foto analizzate", "Photos analysed"), r.Files.Count.ToString("N0", It));
+        Stat(Lang.T("Gruppi di doppioni", "Duplicate groups"), r.Groups.Count.ToString("N0", It));
+        Stat(Lang.T("Spazio recuperabile", "Space to reclaim"), FormatBytes(reclaim));
         foreach (MatchKind k in Enum.GetValues<MatchKind>())
             Stat(KindLabel(k), r.Groups.Count(g => g.Kind == k).ToString("N0", It));
-        if (r.UnreadableFiles > 0) Stat("File illeggibili", r.UnreadableFiles.ToString("N0", It));
+        if (r.UnreadableFiles > 0) Stat(Lang.T("File illeggibili", "Unreadable files"), r.UnreadableFiles.ToString("N0", It));
         sb.Append("</div>");
 
         foreach (var g in r.Groups)
         {
             string cls = g.Confidence >= 99 ? "c100" : g.Confidence >= 90 ? "c90" : "c60";
-            sb.Append($"<section class=g><div class=gh><b>Gruppo {g.Id}</b><span class=\"pill {cls}\">{KindLabel(g.Kind)} · {g.Confidence:0}%</span>");
-            sb.Append($"<span class=mut>recuperabili {FormatBytes(g.ReclaimableBytes)}</span></div><div class=row>");
-            Item(g.Keeper, "DA TENERE", g.KeeperReason, keep: true);
+            sb.Append($"<section class=g><div class=gh><b>{Lang.T("Gruppo", "Group")} {g.Id}</b><span class=\"pill {cls}\">{KindLabel(g.Kind)} · {g.Confidence:0}%</span>");
+            sb.Append($"<span class=mut>{Lang.T("recuperabili", "to reclaim")} {FormatBytes(g.ReclaimableBytes)}</span></div><div class=row>");
+            Item(g.Keeper, Lang.T("DA TENERE", "KEEP"), g.KeeperReason, keep: true);
             foreach (var d in g.Duplicates) Item(d.File, $"{d.Confidence:0}%", d.Reason, keep: false);
             sb.Append("</div></section>");
         }
@@ -103,7 +106,7 @@ public static class ReportWriter
             string when = f.TakenAt is { } t ? $"<br>{t.ToString("g", It)}" : "";
             sb.Append($"<div class=\"it{(keep ? " keep" : "")}\"><a href=\"{Enc(uri)}\"><img loading=lazy src=\"{Enc(uri)}\" alt=\"\"></a>");
             sb.Append($"<span class=tag>{Enc(tag)}</span> <span class=mut>{Enc(reason)}</span><br>{Enc(f.Path)}<br>");
-            sb.Append($"<span class=mut>{dims}{FormatBytes(f.Size)} · nitidezza {f.Sharpness:0}{when}</span></div>");
+            sb.Append($"<span class=mut>{dims}{FormatBytes(f.Size)} · {Lang.T("nitidezza", "sharpness")} {f.Sharpness:0}{when}</span></div>");
         }
     }
 

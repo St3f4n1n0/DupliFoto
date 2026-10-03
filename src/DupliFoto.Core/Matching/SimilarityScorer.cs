@@ -14,7 +14,7 @@ namespace DupliFoto.Core.Matching;
 /// </summary>
 public static class SimilarityScorer
 {
-    public readonly record struct Match(MatchKind Kind, double Confidence, string Reason);
+    public readonly record struct Match(MatchKind Kind, double Confidence, Text Reason);
 
     public const double ExactConfidence = 100;
     public const double PixelConfidence = 99;
@@ -25,12 +25,12 @@ public static class SimilarityScorer
     public static Match? Compare(PhotoFile a, PhotoFile b, ScanOptions o)
     {
         if (a.FullHash is not null && a.FullHash == b.FullHash && a.Size == b.Size)
-            return new Match(MatchKind.ExactBytes, ExactConfidence, "identici al byte");
+            return new Match(MatchKind.ExactBytes, ExactConfidence, new("identici al byte", "byte-identical"));
 
         if (IsExcludedPair(a, b, out _)) return null;
 
         if (a.PixelHash is not null && a.PixelHash == b.PixelHash)
-            return new Match(MatchKind.IdenticalPixels, PixelConfidence, "stessi pixel, cambiano solo i metadati");
+            return new Match(MatchKind.IdenticalPixels, PixelConfidence, new("stessi pixel, cambiano solo i metadati", "same pixels, only the metadata differ"));
 
         if (!a.IsAnalyzed || !b.IsAnalyzed) return null;
 
@@ -47,37 +47,37 @@ public static class SimilarityScorer
         if (distance <= o.PerceptualMaxDistance && !distinctCaptures)
         {
             double c = PerceptualMax - distance;
-            var why = new List<string> { $"hash percettivo a distanza {distance}/64" };
+            var why = new List<Text> { new($"hash percettivo a distanza {distance}/64", $"perceptual hash at distance {distance}/64") };
 
-            if (variant != 0) { c -= 1; why.Add("ruotata o specchiata"); }
+            if (variant != 0) { c -= 1; why.Add(new("ruotata o specchiata", "rotated or mirrored")); }
 
             double arA = a.AspectRatio;
             double arB = variant >= 4 && b.AspectRatio > 0 ? 1 / b.AspectRatio : b.AspectRatio; // trasposta = lati scambiati
             if (arA > 0 && arB > 0 && Math.Abs(arA - arB) / Math.Max(arA, arB) > 0.02)
             {
                 c -= 10;
-                why.Add("proporzioni diverse (forse ritagliata)");
+                why.Add(new("proporzioni diverse (forse ritagliata)", "different proportions (perhaps cropped)"));
             }
 
             if (variant == 0 && a.DHash is { } da && b.DHash is { } db && PerceptualHash.Distance(da, db) > 16)
             {
                 c -= 6;
-                why.Add("dHash discordante");
+                why.Add(new("dHash discordante", "dHash disagrees"));
             }
 
             if (cosine is { } cs && cs < 0.90)
             {
                 c -= 10;
-                why.Add($"la rete neurale vede differenze (somiglianza {cs:P0})");
+                why.Add(new($"la rete neurale vede differenze (somiglianza {cs:P0})", $"the neural network sees differences ({cs:P0} similar)"));
             }
 
             if (a.NormalizedName == b.NormalizedName)
             {
                 c += 1;
-                why.Add("nome compatibile");
+                why.Add(new("nome compatibile", "matching name"));
             }
 
-            best = new Match(MatchKind.Perceptual, Math.Clamp(c, 50, PerceptualMax), string.Join(", ", why));
+            best = new Match(MatchKind.Perceptual, Math.Clamp(c, 50, PerceptualMax), Text.Join(", ", why));
         }
 
         // --- Scatti multipli della stessa scena ---
@@ -95,8 +95,11 @@ public static class SimilarityScorer
                     : Math.Clamp(1 - (double)distance / o.BurstMaxDistance, 0, 1);
                 double time = 1 - dt / o.BurstWindowSeconds;
                 double c = 60 + 22 * visual + 7 * time;
-                var reason = $"scattate a {dt:0.#} s di distanza con la stessa fotocamera, " +
-                             (cosine is { } cs3 ? $"somiglianza neurale {cs3:P0}" : $"hash a distanza {distance}/64");
+                var reason = cosine is { } cs3
+                    ? new Text($"scattate a {dt:0.#} s di distanza con la stessa fotocamera, somiglianza neurale {cs3:P0}",
+                               $"taken {dt:0.#} s apart with the same camera, {cs3:P0} neural similarity")
+                    : new Text($"scattate a {dt:0.#} s di distanza con la stessa fotocamera, hash a distanza {distance}/64",
+                               $"taken {dt:0.#} s apart with the same camera, hash at distance {distance}/64");
 
                 if (best is null || c > best.Value.Confidence)
                     best = new Match(MatchKind.Burst, Math.Min(c, BurstMax), reason);
@@ -104,7 +107,7 @@ public static class SimilarityScorer
         }
 
         if (best is { } m && (a.HasEditMarker || b.HasEditMarker) && m.Confidence > EditedCap)
-            best = m with { Confidence = EditedCap, Reason = m.Reason + ", una delle due è una versione modificata" };
+            best = m with { Confidence = EditedCap, Reason = m.Reason + new Text(", una delle due è una versione modificata", ", one of the two is an edited version") };
 
         return best;
     }

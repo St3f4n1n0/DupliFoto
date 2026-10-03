@@ -35,13 +35,15 @@ public sealed class ScreenshotTests : IDisposable
         return window;
     }
 
-    private static void Save(MainWindow window, string name)
+    private static void Save(MainWindow window, string name) => Assert.Equal(1360, SaveFrame(window, name).PixelSize.Width);
+
+    internal static Avalonia.Media.Imaging.Bitmap SaveFrame(Window window, string name)
     {
         Dispatcher.UIThread.RunJobs();
         var frame = window.CaptureRenderedFrame() ?? throw new InvalidOperationException("Nessun fotogramma");
         Directory.CreateDirectory(OutDir);
         frame.Save(Path.Combine(OutDir, name + ".png"), new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
-        Assert.Equal(1360, frame.PixelSize.Width);
+        return frame;
     }
 
     [Theory]

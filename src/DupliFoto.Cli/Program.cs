@@ -9,6 +9,9 @@ using DupliFoto.Core.Scanning;
 using DupliFoto.Cli;
 
 Console.OutputEncoding = Encoding.UTF8;
+// La riga di comando parla italiano (opzioni e messaggi): anche i testi del motore e il report, qualunque sia la
+// lingua di Windows. L'app grafica invece segue Windows, o la lingua scelta in «Altre opzioni».
+Lang.Set(Lang.Italian);
 // Progress<T> su console è asincrono: per messaggi in ordine usiamo un reporter sincrono.
 IProgress<string> progress = new SyncProgress(m => Console.WriteLine(m));
 

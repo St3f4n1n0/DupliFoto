@@ -43,6 +43,8 @@ public sealed partial class MainViewModel : ObservableObject
         _selectedDisposal = Disposals[0];
         _selectedAccelerator = Accelerators[0];
         _selectedFilter = Filters[0];
+        _selectedLanguage = Languages[0];
+        Lang.Changed += OnLanguageChanged;
         _quarantineRoot = new ScanOptions().QuarantineRoot;
         Folders.CollectionChanged += (_, _) =>
         {
@@ -61,36 +63,53 @@ public sealed partial class MainViewModel : ObservableObject
 
     public IReadOnlyList<Choice<RunMode>> Modes { get; } =
     [
-        new(RunMode.ReadOnly, "Sola lettura", "Trova i doppioni e mostra il confronto, senza toccare nessun file."),
-        new(RunMode.Assisted, "Assistita", "Ti mostra ogni coppia e decidi tu cosa spostare."),
-        new(RunMode.SemiAutomatic, "Semi-automatica", "Sposta da sola solo i file identici al byte (riverificati); il resto lo decidi tu."),
-        new(RunMode.Automatic, "Automatica", "Sposta da sola i doppioni sopra la soglia; gli scatti multipli li decidi sempre tu."),
+        new(RunMode.ReadOnly, "Sola lettura", "Read-only",
+            "Trova i doppioni e mostra il confronto, senza toccare nessun file.",
+            "Finds duplicates and shows the comparison, without touching any file."),
+        new(RunMode.Assisted, "Assistita", "Assisted",
+            "Ti mostra ogni coppia e decidi tu cosa spostare.",
+            "Shows you every pair and you decide what to move."),
+        new(RunMode.SemiAutomatic, "Semi-automatica", "Semi-automatic",
+            "Sposta da sola solo i file identici al byte (riverificati); il resto lo decidi tu.",
+            "Moves on its own only byte-identical files (checked again); you decide the rest."),
+        new(RunMode.Automatic, "Automatica", "Automatic",
+            "Sposta da sola i doppioni sopra la soglia; gli scatti multipli li decidi sempre tu.",
+            "Moves on its own the duplicates above the threshold; burst shots are always yours to decide."),
     ];
 
     public IReadOnlyList<Choice<DisposalMethod>> Disposals { get; } =
     [
-        new(DisposalMethod.Quarantine, "Quarantena", "Una cartella da cui si può annullare tutto con un clic."),
-        new(DisposalMethod.RecycleBin, "Cestino", "Il Cestino di Windows."),
+        new(DisposalMethod.Quarantine, "Quarantena", "Quarantine",
+            "Una cartella da cui si può annullare tutto con un clic.", "A folder from which everything can be undone with one click."),
+        new(DisposalMethod.RecycleBin, "Cestino", "Recycle Bin", "Il Cestino di Windows.", "The Windows Recycle Bin."),
     ];
 
     public IReadOnlyList<Choice<string>> Accelerators { get; } =
     [
-        new("auto", "Automatico (il più veloce)"),
-        new("npu", "NPU"),
-        new("gpu", "GPU"),
-        new("cpu", "Solo CPU"),
+        new("auto", "Automatico (NPU, poi GPU, poi CPU)", "Automatic (NPU, then GPU, then CPU)"),
+        new("npu", "NPU", "NPU"),
+        new("gpu", "GPU", "GPU"),
+        new("cpu", "Solo CPU", "CPU only"),
     ];
 
     public IReadOnlyList<Choice<PairFilter>> Filters { get; } =
     [
-        new(PairFilter.All, "Tutte le coppie"),
-        new(PairFilter.Pending, "Da decidere"),
-        new(PairFilter.Exact, "Identici al byte"),
-        new(PairFilter.Pixels, "Stessi pixel"),
-        new(PairFilter.Perceptual, "Stessa immagine"),
-        new(PairFilter.Burst, "Scatti multipli"),
-        new(PairFilter.Moved, "Spostate"),
-        new(PairFilter.Skipped, "Tenute entrambe"),
+        new(PairFilter.All, "Tutte le coppie", "All pairs"),
+        new(PairFilter.Pending, "Da decidere", "To decide"),
+        new(PairFilter.Exact, "Identici al byte", "Byte-identical"),
+        new(PairFilter.Pixels, "Stessi pixel", "Same pixels"),
+        new(PairFilter.Perceptual, "Stessa immagine", "Same picture"),
+        new(PairFilter.Burst, "Scatti multipli", "Burst shots"),
+        new(PairFilter.Moved, "Spostate", "Moved"),
+        new(PairFilter.Skipped, "Tenute entrambe", "Kept both"),
+    ];
+
+    /// <summary>La lingua: come Windows (italiano se Windows è in italiano, altrimenti inglese), italiano o inglese.</summary>
+    public IReadOnlyList<Choice<string>> Languages { get; } =
+    [
+        new(Lang.Auto, "Automatica (come Windows)", "Automatic (as Windows)"),
+        new(Lang.Italian, "Italiano", "Italiano"),
+        new(Lang.English, "English", "English"),
     ];
 
     [ObservableProperty] private bool _includeSubfolders = true;
@@ -104,6 +123,7 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private decimal _burstSeconds = 10;
     [ObservableProperty] private string? _modelPath;
     [ObservableProperty] private Choice<string> _selectedAccelerator;
+    [ObservableProperty] private Choice<string> _selectedLanguage;
 
     /// <summary>L'altra scelta di <see cref="CrossFolderOnly"/>, per i pulsanti di scelta.</summary>
     public bool CompareEverywhere
@@ -124,14 +144,16 @@ public sealed partial class MainViewModel : ObservableObject
 
     public FolderItem? KeptFolder => Folders.FirstOrDefault(f => f.IsKept);
     public string KeepHint => KeptFolder is { } k
-        ? $"Le foto in «{k.Name}» non vengono mai spostate: se ce n'è una copia altrove, si sposta l'altra."
-        : "Decide DupliFoto, coppia per coppia: nel confronto la copia da tenere è sempre a sinistra.";
+        ? Lang.T($"Le foto in «{k.Name}» non vengono mai spostate: se ce n'è una copia altrove, si sposta l'altra.",
+                 $"The photos in “{k.Name}” are never moved: if there is a copy elsewhere, that one is moved.")
+        : Lang.T("Decide DupliFoto, coppia per coppia: nel confronto la copia da tenere è sempre a sinistra.",
+                 "DupliFoto decides, pair by pair: in the comparison the copy to keep is always on the left.");
     public bool HasSeveralFolders => Folders.Count >= 2;
 
     public bool IsReadOnlyMode => SelectedMode.Value == RunMode.ReadOnly;
     public bool IsAutomaticMode => SelectedMode.Value == RunMode.Automatic;
     public bool IsNeuralAvailable => Neural.IsAvailable;
-    public string VersionText => $"Versione {AppInfo.Version}";
+    public string VersionText => Lang.T($"Versione {AppInfo.Version}", $"Version {AppInfo.Version}");
     /// <summary>La cartella dei file di lavoro (impostazioni, cache, registro errori, report e «Pulisci DupliFoto.bat»).</summary>
     public string DataFolder => AppFiles.Folder;
     public bool DataFolderIsNextToExe => AppFiles.IsNextToExe;
@@ -151,7 +173,27 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _isScanning;
     [ObservableProperty] private bool _isWorking;
     [ObservableProperty] private bool _hasResults;
-    [ObservableProperty] private string _statusText = "Aggiungi una o più cartelle e premi «Avvia ricerca».";
+    [ObservableProperty] private string _statusText = ReadyText;
+
+    private static string ReadyText => Lang.T("Aggiungi una o più cartelle e premi «Avvia ricerca».", "Add one or more folders and press “Start search”.");
+
+    /// <summary>Come si riscrive il messaggio nella barra di stato, per tradurlo se si cambia lingua.</summary>
+    private Func<string>? _statusMaker = () => ReadyText;
+    private bool _saying;
+
+    /// <summary>Un messaggio nella barra di stato che si ritraduce se si cambia lingua.</summary>
+    private void Say(Func<string> make)
+    {
+        _statusMaker = make;
+        _saying = true;
+        StatusText = make();
+        _saying = false;
+    }
+
+    partial void OnStatusTextChanged(string value)
+    {
+        if (!_saying) _statusMaker = null; // un messaggio arrivato da fuori (il motore, un errore): resta com'è
+    }
 
     public bool HasFolders => Folders.Count > 0;
     public bool IsIdle => !IsScanning && !IsWorking;
@@ -162,10 +204,10 @@ public sealed partial class MainViewModel : ObservableObject
     public bool ShowComparison => HasResults && SelectedPair is not null;
     public bool ShowPickHint => HasResults && Pairs.Count > 0 && SelectedPair is null;
     public bool ShowListEmpty => VisiblePairs.Count == 0;
-    public string ListEmptyText => IsScanning ? "Ricerca in corso..."
-        : !HasResults ? "Le coppie trovate compariranno qui."
-        : Pairs.Count == 0 ? "Nessun doppione."
-        : "Nessuna coppia con questo filtro.";
+    public string ListEmptyText => IsScanning ? Lang.T("Ricerca in corso...", "Searching...")
+        : !HasResults ? Lang.T("Le coppie trovate compariranno qui.", "The pairs found will appear here.")
+        : Pairs.Count == 0 ? Lang.T("Nessun doppione.", "No duplicates.")
+        : Lang.T("Nessuna coppia con questo filtro.", "No pairs with this filter.");
 
     // ------------------------------------------------------------------ contatori
 
@@ -190,14 +232,17 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private Choice<PairFilter> _selectedFilter;
     [ObservableProperty] private PairItem? _selectedPair;
 
-    public PhotoPanel Left { get; } = new("Da tenere", isKeeper: true);
-    public PhotoPanel Right { get; } = new("Da spostare", isKeeper: false);
+    public PhotoPanel Left { get; } = new(isKeeper: true);
+    public PhotoPanel Right { get; } = new(isKeeper: false);
 
     public string ConfidenceText => SelectedPair?.ConfidenceText ?? "—";
     public string KindText => SelectedPair?.KindLabel ?? "";
     public string ReasonText => SelectedPair?.Member.Reason ?? "";
-    public string KeeperReasonText => SelectedPair?.Group.KeeperReason is { Length: > 0 } r ? $"Si tiene quella a sinistra: {r}" : "";
-    public string MoveTip => $"La foto a destra va {Destination}; quella a sinistra resta dov'è.";
+    public string KeeperReasonText => SelectedPair?.Group.KeeperReason is { IsEmpty: false } r
+        ? Lang.T($"Si tiene quella a sinistra: {r}", $"The left-hand one is kept: {r}")
+        : "";
+    public string MoveTip => Lang.T($"La foto a destra va {Destination}; quella a sinistra resta dov'è.",
+                                    $"The right-hand photo goes {Destination}; the left-hand one stays where it is.");
     public string PairNoteText => SelectedPair is { Note.Length: > 0 } p ? $"{p.StatusText}: {p.Note}" : SelectedPair?.StatusText ?? "";
     public bool IsHigh => SelectedPair?.IsHigh == true;
     public bool IsMid => SelectedPair?.IsMid == true;
@@ -209,24 +254,28 @@ public sealed partial class MainViewModel : ObservableObject
     public bool CanUndo => IsIdle && MovedCount > 0 && _session?.Summary.JournalPath is not null;
     public int AutomaticCount => _options is null ? 0 : Pairs.Count(p => p.IsPending && ActionPolicy.IsAutomatic(_options, p.Member));
     public bool CanApplyAutomatic => IsIdle && AutomaticCount > 0;
-    public string AutomaticText => $"Sposta automatici ({AutomaticCount})";
+    public string AutomaticText => Lang.T($"Sposta automatici ({AutomaticCount})", $"Move automatic ones ({AutomaticCount})");
     public string ApplyAllText => SelectedPair is { } p
-        ? $"Sposta tutti i «{p.KindLabel}» ({Pairs.Count(x => x.IsPending && x.Member.Kind == p.Member.Kind && x.Member.Confidence >= 60)})"
-        : "Sposta tutti di questo tipo";
+        ? Lang.T($"Sposta tutti i «{p.KindLabel}» ({SameKindCount(p)})", $"Move all “{p.KindLabel}” ({SameKindCount(p)})")
+        : Lang.T("Sposta tutti di questo tipo", "Move all of this kind");
+
+    private int SameKindCount(PairItem p) => Pairs.Count(x => x.IsPending && x.Member.Kind == p.Member.Kind && x.Member.Confidence >= 60);
 
     public string DecisionHint
     {
         get
         {
             if (!HasResults || Pairs.Count == 0) return "";
-            if (IsReadOnlyMode) return "Sola lettura: nessun file viene toccato. Per spostare i doppioni scegli un'altra modalità.";
-            if (PendingCount == 0) return "Hai deciso per tutte le coppie.";
+            if (IsReadOnlyMode)
+                return Lang.T("Sola lettura: nessun file viene toccato. Per spostare i doppioni scegli un'altra modalità.",
+                              "Read-only: no file is touched. To move duplicates, choose another mode.");
+            if (PendingCount == 0) return Lang.T("Hai deciso per tutte le coppie.", "You have decided on every pair.");
             if (SelectedPair is { IsPending: true } p)
             {
                 int index = Pairs.Where(x => x.IsPending).ToList().IndexOf(p) + 1;
-                return $"Coppia da decidere {index} di {PendingCount}";
+                return Lang.T($"Coppia da decidere {index} di {PendingCount}", $"Pair to decide {index} of {PendingCount}");
             }
-            return $"{PendingCount} coppie da decidere";
+            return Lang.T($"{PendingCount} coppie da decidere", $"{PendingCount} pairs to decide");
         }
     }
 
@@ -235,7 +284,7 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _confirmVisible;
     [ObservableProperty] private string _confirmTitle = "";
     [ObservableProperty] private string _confirmText = "";
-    [ObservableProperty] private string _confirmYesText = "Sì";
+    [ObservableProperty] private string _confirmYesText = "";
 
     /// <summary>Mostra una domanda sopra la finestra e aspetta la risposta.</summary>
     public Task<bool> ConfirmAsync(string title, string text, string yes)
@@ -314,9 +363,9 @@ public sealed partial class MainViewModel : ObservableObject
         _options = o;
         _scanCts = new CancellationTokenSource();
         var ct = _scanCts.Token;
-        var progress = new Progress<string>(m => StatusText = m);
+        var progress = new Progress<string>(m => StatusText = m); // messaggi del motore: restano nella lingua in cui arrivano
         IsScanning = true;
-        StatusText = "Preparo la ricerca...";
+        Say(() => Lang.T("Preparo la ricerca...", "Getting ready to search..."));
 
         IEmbeddingProvider? embeddings = null;
         try
@@ -327,12 +376,12 @@ public sealed partial class MainViewModel : ObservableObject
         }
         catch (OperationCanceledException)
         {
-            StatusText = "Ricerca interrotta.";
+            Say(() => Lang.T("Ricerca interrotta.", "Search stopped."));
             return;
         }
         catch (Exception ex)
         {
-            StatusText = $"Errore durante la ricerca: {ex.Message}";
+            Say(() => Lang.T($"Errore durante la ricerca: {ex.Message}", $"Error during the search: {ex.Message}"));
             return;
         }
         finally
@@ -396,11 +445,17 @@ public sealed partial class MainViewModel : ObservableObject
         HasResults = true;
         ApplyFilter();
         SelectedPair = VisiblePairs.FirstOrDefault(p => p.IsPending) ?? VisiblePairs.FirstOrDefault();
-
-        string unreadable = result.UnreadableFiles > 0 ? $" {result.UnreadableFiles:N0} file illeggibili." : "";
-        StatusText = Pairs.Count == 0
-            ? $"Ricerca completata in {result.Elapsed:mm\\:ss}: nessun doppione tra {result.Files.Count:N0} foto.{unreadable}"
-            : $"Ricerca completata in {result.Elapsed:mm\\:ss}: {Pairs.Count:N0} doppioni in {result.Groups.Count:N0} gruppi.{unreadable}";
+        Say(() =>
+        {
+            string unreadable = result.UnreadableFiles > 0
+                ? Lang.T($" {result.UnreadableFiles:N0} file illeggibili.", $" {result.UnreadableFiles:N0} unreadable files.")
+                : "";
+            return Pairs.Count == 0
+                ? Lang.T($"Ricerca completata in {result.Elapsed:mm\\:ss}: nessun doppione tra {result.Files.Count:N0} foto.{unreadable}",
+                         $"Search completed in {result.Elapsed:mm\\:ss}: no duplicates among {result.Files.Count:N0} photos.{unreadable}")
+                : Lang.T($"Ricerca completata in {result.Elapsed:mm\\:ss}: {Pairs.Count:N0} doppioni in {result.Groups.Count:N0} gruppi.{unreadable}",
+                         $"Search completed in {result.Elapsed:mm\\:ss}: {Pairs.Count:N0} duplicates in {result.Groups.Count:N0} groups.{unreadable}");
+        });
         RefreshCounters();
     }
 
@@ -446,10 +501,11 @@ public sealed partial class MainViewModel : ObservableObject
         if (targets.Count == 0) return;
         long bytes = targets.Sum(x => x.Duplicate.Size);
         bool ok = await ConfirmAsync(
-            $"Spostare tutti i «{p.KindLabel}»?",
-            $"Sposto {Destination} i {targets.Count:N0} doppioni ancora da decidere di questo tipo ({ReportWriter.FormatBytes(bytes)}). " +
+            Lang.T($"Spostare tutti i «{p.KindLabel}»?", $"Move all “{p.KindLabel}”?"),
+            Lang.T($"Sposto {Destination} i {targets.Count:N0} doppioni ancora da decidere di questo tipo ({ReportWriter.FormatBytes(bytes)}). ",
+                   $"I will move {Destination} the {targets.Count:N0} duplicates of this kind still to decide ({ReportWriter.FormatBytes(bytes)}). ") +
             KeepSentence,
-            $"Sposta {targets.Count:N0}");
+            Lang.T($"Sposta {targets.Count:N0}", $"Move {targets.Count:N0}"));
         if (!ok) return;
         await MoveAsync(targets, automatic: false);
         SelectNextPending(p);
@@ -462,26 +518,32 @@ public sealed partial class MainViewModel : ObservableObject
         var targets = Pairs.Where(p => p.IsPending && ActionPolicy.IsAutomatic(_options, p.Member)).ToList();
         if (targets.Count == 0) return;
         string rule = _options.Mode == RunMode.SemiAutomatic
-            ? "i file identici al byte, riverificati uno per uno subito prima"
-            : $"quelli con affidabilità di almeno {_options.EffectiveAutoThreshold:0}% (mai gli scatti multipli)";
+            ? Lang.T("i file identici al byte, riverificati uno per uno subito prima",
+                     "byte-identical files, each checked again just before")
+            : Lang.T($"quelli con affidabilità di almeno {_options.EffectiveAutoThreshold:0}% (mai gli scatti multipli)",
+                     $"those with a confidence of at least {_options.EffectiveAutoThreshold:0}% (never burst shots)");
+        string size = ReportWriter.FormatBytes(targets.Sum(p => p.Duplicate.Size));
         bool ok = await ConfirmAsync(
-            "Spostamento automatico",
-            $"La modalità «{SelectedMode.Label}» può spostare da sola {targets.Count:N0} doppioni " +
-            $"({ReportWriter.FormatBytes(targets.Sum(p => p.Duplicate.Size))}): {rule}. " +
-            $"Li sposto {Destination}? {KeepSentence} Le altre coppie te le mostro una per una.",
-            $"Sposta {targets.Count:N0}");
+            Lang.T("Spostamento automatico", "Automatic move"),
+            Lang.T($"La modalità «{SelectedMode.Label}» può spostare da sola {targets.Count:N0} doppioni ({size}): {rule}. " +
+                   $"Li sposto {Destination}? {KeepSentence} Le altre coppie te le mostro una per una.",
+                   $"The “{SelectedMode.Label}” mode can move {targets.Count:N0} duplicates on its own ({size}): {rule}. " +
+                   $"Shall I move them {Destination}? {KeepSentence} I will show you the other pairs one by one."),
+            Lang.T($"Sposta {targets.Count:N0}", $"Move {targets.Count:N0}"));
         if (!ok) return;
         await MoveAsync(targets, automatic: true);
         SelectedPair = VisiblePairs.FirstOrDefault(p => p.IsPending) ?? SelectedPair;
     }
 
     private string KeepSentence => _options?.PreferredFolders.FirstOrDefault() is { } keep
-        ? $"Restano sempre le copie nella cartella «{Folders.FirstOrDefault(f => FileScanner.SameFolder(f.Path, keep))?.Name ?? keep}»."
-        : "In ogni coppia resta la copia a sinistra, «da tenere».";
+        ? Lang.T($"Restano sempre le copie nella cartella «{KeptName(keep)}».", $"The copies in the “{KeptName(keep)}” folder always stay.")
+        : Lang.T("In ogni coppia resta la copia a sinistra, «da tenere».", "In every pair the left-hand copy, “to keep”, stays.");
+
+    private string KeptName(string keep) => Folders.FirstOrDefault(f => FileScanner.SameFolder(f.Path, keep))?.Name ?? keep;
 
     private string Destination => SelectedDisposal.Value == DisposalMethod.Quarantine
-        ? $"in quarantena ({(_options ?? BuildOptions()).QuarantineRoot})"
-        : "nel Cestino";
+        ? Lang.T($"in quarantena ({(_options ?? BuildOptions()).QuarantineRoot})", $"to quarantine ({(_options ?? BuildOptions()).QuarantineRoot})")
+        : Lang.T("nel Cestino", "to the Recycle Bin");
 
     private async Task MoveAsync(IReadOnlyList<PairItem> items, bool automatic)
     {
@@ -498,13 +560,14 @@ public sealed partial class MainViewModel : ObservableObject
                 var outcome = await Task.Run(() => session.Move(p.Keeper, p.Member, automatic));
                 p.Status = outcome.Result is MoveResult.Moved or MoveResult.AlreadyHandled ? PairStatus.Moved : PairStatus.Blocked;
                 p.Note = outcome.Message;
-                if (items.Count > 1 && ++done % 25 == 0) StatusText = $"Spostati {done:N0} di {items.Count:N0}...";
+                if (items.Count > 1 && ++done % 25 == 0) Say(() => Lang.T($"Spostati {done:N0} di {items.Count:N0}...", $"Moved {done:N0} of {items.Count:N0}..."));
             }
             int moved = items.Count(p => p.IsMoved);
             int blocked = items.Count(p => p.IsBlocked);
-            StatusText = blocked == 0
-                ? $"Spostati {moved:N0} file {Destination}."
-                : $"Spostati {moved:N0} file; {blocked:N0} non toccati per sicurezza (vedi la colonna Stato).";
+            Say(() => blocked == 0
+                ? Lang.T($"Spostati {moved:N0} file {Destination}.", $"Moved {moved:N0} files {Destination}.")
+                : Lang.T($"Spostati {moved:N0} file; {blocked:N0} non toccati per sicurezza (vedi la colonna Stato).",
+                         $"Moved {moved:N0} files; {blocked:N0} left alone for safety (see the Status column)."));
         }
         finally
         {
@@ -530,9 +593,10 @@ public sealed partial class MainViewModel : ObservableObject
     {
         if (!CanUndo || _session?.Summary.JournalPath is not { } journal || _options is null) return;
         bool ok = await ConfirmAsync(
-            "Annullare gli spostamenti?",
-            $"Riporto al loro posto i {MovedCount:N0} file spostati in questa sessione.",
-            "Ripristina");
+            Lang.T("Annullare gli spostamenti?", "Undo the moves?"),
+            Lang.T($"Riporto al loro posto i {MovedCount:N0} file spostati in questa sessione.",
+                   $"I will put back the {MovedCount:N0} files moved in this session."),
+            Lang.T("Ripristina", "Restore"));
         if (!ok) return;
 
         IsWorking = true;
@@ -543,18 +607,20 @@ public sealed partial class MainViewModel : ObservableObject
             foreach (var p in Pairs.Where(p => p.IsMoved && File.Exists(p.Duplicate.Path)))
             {
                 p.Status = DefaultStatus;
-                p.Note = "ripristinato";
+                p.Note = Lang.T("ripristinato", "restored");
             }
             _session = new ActionSession(_options);
-            StatusText = r.Skipped == 0
-                ? $"Ripristinati {r.Restored:N0} file."
-                : $"Ripristinati {r.Restored:N0} file, {r.Skipped:N0} no: {r.Messages.FirstOrDefault()}";
+            Say(() => r.Skipped == 0
+                ? Lang.T($"Ripristinati {r.Restored:N0} file.", $"Restored {r.Restored:N0} files.")
+                : Lang.T($"Ripristinati {r.Restored:N0} file, {r.Skipped:N0} no: {r.Messages.FirstOrDefault()}",
+                         $"Restored {r.Restored:N0} files, {r.Skipped:N0} not: {r.Messages.FirstOrDefault()}"));
         }
         catch (Exception ex)
         {
             ErrorLog.Write(ex, "annulla");
             _session = new ActionSession(_options);
-            StatusText = $"Ripristino non completato: {ex.Message}. Il registro è in {journal}.";
+            Say(() => Lang.T($"Ripristino non completato: {ex.Message}. Il registro è in {journal}.",
+                                $"Restore not completed: {ex.Message}. The journal is in {journal}."));
         }
         finally
         {
@@ -574,12 +640,12 @@ public sealed partial class MainViewModel : ObservableObject
             Directory.CreateDirectory(dir);
             ReportWriter.WriteHtml(_result, path);
             ReportWriter.WriteCsv(_result, Path.ChangeExtension(path, ".csv"));
-            StatusText = $"Report salvato: {path}";
+            Say(() => Lang.T($"Report salvato: {path}", $"Report saved: {path}"));
             Shell.Open(path);
         }
         catch (Exception ex)
         {
-            StatusText = $"Report non salvato: {ex.Message}";
+            Say(() => Lang.T($"Report non salvato: {ex.Message}", $"Report not saved: {ex.Message}"));
         }
     }
 
@@ -742,7 +808,9 @@ public sealed partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             if (!ct.IsCancellationRequested)
-                panel.Placeholder = File.Exists(f.Path) ? $"Anteprima non disponibile\n{ex.Message}" : "Il file non è più qui\n(spostato o rinominato)";
+                panel.Placeholder = File.Exists(f.Path)
+                    ? Lang.T($"Anteprima non disponibile\n{ex.Message}", $"Preview not available\n{ex.Message}")
+                    : Lang.T("Il file non è più qui\n(spostato o rinominato)", "The file is no longer here\n(moved or renamed)");
         }
         finally
         {
@@ -797,6 +865,7 @@ public sealed partial class MainViewModel : ObservableObject
         ModelPath = s.ModelPath;
         SelectedAccelerator = Accelerators.FirstOrDefault(a => a.Value == s.Accelerator) ?? Accelerators[0];
         RemoveTempOnExit = s.RemoveTempOnExit;
+        SelectedLanguage = Languages.FirstOrDefault(l => l.Value == s.Language) ?? Languages[0];
     }
 
     public void SaveSettings() => _store.Save(new GuiSettings
@@ -813,5 +882,26 @@ public sealed partial class MainViewModel : ObservableObject
         ModelPath = ModelPath,
         Accelerator = SelectedAccelerator.Value,
         RemoveTempOnExit = RemoveTempOnExit,
+        Language = SelectedLanguage.Value,
     });
+
+    // ------------------------------------------------------------------ lingua
+
+    partial void OnSelectedLanguageChanged(Choice<string> value) => Lang.Set(value.Value);
+
+    /// <summary>
+    /// Cambio di lingua: i testi fissi della finestra si aggiornano da soli (vedi TExtension); qui quelli calcolati.
+    /// I motivi dei doppioni sono nelle due lingue e cambiano anch'essi; restano nella lingua di prima solo i
+    /// messaggi già scritti (la barra di stato, le note degli spostamenti).
+    /// </summary>
+    private void OnLanguageChanged()
+    {
+        foreach (var c in Modes.Concat<IChoice>(Disposals).Concat(Accelerators).Concat(Filters).Concat(Languages)) c.Refresh();
+        foreach (var f in Folders) f.Refresh();
+        foreach (var p in Pairs) p.Refresh();
+        Left.Refresh();
+        Right.Refresh();
+        if (_statusMaker is { } status) Say(status);
+        OnPropertyChanged(string.Empty);
+    }
 }

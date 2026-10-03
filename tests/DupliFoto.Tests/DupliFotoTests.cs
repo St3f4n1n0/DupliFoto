@@ -384,7 +384,7 @@ public sealed class EngineEndToEndTests : IDisposable
 
         // L'utente sposta la copia da tenere di un altro gruppo: da lì in poi quel gruppo non si tocca più.
         var exact = r.Groups.Single(g => g.Kind == MatchKind.ExactBytes);
-        var original = new GroupMember { File = exact.Keeper, Kind = MatchKind.ExactBytes, Confidence = 100, Reason = "" };
+        var original = new GroupMember { File = exact.Keeper, Kind = MatchKind.ExactBytes, Confidence = 100, Reason = Text.Empty };
         Assert.Equal(MoveResult.Moved, session.Move(exact.Duplicates[0].File, original, automatic: false).Result);
         Assert.Equal(MoveResult.KeeperUnavailable, session.Move(sea.Keeper, sameData, automatic: false).Result);
         Assert.True(File.Exists(sameData.File.Path));
@@ -523,7 +523,7 @@ public sealed class SafetyTests : IDisposable
         var twin = Existing(Path.Combine(alias, "a.jpg"));
 
         using var session = new ActionSession(new ScanOptions { QuarantineRoot = Path.Combine(_dir, "Q") });
-        var outcome = session.Move(keeper, new GroupMember { File = twin, Kind = MatchKind.ExactBytes, Confidence = 100, Reason = "" }, automatic: true);
+        var outcome = session.Move(keeper, new GroupMember { File = twin, Kind = MatchKind.ExactBytes, Confidence = 100, Reason = Text.Empty }, automatic: true);
 
         // Su Windows lo riconosce l'identità del file prima di spostarlo; altrove il controllo dopo lo spostamento
         // vede sparire la copia da tenere e rimette subito il file al suo posto.
@@ -577,7 +577,7 @@ public sealed class SafetyTests : IDisposable
         var keeper = new PhotoFile { Path = keeperPath, Size = 3, LastWriteUtc = File.GetLastWriteTimeUtc(keeperPath) };
 
         using var session = new ActionSession(new ScanOptions { Disposal = DisposalMethod.RecycleBin, QuarantineRoot = Path.Combine(_dir, "Q") });
-        var outcome = session.Move(keeper, new GroupMember { File = file, Kind = MatchKind.ExactBytes, Confidence = 100, Reason = "" }, automatic: false);
+        var outcome = session.Move(keeper, new GroupMember { File = file, Kind = MatchKind.ExactBytes, Confidence = 100, Reason = Text.Empty }, automatic: false);
 
         Assert.Equal(MoveResult.Moved, outcome.Result);
         Assert.False(File.Exists(path));
@@ -615,7 +615,7 @@ public sealed class LockedFileTests : IDisposable
         release.Start();
 
         using var session = new ActionSession(new ScanOptions { QuarantineRoot = Path.Combine(_dir, "Q") });
-        var outcome = session.Move(keeper, new GroupMember { File = dup, Kind = MatchKind.Perceptual, Confidence = 95, Reason = "" }, automatic: false);
+        var outcome = session.Move(keeper, new GroupMember { File = dup, Kind = MatchKind.Perceptual, Confidence = 95, Reason = Text.Empty }, automatic: false);
         release.Join();
 
         Assert.True(outcome.Moved, outcome.Message);

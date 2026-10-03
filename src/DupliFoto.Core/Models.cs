@@ -97,7 +97,7 @@ public sealed class GroupMember
     public required MatchKind Kind { get; init; }
     /// <summary>Affidabilità 0-100 che questo file sia un doppione della copia da tenere.</summary>
     public required double Confidence { get; init; }
-    public required string Reason { get; init; }
+    public required Text Reason { get; init; }
 }
 
 /// <summary>Un gruppo di doppioni: una copia da tenere e uno o più candidati da rimuovere.</summary>
@@ -106,7 +106,7 @@ public sealed class DuplicateGroup
     public int Id { get; set; }
     public required PhotoFile Keeper { get; set; }
     public required List<GroupMember> Duplicates { get; init; }
-    public string KeeperReason { get; set; } = "";
+    public Text KeeperReason { get; set; } = Text.Empty;
     /// <summary>
     /// Con <see cref="ScanOptions.CrossFolderOnly"/>: le copie nella stessa cartella della copia da tenere. Non sono
     /// doppioni e restano dove sono; contano solo se l'utente sceglie come copia da tenere una foto di un'altra cartella.
@@ -127,6 +127,8 @@ public sealed class ScanResult
     public required IReadOnlyList<PhotoFile> Files { get; init; }
     public required IReadOnlyList<DuplicateGroup> Groups { get; init; }
     public required TimeSpan Elapsed { get; init; }
-    public string AcceleratorDescription { get; init; } = "Nessun modello neurale (solo algoritmi classici)";
+    public string AcceleratorDescription { get; init; } = DedupEngine.NoModelDescription;
+    /// <summary>Quante foto la rete neurale ha esaminato (0 senza modello, o se nessuna foto ne aveva bisogno).</summary>
+    public int NeuralPhotos { get; init; }
     public int UnreadableFiles => Files.Count(f => f.AnalysisError is not null);
 }

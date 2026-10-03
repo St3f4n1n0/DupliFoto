@@ -33,12 +33,12 @@ public static class GroupEditor
                     File = f,
                     Kind = MatchKind.Burst,
                     Confidence = 50,
-                    Reason = "simile ad altre foto del gruppo, ma non direttamente a quella da tenere",
+                    Reason = DedupEngine.IndirectReason,
                 });
             }
         }
         group.Keeper = newKeeper;
-        group.KeeperReason = "scelta da te";
+        group.KeeperReason = new("scelta da te", "chosen by you");
         if (o.CrossFolderOnly) DedupEngine.SetAsideSameFolderCopies(group);
     }
 }

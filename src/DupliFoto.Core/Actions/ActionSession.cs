@@ -74,16 +74,18 @@ public sealed class ActionSession(ScanOptions options, IProgress<string>? progre
     {
         var f = member.File;
         if (ReferenceEquals(f, keeper) || WasRemoved(f))
-            return new MoveOutcome(MoveResult.AlreadyHandled, "già spostato");
+            return new MoveOutcome(MoveResult.AlreadyHandled, Lang.T("già spostato", "already moved"));
 
         if (!IsKeeperAvailable(keeper))
-            return Warn(MoveResult.KeeperUnavailable, $"La copia da tenere non è più disponibile o è cambiata, non tocco: {f.Path}");
+            return Warn(MoveResult.KeeperUnavailable, Lang.T($"La copia da tenere non è più disponibile o è cambiata, non tocco: {f.Path}",
+                $"The copy to keep is no longer available or has changed, left alone: {f.Path}"));
         if (!IsUnchanged(f))
-            return Warn(MoveResult.ChangedSinceScan, $"Modificato dopo la scansione, saltato: {f.Path}");
+            return Warn(MoveResult.ChangedSinceScan, Lang.T($"Modificato dopo la scansione, saltato: {f.Path}", $"Changed after the scan, skipped: {f.Path}"));
         if (FileIdentity.AreSameFile(keeper.Path, f.Path))
-            return Warn(MoveResult.SameFile, $"È lo stesso file della copia da tenere ({keeper.Path}), raggiunto da un altro percorso: non lo sposto: {f.Path}");
+            return Warn(MoveResult.SameFile, Lang.T($"È lo stesso file della copia da tenere ({keeper.Path}), raggiunto da un altro percorso: non lo sposto: {f.Path}",
+                $"It is the same file as the copy to keep ({keeper.Path}), reached through another path: not moved: {f.Path}"));
         if (member.Kind == MatchKind.ExactBytes && !ExactMatcher.FilesAreIdentical(keeper.Path, f.Path))
-            return Warn(MoveResult.ByteCheckFailed, $"La verifica byte per byte è fallita, saltato: {f.Path}");
+            return Warn(MoveResult.ByteCheckFailed, Lang.T($"La verifica byte per byte è fallita, saltato: {f.Path}", $"The byte-by-byte check failed, skipped: {f.Path}"));
 
         try
         {
@@ -92,7 +94,8 @@ public sealed class ActionSession(ScanOptions options, IProgress<string>? progre
             // Ultima difesa: se ora la copia da tenere non è più al suo posto, i due percorsi portavano allo stesso
             // file per una strada non riconosciuta prima. Il file torna subito dov'era.
             if (!IsUnchanged(keeper) && movedTo is not null && TryPutBack(movedTo, f.Path))
-                return Warn(MoveResult.SameFile, $"Era lo stesso file della copia da tenere ({keeper.Path}): rimesso subito al suo posto: {f.Path}");
+                return Warn(MoveResult.SameFile, Lang.T($"Era lo stesso file della copia da tenere ({keeper.Path}): rimesso subito al suo posto: {f.Path}",
+                    $"It was the same file as the copy to keep ({keeper.Path}): put back at once: {f.Path}"));
 
             _journal ??= new ActionJournal(JournalPath);
             Summary.JournalPath = JournalPath;
@@ -102,14 +105,19 @@ public sealed class ActionSession(ScanOptions options, IProgress<string>? progre
             Summary.Moved++;
             Summary.BytesFreed += f.Size;
             if (!IsUnchanged(keeper)) // non si è potuto rimettere a posto: è nel registro, "annulla" lo riporta
-                Summary.Warnings.Add($"ATTENZIONE: dopo aver spostato {f.Path} la copia da tenere {keeper.Path} non c'è più. " +
-                                     (movedTo is null ? "Ripristina il file dal Cestino." : "Riportalo al suo posto con «annulla»."));
+                Summary.Warnings.Add(Lang.T(
+                    $"ATTENZIONE: dopo aver spostato {f.Path} la copia da tenere {keeper.Path} non c'è più. " +
+                    (movedTo is null ? "Ripristina il file dal Cestino." : "Riportalo al suo posto con «annulla»."),
+                    $"WARNING: after moving {f.Path} the copy to keep {keeper.Path} is gone. " +
+                    (movedTo is null ? "Restore the file from the Recycle Bin." : "Put it back with Undo.")));
             progress?.Report($"{(automatic ? "[auto]" : "[ok]  ")} {f.Path}");
-            return new MoveOutcome(MoveResult.Moved, movedTo is null ? "nel Cestino" : $"in quarantena: {movedTo}");
+            return new MoveOutcome(MoveResult.Moved, movedTo is null
+                ? Lang.T("nel Cestino", "to the Recycle Bin")
+                : Lang.T($"in quarantena: {movedTo}", $"to quarantine: {movedTo}"));
         }
         catch (Exception ex)
         {
-            return Warn(MoveResult.Failed, $"Impossibile spostare {f.Path}: {ex.Message}");
+            return Warn(MoveResult.Failed, Lang.T($"Impossibile spostare {f.Path}: {ex.Message}", $"Could not move {f.Path}: {ex.Message}"));
         }
     }
 
@@ -189,12 +197,14 @@ internal static class RecycleBin
     public static void Send(string path)
     {
         if (!OperatingSystem.IsWindows())
-            throw new PlatformNotSupportedException("Il Cestino è disponibile solo su Windows: usa la quarantena.");
+            throw new PlatformNotSupportedException(Lang.T("Il Cestino è disponibile solo su Windows: usa la quarantena.",
+                "The Recycle Bin is only available on Windows: use the quarantine."));
 
         // Sulle unità di rete e rimovibili Windows non ha un Cestino: "eliminare" vorrebbe dire cancellare davvero.
         var drive = new DriveInfo(Path.GetPathRoot(Path.GetFullPath(path))!);
         if (drive.DriveType != DriveType.Fixed)
-            throw new IOException($"L'unità {drive.Name} non ha un Cestino ({drive.DriveType}): usa la quarantena.");
+            throw new IOException(Lang.T($"L'unità {drive.Name} non ha un Cestino ({drive.DriveType}): usa la quarantena.",
+                $"Drive {drive.Name} has no Recycle Bin ({drive.DriveType}): use the quarantine."));
 
         var op = new NativeMethods.SHFILEOPSTRUCT
         {
@@ -216,13 +226,14 @@ internal static class RecycleBin
         sta.SetApartmentState(ApartmentState.STA);
         sta.Start();
         sta.Join();
-        if (error is not null) throw new IOException($"Cestino non disponibile: {error.Message}", error);
+        if (error is not null) throw new IOException(Lang.T($"Cestino non disponibile: {error.Message}", $"Recycle Bin not available: {error.Message}"), error);
         if (rc != 0 || op.fAnyOperationsAborted)
             throw new IOException(
-                $"Windows non ha spostato il file nel Cestino (codice {rc}{(op.fAnyOperationsAborted ? ", annullato" : "")}).",
+                Lang.T($"Windows non ha spostato il file nel Cestino (codice {rc}{(op.fAnyOperationsAborted ? ", annullato" : "")}).",
+                       $"Windows did not move the file to the Recycle Bin (code {rc}{(op.fAnyOperationsAborted ? ", cancelled" : "")})."),
                 rc is 32 or 33 ? unchecked((int)0x80070000) | rc : -1); // file bloccato: si potrà ritentare
         if (File.Exists(path))
-            throw new IOException("Il file è ancora al suo posto dopo lo spostamento nel Cestino.");
+            throw new IOException(Lang.T("Il file è ancora al suo posto dopo lo spostamento nel Cestino.", "The file is still in place after the move to the Recycle Bin."));
     }
 
     private static class NativeMethods

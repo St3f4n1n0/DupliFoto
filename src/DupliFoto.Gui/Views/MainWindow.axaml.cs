@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
+using DupliFoto.Core;
 using DupliFoto.Gui.Services;
 using DupliFoto.Gui.ViewModels;
 
@@ -77,7 +78,7 @@ public partial class MainWindow : Window
     {
         var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
-            Title = "Cartelle da analizzare",
+            Title = Strings.FoldersToScan,
             AllowMultiple = true,
         });
         Vm?.AddFolders(folders.Select(f => f.TryGetLocalPath()).OfType<string>());
@@ -85,7 +86,7 @@ public partial class MainWindow : Window
 
     private async void OnBrowseQuarantine(object? sender, RoutedEventArgs e) => await Guard(async () =>
     {
-        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions { Title = "Cartella di quarantena" });
+        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions { Title = Strings.QuarantineFolder });
         if (Vm is { } vm && folders.FirstOrDefault()?.TryGetLocalPath() is { } path) vm.QuarantineRoot = path;
     });
 
@@ -93,8 +94,8 @@ public partial class MainWindow : Window
     {
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Modello ONNX",
-            FileTypeFilter = [new FilePickerFileType("Modello ONNX") { Patterns = ["*.onnx"] }],
+            Title = Lang.T("Modello ONNX", "ONNX model"),
+            FileTypeFilter = [new FilePickerFileType(Lang.T("Modello ONNX", "ONNX model")) { Patterns = ["*.onnx"] }],
         });
         if (Vm is { } vm && files.FirstOrDefault()?.TryGetLocalPath() is { } path) vm.ModelPath = path;
     });
@@ -106,7 +107,7 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             ErrorLog.Write(ex, "finestra");
-            if (Vm is { } vm) vm.StatusText = $"Operazione non riuscita: {ex.Message}";
+            if (Vm is { } vm) vm.StatusText = Lang.T($"Operazione non riuscita: {ex.Message}", $"Operation failed: {ex.Message}");
         }
     }
 

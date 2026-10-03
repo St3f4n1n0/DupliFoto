@@ -31,7 +31,7 @@ internal sealed class ConsolePrompt : IDecisionPrompt
                 string detail = $"{f.Width}×{f.Height}  {ReportWriter.FormatBytes(f.Size)}  nitidezza {f.Sharpness:0}"
                                 + (f.TakenAt is { } t ? $"  {t:dd/MM/yyyy HH:mm:ss}" : "");
                 Console.WriteLine($"             {detail}");
-                if (isKeeper && ReferenceEquals(f, g.Keeper) && g.KeeperReason.Length > 0)
+                if (isKeeper && ReferenceEquals(f, g.Keeper) && !g.KeeperReason.IsEmpty)
                     Console.WriteLine($"             perché: {g.KeeperReason}");
                 else if (member is not null)
                     Console.WriteLine($"             {member.Confidence:0}% — {member.Reason}");

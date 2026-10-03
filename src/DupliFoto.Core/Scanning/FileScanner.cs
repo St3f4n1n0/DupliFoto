@@ -36,7 +36,7 @@ public static class FileScanner
         {
             if (!System.IO.Directory.Exists(root))
             {
-                progress?.Report($"Cartella non trovata, ignorata: {root}");
+                progress?.Report(Lang.T($"Cartella non trovata, ignorata: {root}", $"Folder not found, skipped: {root}"));
                 continue;
             }
 
@@ -75,11 +75,11 @@ public static class FileScanner
                 file.HasEditMarker = n.HasEditMarker;
                 result.Add(file);
 
-                if (result.Count % 5000 == 0) progress?.Report($"Trovate {result.Count:N0} foto...");
+                if (result.Count % 5000 == 0) progress?.Report(Lang.T($"Trovate {result.Count:N0} foto...", $"Found {result.Count:N0} photos..."));
             }
         }
 
-        progress?.Report($"Inventario completato: {result.Count:N0} foto.");
+        progress?.Report(Lang.T($"Inventario completato: {result.Count:N0} foto.", $"Inventory completed: {result.Count:N0} photos."));
         return result;
     }
 

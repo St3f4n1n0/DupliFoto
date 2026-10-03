@@ -57,19 +57,20 @@ public sealed class DedupEngine(IImageDecoder decoder, IMetadataReader metadata,
             exactKeeperOf[keeper] = group;
             foreach (var d in group.Duplicates) hiddenDuplicates.Add(d.File);
         }
-        progress?.Report($"Livello 1: {groups.Count:N0} gruppi di file identici.");
+        progress?.Report(Lang.T($"Livello 1: {groups.Count:N0} gruppi di file identici.", $"Level 1: {groups.Count:N0} groups of identical files."));
 
         // ---------- Analisi visiva (una volta per contenuto distinto) ----------
         var reps = files.Where(f => !hiddenDuplicates.Contains(f) && f.AnalysisError is null).ToList();
         var toAnalyze = reps.Where(f => !f.IsAnalyzed).ToList();
-        progress?.Report($"Analisi visiva di {toAnalyze.Count:N0} foto ({reps.Count - toAnalyze.Count:N0} già in cache)...");
+        progress?.Report(Lang.T($"Analisi visiva di {toAnalyze.Count:N0} foto ({reps.Count - toAnalyze.Count:N0} già in cache)...",
+            $"Visual analysis of {toAnalyze.Count:N0} photos ({reps.Count - toAnalyze.Count:N0} already in the cache)..."));
         int done = 0;
         Parallel.ForEach(toAnalyze, parallel, f =>
         {
             try { _analyzer.Analyze(f, o.ThumbnailSide); }
-            catch (Exception ex) { f.AnalysisError = $"Decodifica: {ex.Message}"; }
+            catch (Exception ex) { f.AnalysisError = Lang.T($"Decodifica: {ex.Message}", $"Decoding: {ex.Message}"); }
             int n = Interlocked.Increment(ref done);
-            if (n % 500 == 0) progress?.Report($"  analizzate {n:N0}/{toAnalyze.Count:N0}");
+            if (n % 500 == 0) progress?.Report(Lang.T($"  analizzate {n:N0}/{toAnalyze.Count:N0}", $"  analysed {n:N0}/{toAnalyze.Count:N0}"));
         });
 
         // I doppioni esatti hanno lo stesso contenuto della copia tenuta: ne ereditano l'analisi (utile per il report).
@@ -81,7 +82,7 @@ public sealed class DedupEngine(IImageDecoder decoder, IMetadataReader metadata,
 
         // ---------- Candidati: vicini nell'hash percettivo o nel tempo ----------
         var pairs = FindCandidatePairs(analyzed, o, ct);
-        progress?.Report($"Coppie candidate da valutare: {pairs.Count:N0}.");
+        progress?.Report(Lang.T($"Coppie candidate da valutare: {pairs.Count:N0}.", $"Candidate pairs to assess: {pairs.Count:N0}."));
 
         // ---------- Livello 2: hash dei pixel, solo dove può fare la differenza ----------
         var pixelCandidates = pairs
@@ -92,7 +93,8 @@ public sealed class DedupEngine(IImageDecoder decoder, IMetadataReader metadata,
             .ToList();
         if (pixelCandidates.Count > 0)
         {
-            progress?.Report($"Livello 2: confronto pixel a piena risoluzione su {pixelCandidates.Count:N0} foto...");
+            progress?.Report(Lang.T($"Livello 2: confronto pixel a piena risoluzione su {pixelCandidates.Count:N0} foto...",
+                $"Level 2: full-resolution pixel comparison on {pixelCandidates.Count:N0} photos..."));
             Parallel.ForEach(pixelCandidates, parallel, f =>
             {
                 try { _analyzer.ComputePixelHash(f); }
@@ -101,8 +103,7 @@ public sealed class DedupEngine(IImageDecoder decoder, IMetadataReader metadata,
         }
 
         // ---------- Embedding neurali (NPU/GPU/CPU), solo sulle foto candidate ----------
-        if (embeddings is not null)
-            ComputeEmbeddings(pairs, progress, ct);
+        int neuralPhotos = embeddings is null ? 0 : ComputeEmbeddings(pairs, progress, ct);
 
         // ---------- Valutazione delle coppie e formazione dei gruppi ----------
         var matches = new ConcurrentBag<(PhotoFile A, PhotoFile B, SimilarityScorer.Match M)>();
@@ -130,17 +131,25 @@ public sealed class DedupEngine(IImageDecoder decoder, IMetadataReader metadata,
         // ---------- Cache ----------
         foreach (var f in files.Where(f => f.PartialHash is not null || f.IsAnalyzed)) cache.Store(f);
         cache.Prune(o.Roots, files.Select(f => f.Path).ToHashSet(StringComparer.OrdinalIgnoreCase));
-        try { cache.Save(); } catch (Exception ex) { progress?.Report($"Cache non salvata: {ex.Message}"); }
+        try { cache.Save(); } catch (Exception ex) { progress?.Report(Lang.T($"Cache non salvata: {ex.Message}", $"Cache not saved: {ex.Message}")); }
 
-        progress?.Report($"Analisi completata in {sw.Elapsed:mm\\:ss}.");
+        progress?.Report(Lang.T($"Analisi completata in {sw.Elapsed:mm\\:ss}.", $"Analysis completed in {sw.Elapsed:mm\\:ss}."));
         return new ScanResult
         {
             Files = files,
             Groups = ordered,
             Elapsed = sw.Elapsed,
-            AcceleratorDescription = embeddings?.DeviceDescription ?? "Nessun modello neurale (solo algoritmi classici)",
+            AcceleratorDescription = embeddings?.DeviceDescription ?? NoModelDescription,
+            NeuralPhotos = neuralPhotos,
         };
     }
+
+    public static string NoModelDescription => Lang.T("Nessun modello neurale (solo algoritmi classici)", "No neural model (classic algorithms only)");
+
+    /// <summary>Il motivo di un doppione legato alla copia da tenere solo attraverso altre foto del gruppo.</summary>
+    internal static readonly Text IndirectReason = new(
+        "simile ad altre foto del gruppo, ma non direttamente a quella da tenere",
+        "similar to other photos in the group, but not directly to the one to keep");
 
     // ------------------------------------------------------------------
 
@@ -189,16 +198,19 @@ public sealed class DedupEngine(IImageDecoder decoder, IMetadataReader metadata,
         return pairs;
     }
 
-    private void ComputeEmbeddings(List<Pair> pairs, IProgress<string>? progress, CancellationToken ct)
+    /// <summary>Calcola gli embedding delle foto candidate; restituisce quante foto ha esaminato la rete neurale.</summary>
+    private int ComputeEmbeddings(List<Pair> pairs, IProgress<string>? progress, CancellationToken ct)
     {
-        if (embeddings is not { } provider) return;
+        if (embeddings is not { } provider) return 0;
         var targets = pairs.SelectMany(p => new[] { p.A, p.B })
             .Where(f => f.Embedding is null)
             .Distinct(ReferenceEqualityComparer.Instance).Cast<PhotoFile>()
             .ToList();
-        if (targets.Count == 0) return;
+        if (targets.Count == 0) return 0;
 
-        progress?.Report($"Embedding neurali su {targets.Count:N0} foto con {provider.DeviceDescription}...");
+        progress?.Report(Lang.T($"Embedding neurali su {targets.Count:N0} foto con {provider.DeviceDescription}...",
+            $"Neural embeddings for {targets.Count:N0} photos with {provider.DeviceDescription}..."));
+        int done = 0;
         int batch = Math.Max(1, provider.PreferredBatchSize);
         for (int start = 0; start < targets.Count; start += batch)
         {
@@ -217,13 +229,16 @@ public sealed class DedupEngine(IImageDecoder decoder, IMetadataReader metadata,
             {
                 var vectors = provider.Embed(ok.Select(i => images[i]!).ToList());
                 for (int k = 0; k < ok.Count; k++) chunk[ok[k]].Embedding = vectors[k];
+                done += ok.Count;
             }
             catch (Exception ex)
             {
-                progress?.Report($"Embedding non disponibili ({ex.Message}): proseguo con i soli algoritmi classici.");
-                return;
+                progress?.Report(Lang.T($"Embedding non disponibili ({ex.Message}): proseguo con i soli algoritmi classici.",
+                    $"Embeddings not available ({ex.Message}): carrying on with the classic algorithms only."));
+                return done;
             }
         }
+        return done;
     }
 
     internal static List<DuplicateGroup> BuildSimilarityGroups(
@@ -266,7 +281,7 @@ public sealed class DedupEngine(IImageDecoder decoder, IMetadataReader metadata,
                         File = f,
                         Kind = MatchKind.Burst,
                         Confidence = 50,
-                        Reason = "simile ad altre foto del gruppo, ma non direttamente a quella da tenere",
+                        Reason = IndirectReason,
                     });
             }
             result.Add(new DuplicateGroup { Keeper = keeper, KeeperReason = why, Duplicates = dups });
@@ -283,11 +298,13 @@ public sealed class DedupEngine(IImageDecoder decoder, IMetadataReader metadata,
         g.Duplicates.RemoveAll(d => SameRoot(d.File, g.Keeper));
     }
 
-    private static string DescribeExact(PhotoFile keeper, PhotoFile dup)
+    private static Text DescribeExact(PhotoFile keeper, PhotoFile dup)
     {
         if (dup.NormalizedName == keeper.NormalizedName)
-            return dup.HasCopyMarker ? "copia identica (nome con \"(1)\"/\"Copia\")" : "copia identica, stesso nome";
-        return "copia identica con nome diverso";
+            return dup.HasCopyMarker
+                ? new("copia identica (nome con \"(1)\"/\"Copia\")", "identical copy (name with \"(1)\"/\"Copy\")")
+                : new("copia identica, stesso nome", "identical copy, same name");
+        return new("copia identica con nome diverso", "identical copy with a different name");
     }
 
     private static void CopyVisualAnalysis(PhotoFile from, PhotoFile to)

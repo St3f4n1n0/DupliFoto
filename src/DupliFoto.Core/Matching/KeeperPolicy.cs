@@ -10,7 +10,7 @@ namespace DupliFoto.Core.Matching;
 /// </summary>
 public static class KeeperPolicy
 {
-    public static (PhotoFile Keeper, string Reason) Choose(IReadOnlyList<PhotoFile> files, bool isBurst, ScanOptions options)
+    public static (PhotoFile Keeper, Text Reason) Choose(IReadOnlyList<PhotoFile> files, bool isBurst, ScanOptions options)
     {
         if (files.Count == 0) throw new ArgumentException("Gruppo vuoto", nameof(files));
 
@@ -40,16 +40,19 @@ public static class KeeperPolicy
         o.PreferredFolders.Any(p => FileScanner.IsUnder(f.Path, p)
                                     && !(f.Root.Length > 0 && FileScanner.IsUnder(f.Root, p) && !FileScanner.SameFolder(f.Root, p)));
 
-    private static string Explain(PhotoFile k, IReadOnlyList<PhotoFile> all, bool isBurst, ScanOptions o)
+    private static Text Explain(PhotoFile k, IReadOnlyList<PhotoFile> all, bool isBurst, ScanOptions o)
     {
         var others = all.Where(f => !ReferenceEquals(f, k)).ToList();
-        if (others.Count == 0) return "";
-        if (isBurst && others.All(f => k.Sharpness > f.Sharpness)) return "lo scatto più nitido";
-        if (IsInPreferredFolder(k, o) && others.Any(f => !IsInPreferredFolder(f, o))) return "si trova nella cartella da tenere";
-        if (others.All(f => k.PixelCount > f.PixelCount)) return "risoluzione più alta";
-        if (others.All(f => k.MetadataRichness > f.MetadataRichness)) return "metadati più completi (data, GPS...)";
-        if (!k.HasCopyMarker && others.Any(f => f.HasCopyMarker)) return "nome originale, senza \"(1)\" o \"Copia\"";
-        if (others.All(f => k.LastWriteUtc <= f.LastWriteUtc)) return "la copia più vecchia";
-        return "percorso più breve";
+        if (others.Count == 0) return Text.Empty;
+        if (isBurst && others.All(f => k.Sharpness > f.Sharpness)) return new("lo scatto più nitido", "the sharpest shot");
+        if (IsInPreferredFolder(k, o) && others.Any(f => !IsInPreferredFolder(f, o)))
+            return new("si trova nella cartella da tenere", "it is in the folder to keep");
+        if (others.All(f => k.PixelCount > f.PixelCount)) return new("risoluzione più alta", "higher resolution");
+        if (others.All(f => k.MetadataRichness > f.MetadataRichness))
+            return new("metadati più completi (data, GPS...)", "richer metadata (date, GPS...)");
+        if (!k.HasCopyMarker && others.Any(f => f.HasCopyMarker))
+            return new("nome originale, senza \"(1)\" o \"Copia\"", "original name, without \"(1)\" or \"Copy\"");
+        if (others.All(f => k.LastWriteUtc <= f.LastWriteUtc)) return new("la copia più vecchia", "the oldest copy");
+        return new("percorso più breve", "shorter path");
     }
 }

@@ -102,7 +102,8 @@ public sealed class ActionExecutor(ScanOptions options, IDecisionPrompt? prompt,
     {
         if (!session.IsKeeperAvailable(keeper))
         {
-            session.Summary.Warnings.Add($"Gruppo {group.Id}: la copia da tenere non è più disponibile o è cambiata, gruppo saltato.");
+            session.Summary.Warnings.Add(Lang.T($"Gruppo {group.Id}: la copia da tenere non è più disponibile o è cambiata, gruppo saltato.",
+                $"Group {group.Id}: the copy to keep is no longer available or has changed, group skipped."));
             return null;
         }
         return members.Count(m => session.Move(keeper, m, automatic).Moved);

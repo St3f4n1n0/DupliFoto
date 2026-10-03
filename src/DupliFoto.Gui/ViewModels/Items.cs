@@ -7,9 +7,23 @@ using DupliFoto.Gui.Services;
 
 namespace DupliFoto.Gui.ViewModels;
 
-/// <summary>Una voce di un menu a tendina: il valore e come lo si mostra.</summary>
-public sealed record Choice<T>(T Value, string Label, string Description = "")
+/// <summary>Una voce di un menu a tendina, come la si mostra: nella finestra la disegna un modello unico per tutte.</summary>
+public interface IChoice : System.ComponentModel.INotifyPropertyChanged
 {
+    string Label { get; }
+    string Description { get; }
+    /// <summary>Dopo un cambio di lingua.</summary>
+    void Refresh();
+}
+
+/// <summary>Una voce di un menu a tendina: il valore e come lo si mostra, nelle due lingue.</summary>
+public sealed class Choice<T>(T value, string labelIt, string labelEn, string descriptionIt = "", string descriptionEn = "")
+    : ObservableObject, IChoice
+{
+    public T Value { get; } = value;
+    public string Label => Lang.T(labelIt, labelEn);
+    public string Description => Lang.T(descriptionIt, descriptionEn);
+    public void Refresh() => OnPropertyChanged(string.Empty);
     public override string ToString() => Label;
 }
 
@@ -27,6 +41,13 @@ public sealed partial class FolderItem(string path, Action<FolderItem> remove) :
 
     /// <summary>Le copie che stanno in questa cartella si tengono sempre. Al massimo una cartella.</summary>
     [ObservableProperty] private bool _isKept;
+
+    public string KeepTip => Lang.T($"Tieni sempre le copie che stanno in {Path}", $"Always keep the copies in {Path}");
+    public string KeepName => Lang.T($"Tieni le copie in {Name}", $"Keep the copies in {Name}");
+
+    partial void OnNameChanged(string value) => OnPropertyChanged(nameof(KeepName));
+
+    public void Refresh() => OnPropertyChanged(string.Empty);
 
     [RelayCommand]
     private void Remove() => remove(this);
@@ -68,13 +89,16 @@ public sealed partial class PairItem(DuplicateGroup group, GroupMember member) :
 
     public string StatusText => Status switch
     {
-        PairStatus.ReportOnly => "Solo report",
-        PairStatus.Pending => "Da decidere",
-        PairStatus.Moved => "Spostato",
-        PairStatus.Skipped => "Tenute entrambe",
-        PairStatus.Blocked => "Non toccato",
+        PairStatus.ReportOnly => Lang.T("Solo report", "Report only"),
+        PairStatus.Pending => Lang.T("Da decidere", "To decide"),
+        PairStatus.Moved => Lang.T("Spostato", "Moved"),
+        PairStatus.Skipped => Lang.T("Tenute entrambe", "Kept both"),
+        PairStatus.Blocked => Lang.T("Non toccato", "Left alone"),
         _ => Status.ToString(),
     };
+
+    /// <summary>Dopo un cambio di lingua.</summary>
+    public void Refresh() => OnPropertyChanged(string.Empty);
 
     public string KeeperName => System.IO.Path.GetFileName(Keeper.Path);
     public string KeeperFolder => Keeper.Directory;
@@ -88,9 +112,11 @@ public sealed partial class PairItem(DuplicateGroup group, GroupMember member) :
 }
 
 /// <summary>Metà dello schermo di confronto: una foto con le sue informazioni.</summary>
-public sealed partial class PhotoPanel(string role, bool isKeeper) : ObservableObject
+public sealed partial class PhotoPanel(bool isKeeper) : ObservableObject
 {
-    public string Role { get; } = role;
+    private PhotoFile? _file;
+
+    public string Role => IsKeeper ? Lang.T("Da tenere", "To keep") : Lang.T("Da spostare", "To move");
     public bool IsKeeper { get; } = isKeeper;
     /// <summary>La cartella aggiunta da cui viene la foto, quando le cartelle sono più di una.</summary>
     [ObservableProperty] private string _rootName = "";
@@ -108,6 +134,7 @@ public sealed partial class PhotoPanel(string role, bool isKeeper) : ObservableO
 
     public void Show(PhotoFile? f, string? rootName = null)
     {
+        _file = f;
         Path = f?.Path;
         RootName = rootName ?? "";
         Image = null;
@@ -119,14 +146,25 @@ public sealed partial class PhotoPanel(string role, bool isKeeper) : ObservableO
         }
         FileName = System.IO.Path.GetFileName(f.Path);
         Folder = f.Directory;
+        Details = Describe(f);
+    }
 
+    /// <summary>Dopo un cambio di lingua: i dettagli e l'etichetta, senza ricaricare la foto.</summary>
+    public void Refresh()
+    {
+        if (_file is not null) Details = Describe(_file);
+        OnPropertyChanged(nameof(Role));
+    }
+
+    private static string Describe(PhotoFile f)
+    {
         var parts = new List<string> { f.Extension.TrimStart('.').ToUpperInvariant() };
         if (f.Width > 0) parts.Add($"{f.Width} × {f.Height}");
         parts.Add(ReportWriter.FormatBytes(f.Size));
-        if (f.TakenAt is { } t) parts.Add(t.ToString("dd/MM/yyyy HH:mm:ss"));
+        if (f.TakenAt is { } t) parts.Add(t.ToString(Lang.T("dd/MM/yyyy HH:mm:ss", "yyyy-MM-dd HH:mm:ss")));
         if (f.CameraModel is { } m) parts.Add(m);
-        if (f.Sharpness > 0) parts.Add($"nitidezza {f.Sharpness:0}");
-        Details = string.Join("  ·  ", parts);
+        if (f.Sharpness > 0) parts.Add(Lang.T($"nitidezza {f.Sharpness:0}", $"sharpness {f.Sharpness:0}"));
+        return string.Join("  ·  ", parts);
     }
 
     [RelayCommand]
