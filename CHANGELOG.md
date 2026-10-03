@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 
 - **Progress while hashing.** The full hashes, the longest phase on large archives, now show how many files are done out of how many, and how much data has been read: "Hash completi: 1.234 di 12.959 file (8,1 GB di 85 GB)". The visual analysis, the pixel comparison and the neural network show the same kind of count.
+- **Quicker moves on external drives.** Right before moving an identical file, DupliFoto used to read both files again in full. On an external drive that could take as long as the search. It now compares the first and last 64 KB of the two files, where the metadata are, on top of size and date: the search has already compared the whole files through their full hash. **More options → Check before moving** (`--full-check` on the command line) brings back the full byte-by-byte comparison.
 - **Automatic** now means NPU, then GPU, then CPU. It used to leave the choice to Windows ML, which usually picked the GPU.
 - **A more compact top panel.** *Add folder* is a discreet grey button right after the folders, and the row of options is lower: more room for the photos, especially on small screens.
 

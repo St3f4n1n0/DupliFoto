@@ -128,6 +128,8 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private decimal _threshold = 99;
     [ObservableProperty] private Choice<DisposalMethod> _selectedDisposal;
     [ObservableProperty] private string _quarantineRoot;
+    /// <summary>Prima di spostare un file identico, riconfrontarlo per intero (e non solo peso, data, inizio e fine).</summary>
+    [ObservableProperty] private bool _verifyBeforeMove;
     [ObservableProperty] private bool _detectBursts = true;
     [ObservableProperty] private decimal _burstSeconds = 10;
     [ObservableProperty] private string? _modelPath;
@@ -425,6 +427,7 @@ public sealed partial class MainViewModel : ObservableObject
             Mode = SelectedMode.Value,
             AutoThreshold = Math.Max((double)Threshold, ScanOptions.AutoThresholdFloor),
             Disposal = SelectedDisposal.Value,
+            VerifyBeforeMove = VerifyBeforeMove,
             CrossFolderOnly = CrossFolderOnly && HasSeveralFolders,
         };
         if (!string.IsNullOrWhiteSpace(QuarantineRoot)) o.QuarantineRoot = Path.GetFullPath(QuarantineRoot);
@@ -535,8 +538,11 @@ public sealed partial class MainViewModel : ObservableObject
         var targets = Pairs.Where(p => p.IsPending && ActionPolicy.IsAutomatic(_options, p.Member)).ToList();
         if (targets.Count == 0) return;
         string rule = _options.Mode == RunMode.SemiAutomatic
-            ? Lang.T("i file identici al byte, riverificati uno per uno subito prima",
-                     "byte-identical files, each checked again just before")
+            ? (_options.VerifyBeforeMove
+                ? Lang.T("i file identici al byte, riconfrontati per intero uno per uno subito prima",
+                         "byte-identical files, each compared again in full just before")
+                : Lang.T("i file identici al byte, ricontrollati uno per uno subito prima (peso, data, inizio e fine del file)",
+                         "byte-identical files, each checked again just before (size, date, start and end of the file)"))
             : Lang.T($"quelli con affidabilità di almeno {_options.EffectiveAutoThreshold:0}% (mai gli scatti multipli)",
                      $"those with a confidence of at least {_options.EffectiveAutoThreshold:0}% (never burst shots)");
         string size = ReportWriter.FormatBytes(targets.Sum(p => p.Duplicate.Size));
@@ -779,6 +785,11 @@ public sealed partial class MainViewModel : ObservableObject
         if (_options is not null) _options.Disposal = value.Value;
     }
 
+    partial void OnVerifyBeforeMoveChanged(bool value)
+    {
+        if (_options is not null) _options.VerifyBeforeMove = value;
+    }
+
     partial void OnQuarantineRootChanged(string value)
     {
         if (_options is not null && MovedCount == 0 && !string.IsNullOrWhiteSpace(value))
@@ -876,6 +887,7 @@ public sealed partial class MainViewModel : ObservableObject
         Threshold = (decimal)Math.Clamp(s.Threshold, ScanOptions.AutoThresholdFloor, 100);
         SelectedDisposal = Disposals.FirstOrDefault(d => d.Value == s.Disposal) ?? Disposals[0];
         if (!string.IsNullOrWhiteSpace(s.QuarantineRoot)) QuarantineRoot = s.QuarantineRoot;
+        VerifyBeforeMove = s.VerifyBeforeMove;
         IncludeSubfolders = s.IncludeSubfolders;
         DetectBursts = s.DetectBursts;
         BurstSeconds = (decimal)Math.Clamp(s.BurstSeconds, 1, 120);
@@ -893,6 +905,7 @@ public sealed partial class MainViewModel : ObservableObject
         Threshold = (double)Threshold,
         Disposal = SelectedDisposal.Value,
         QuarantineRoot = QuarantineRoot,
+        VerifyBeforeMove = VerifyBeforeMove,
         IncludeSubfolders = IncludeSubfolders,
         DetectBursts = DetectBursts,
         BurstSeconds = (double)BurstSeconds,

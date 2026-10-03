@@ -295,6 +295,12 @@
                         </Grid>
                         <TextBlock Text="{l:T QuarantineHint}" Classes="muted small" />
 
+                        <TextBlock Text="{l:T CheckBeforeMoving}" Classes="h" Margin="0,8,0,0" />
+                        <CheckBox IsChecked="{Binding VerifyBeforeMove}">
+                          <TextBlock Text="{l:T FullCheck}" TextWrapping="Wrap" />
+                        </CheckBox>
+                        <TextBlock Text="{l:T FullCheckHint}" Classes="faint small" TextWrapping="Wrap" />
+
                         <TextBlock Text="{l:T BurstShots}" Classes="h" Margin="0,8,0,0" />
                         <StackPanel Orientation="Horizontal" Spacing="8">
                           <TextBlock Text="{l:T AtMost}" Classes="label" />

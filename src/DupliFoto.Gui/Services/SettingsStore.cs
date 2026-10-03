@@ -12,6 +12,8 @@ public sealed class GuiSettings
     public double Threshold { get; set; } = 99;
     public DisposalMethod Disposal { get; set; } = DisposalMethod.Quarantine;
     public string? QuarantineRoot { get; set; }
+    /// <summary>Riconfrontare per intero i file identici prima di spostarli (vedi ScanOptions.VerifyBeforeMove).</summary>
+    public bool VerifyBeforeMove { get; set; }
     public bool IncludeSubfolders { get; set; } = true;
     public bool CrossFolderOnly { get; set; }
     public bool DetectBursts { get; set; } = true;

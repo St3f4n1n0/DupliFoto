@@ -90,6 +90,7 @@ duplifoto-cli --version
 `duplifoto-cli help` lists every option:
 
 - where duplicates go: `--action quarantine|recycle-bin`, `--quarantine`;
+- the check before moving: `--full-check` (see [Safety](#safety));
 - which copies to keep: `--keep` (copies in that folder always stay);
 - comparing folders only against each other: `--across-folders`;
 - output: `--report`;
@@ -110,7 +111,7 @@ DupliFoto works like a funnel, from the cheapest check to the most expensive one
 | Level | Finds | How | Confidence |
 |---|---|---|---|
 | 0 | inventory | name, size, date (almost free) | — |
-| 1 | identical files | same size → hash of the first and last 64 KB → full xxHash128 → byte-by-byte check before any action | 100% |
+| 1 | identical files | same size → hash of the first and last 64 KB → full xxHash128 → start and end compared again before any move (all of the file with *Check before moving*) | 100% |
 | 2 | same pixels, different metadata | xxHash128 of the decoded pixels, only for candidates | 99% |
 | 3 | same picture recompressed, resized or rotated | DCT perceptual hash in 8 orientations, difference hash, BK-tree search | 90–98% |
 | 4 | burst shots | same camera, EXIF time within seconds, visual (or neural) similarity | 60–89% |
@@ -131,7 +132,7 @@ A few rules always apply:
 | semi-automatic | **automatic** | asks | asks | asks |
 | automatic (threshold 99 by default, minimum 90) | **automatic** | **automatic** | above the threshold | always asks |
 
-Burst shots are always left to you. In unattended command-line runs (`--non-interattivo`), anything that would need confirmation is left untouched and counted as "da rivedere" (to review).
+Burst shots are always left to you. In unattended command-line runs (`--non-interactive`), anything that would need confirmation is left untouched and counted as "to review".
 
 ## Safety
 
@@ -141,7 +142,7 @@ These rules hold in every mode:
 - **Recycle Bin only when it really exists.** Network and removable drives have no Recycle Bin, and "deleting" there would mean erasing, so those files are not touched. If the Recycle Bin is disabled or too small, Windows asks before erasing instead of doing it silently.
 - **Undo journal.** Every move is written to a JSON Lines journal as it happens. `duplifoto-cli undo` and **Undo moves** restore everything in quarantine; the Recycle Bin is restored from Windows.
 - **Files changed after the scan are not touched,** and neither is anything whose copy-to-keep has gone missing or changed.
-- **Byte-by-byte check.** "Identical" files are compared byte by byte again right before being moved.
+- **Checked again before moving.** Right before an "identical" file is moved, its first and last 64 KB are compared byte by byte with the copy to keep, on top of size and date. That is where the metadata are, and it is quick even on an external drive: the search has already compared the whole files through their full hash. **More options → Check before moving** (`--full-check`) compares all of both files again, byte by byte. That is the 100% proof, but on an external drive it can take as long as the search.
 - **One file, two paths.** A folder added twice by different routes (`Z:\Foto` and `\\NAS\Foto`, a SUBST drive, a junction) does not turn each photo into its own duplicate: the file is recognised by its identity on disk. After every move DupliFoto also checks that the copy to keep is still there; if it is not, the file goes straight back.
 - **OneDrive and links.** Online-only OneDrive files are skipped, so they are not downloaded. Symbolic links and junctions are not followed: no loops, no photo counted twice.
 - **Locked files.** A file briefly locked by another program (antivirus, indexer) is retried; a file still open is left in place.
@@ -246,7 +247,7 @@ assets/               icon and the script that draws it
 
 On every push, GitHub Actions builds the solution and runs all tests on Linux and on Windows. The tests cover:
 
-- **The engine:** every level of the funnel, the modes, the byte-by-byte check, undo and the cache.
+- **The engine:** every level of the funnel, the modes, the checks before moving (quick and full), undo and the cache.
 - **The safety rules:** links, the same file reached through two paths, the last copy that automatic mode must always keep, the folder to keep (also with nested folders), journals, locked files, and the Recycle Bin on Windows.
 - **Comparing folders:** only pairs between different folders, duplicates inside a folder left alone, and swapping the copy to keep.
 - **Real libraries:** Magick.NET and MetadataExtractor on generated JPEG and PNG files, checking EXIF with sub-seconds and GPS, orientation, greyscale and transparency.

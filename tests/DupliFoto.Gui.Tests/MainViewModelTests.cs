@@ -207,6 +207,23 @@ public sealed class MainViewModelTests : IDisposable
         Assert.False(new MainViewModel(store) { CachePath = null }.RemoveTempOnExit);
     });
 
+    [Fact]
+    public Task The_full_check_before_moving_is_off_unless_the_user_turns_it_on() => Ui.Run(() =>
+    {
+        // Le impostazioni delle versioni precedenti non hanno la voce: si fa il controllo rapido.
+        string path = Path.Combine(_photos.Root, "gui.json");
+        File.WriteAllText(path, """{ "Folders": [], "Mode": 2 }""");
+        var store = new SettingsStore(path);
+        var vm = new MainViewModel(store) { CachePath = null };
+        Assert.False(vm.VerifyBeforeMove);
+        Assert.False(vm.BuildOptions().VerifyBeforeMove);
+
+        vm.VerifyBeforeMove = true;
+        Assert.True(vm.BuildOptions().VerifyBeforeMove);
+        vm.SaveSettings();
+        Assert.True(new MainViewModel(store) { CachePath = null }.VerifyBeforeMove);
+    });
+
     /// <summary>
     /// "Foto" e la sua sottocartella "WhatsApp" aggiunte entrambe, si tiene WhatsApp, solo tra cartelle diverse:
     /// le coppie sono tutte "copia in WhatsApp / copia in Foto", e i doppioni interni a Foto non compaiono.

@@ -583,6 +583,83 @@ public sealed class SafetyTests : IDisposable
         Assert.False(File.Exists(path));
         Assert.True(File.Exists(keeperPath));
     }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(10)]
+    [InlineData(64 * 1024)]
+    [InlineData(64 * 1024 + 5)]
+    [InlineData(2 * 64 * 1024)]
+    [InlineData(5 * 64 * 1024 + 17)]
+    public void The_quick_check_compares_start_and_end_of_the_file(int size)
+    {
+        const int chunk = 64 * 1024;
+        var bytes = new byte[size];
+        new Random(size).NextBytes(bytes);
+        string a = Path.Combine(_dir, "a.jpg"), b = Path.Combine(_dir, "b.jpg");
+        File.WriteAllBytes(a, bytes);
+        File.WriteAllBytes(b, bytes);
+        Assert.True(ExactMatcher.HeadAndTailAreIdentical(a, b, chunk));
+        if (size == 0) return;
+
+        foreach (int at in new[] { 0, Math.Min(chunk, size) - 1, size - 1, Math.Max(0, size - chunk) })
+        {
+            var changed = (byte[])bytes.Clone();
+            changed[at] ^= 0xFF;
+            File.WriteAllBytes(b, changed);
+            Assert.False(ExactMatcher.HeadAndTailAreIdentical(a, b, chunk), $"byte {at} di {size}");
+        }
+        File.WriteAllBytes(b, bytes[..^1]);
+        Assert.False(ExactMatcher.HeadAndTailAreIdentical(a, b, chunk));
+    }
+
+    /// <summary>
+    /// Due copie identiche; poi nel doppione cambia un byte, a <paramref name="offset"/> byte dall'inizio, con peso e
+    /// data rimessi come prima: come un programma che riscrive i metadati e conserva la data.
+    /// </summary>
+    private (PhotoFile Keeper, GroupMember Twin) IdenticalPairThenChanged(int offset)
+    {
+        var bytes = new byte[600 * 1024];
+        new Random(1).NextBytes(bytes);
+        string keeperPath = Path.Combine(_dir, "tieni.jpg"), twinPath = Path.Combine(_dir, "copia.jpg");
+        File.WriteAllBytes(keeperPath, bytes);
+        File.WriteAllBytes(twinPath, bytes);
+        var keeper = Existing(keeperPath);
+        var twin = Existing(twinPath);
+        bytes[offset] ^= 0xFF;
+        File.WriteAllBytes(twinPath, bytes);
+        File.SetLastWriteTimeUtc(twinPath, twin.LastWriteUtc);
+        return (keeper, new GroupMember { File = twin, Kind = MatchKind.ExactBytes, Confidence = 100, Reason = Text.Empty });
+    }
+
+    [Fact]
+    public void By_default_identical_files_are_checked_quickly_at_start_and_end()
+    {
+        var (keeper, twin) = IdenticalPairThenChanged(offset: 100); // i metadati stanno all'inizio del file
+        using var session = new ActionSession(new ScanOptions { QuarantineRoot = Path.Combine(_dir, "Q") });
+        var outcome = session.Move(keeper, twin, automatic: true);
+
+        Assert.Equal(MoveResult.ByteCheckFailed, outcome.Result);
+        Assert.Contains("Inizio o fine del file", outcome.Message);
+        Assert.True(File.Exists(twin.File.Path));
+        Assert.Equal(0, session.Summary.Moved);
+    }
+
+    [Theory]
+    [InlineData(false, MoveResult.Moved)]
+    [InlineData(true, MoveResult.ByteCheckFailed)]
+    public void The_full_check_also_reads_the_middle_of_the_file(bool full, MoveResult expected)
+    {
+        var (keeper, twin) = IdenticalPairThenChanged(offset: 300 * 1024);
+        using var session = new ActionSession(new ScanOptions { QuarantineRoot = Path.Combine(_dir, "Q"), VerifyBeforeMove = full });
+        var outcome = session.Move(keeper, twin, automatic: true);
+
+        // Il controllo rapido non legge il centro del file (lo ha già confrontato l'analisi, con l'hash completo);
+        // la verifica completa sì. In ogni caso il file va in quarantena, da cui si può annullare.
+        Assert.Equal(expected, outcome.Result);
+        Assert.Equal(!full, !File.Exists(twin.File.Path));
+        Assert.True(File.Exists(keeper.Path));
+    }
 }
 
 public sealed class LockedFileTests : IDisposable

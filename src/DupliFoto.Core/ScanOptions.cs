@@ -44,6 +44,13 @@ public sealed class ScanOptions
     /// <summary>Soglia sotto la quale la modalità automatica non può mai scendere.</summary>
     public const double AutoThresholdFloor = 90;
     public DisposalMethod Disposal { get; set; } = DisposalMethod.Quarantine;
+    /// <summary>
+    /// Subito prima di spostare un file "identico al byte" si riconfronta con la copia da tenere. Di solito solo
+    /// inizio e fine dei due file (dove stanno i metadati), oltre a peso e data come per ogni file: è rapido anche sui
+    /// dischi esterni, e l'analisi li ha già confrontati per intero (hash completo). Con questa opzione si
+    /// riconfrontano per intero, byte per byte: la prova al 100%, ma rilegge tutti e due i file.
+    /// </summary>
+    public bool VerifyBeforeMove { get; set; }
     public string QuarantineRoot { get; set; } = System.IO.Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "DupliFoto-Quarantena");
     /// <summary>Cartelle le cui copie vanno sempre tenute: tra due copie vince quella che sta qui.</summary>

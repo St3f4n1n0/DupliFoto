@@ -127,8 +127,47 @@ public static class ExactMatcher
     }
 
     /// <summary>
+    /// Confronto rapido, byte per byte, dei soli primi e ultimi <paramref name="chunk"/> byte dei due file (gli stessi
+    /// dell'hash parziale): è lì che stanno i metadati (EXIF), che un programma può riscrivere lasciando uguali peso e
+    /// data. È il controllo che si fa subito prima di spostare, se non è attiva la verifica completa (<see cref="FilesAreIdentical"/>).
+    /// </summary>
+    public static bool HeadAndTailAreIdentical(string a, string b, int chunk)
+    {
+        var fa = new FileInfo(a);
+        var fb = new FileInfo(b);
+        if (!fa.Exists || !fb.Exists || fa.Length != fb.Length) return false;
+        long size = fa.Length;
+
+        using var sa = new FileStream(a, FileMode.Open, FileAccess.Read, FileShare.Read, 1);
+        using var sb = new FileStream(b, FileMode.Open, FileAccess.Read, FileShare.Read, 1);
+        var ba = ArrayPool<byte>.Shared.Rent(chunk);
+        var bb = ArrayPool<byte>.Shared.Rent(chunk);
+        try
+        {
+            bool Same(long offset, int count)
+            {
+                sa.Position = offset;
+                sb.Position = offset;
+                int ra = sa.ReadAtLeast(ba.AsSpan(0, count), count, throwOnEndOfStream: false);
+                int rb = sb.ReadAtLeast(bb.AsSpan(0, count), count, throwOnEndOfStream: false);
+                return ra == count && rb == count && ba.AsSpan(0, count).SequenceEqual(bb.AsSpan(0, count));
+            }
+
+            int head = (int)Math.Min(chunk, size);
+            if (!Same(0, head)) return false;
+            long tail = Math.Max(head, size - chunk);
+            return tail == size || Same(tail, (int)(size - tail));
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(ba);
+            ArrayPool<byte>.Shared.Return(bb);
+        }
+    }
+
+    /// <summary>
     /// Confronto byte per byte: l'unica prova davvero al 100%.
-    /// Viene eseguito subito prima di ogni azione automatica sui file "identici".
+    /// Viene eseguito subito prima di ogni spostamento dei file "identici", se è attiva la verifica completa.
     /// </summary>
     public static bool FilesAreIdentical(string a, string b)
     {

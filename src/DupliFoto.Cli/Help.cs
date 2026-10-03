@@ -21,6 +21,10 @@ internal static class Help
         OPZIONI
           --azione quarantena|cestino   dove spostare i doppioni (predefinita: quarantena)
           --quarantena <cartella>       cartella di quarantena (predefinita: Immagini\DupliFoto-Quarantena)
+          --verifica-completa           prima di spostare un file identico, riconfrontalo per intero con la
+                                        copia da tenere (lento sui dischi esterni). Senza, si ricontrollano
+                                        peso, data, inizio e fine del file: la ricerca li ha già confrontati
+                                        per intero
           --preferisci <cartella>       tieni sempre le copie che stanno in questa cartella (ripetibile)
           --solo-tra-cartelle           confronta ogni cartella solo con le altre: i doppioni dentro
                                         la stessa cartella vengono ignorati (servono almeno due cartelle)
@@ -68,6 +72,10 @@ internal static class Help
         OPTIONS
           --action quarantine|recycle-bin   where duplicates go (default: quarantine)
           --quarantine <folder>         quarantine folder (default: Pictures\DupliFoto-Quarantena)
+          --full-check                  before moving an identical file, compare it again in full with the
+                                        copy to keep (slow on external drives). Without it, size, date,
+                                        start and end of the file are checked again: the search has
+                                        already compared them in full
           --keep <folder>               always keep the copies in this folder (repeatable)
           --across-folders              compare each folder only with the others: duplicates within
                                         the same folder are ignored (needs at least two folders)

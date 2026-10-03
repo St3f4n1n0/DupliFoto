@@ -118,6 +118,12 @@ if ($Full) {
     $journal = Get-ChildItem $q -Filter 'registro-*.jsonl' | Select-Object -First 1
     Run annulla $journal.FullName
     Check (Test-Path "$dir\mare (1).jpg") 'annulla: copia ripristinata'
+    # Con la verifica completa (rilegge per intero tutti e due i file) il risultato è lo stesso.
+    Run $dir --modo semi-auto --non-interattivo --no-cache --quarantena $q --full-check --report "$reportDir\semi-completa.html"
+    Check (-not (Test-Path "$dir\mare (1).jpg")) 'semi-auto con verifica completa: copia identica spostata'
+    $journal = Get-ChildItem $q -Filter 'registro-*.jsonl' | Where-Object { $_.FullName -ne $journal.FullName } | Select-Object -First 1
+    Run annulla $journal.FullName
+    Check (Test-Path "$dir\mare (1).jpg") 'annulla: copia ripristinata anche dopo la verifica completa'
 
     # 3) Catena Windows ML / ONNX Runtime con un modello minuscolo (colore medio) sulla CPU.
     python -m pip install --quiet onnx

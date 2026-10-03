@@ -14,7 +14,7 @@ public enum MoveResult
     KeeperUnavailable,
     /// <summary>Il file è cambiato dopo la scansione (peso o data).</summary>
     ChangedSinceScan,
-    /// <summary>La verifica byte per byte dei file "identici" è fallita.</summary>
+    /// <summary>Il riconfronto dei file "identici" (rapido o completo) è fallito.</summary>
     ByteCheckFailed,
     /// <summary>È lo stesso file della copia da tenere, raggiunto da un altro percorso: spostarlo toglierebbe entrambi.</summary>
     SameFile,
@@ -43,7 +43,8 @@ public static class ActionPolicy
 /// Una sessione di spostamenti con un solo registro. Ogni singolo spostamento applica TUTTE le regole di sicurezza:
 /// 1. la copia da tenere deve esistere ed essere invariata;
 /// 2. il file da spostare deve essere invariato dalla scansione (peso e data);
-/// 3. i file "identici" vengono riconfrontati byte per byte subito prima;
+/// 3. i file "identici" vengono riconfrontati byte per byte subito prima: inizio e fine dei due file, o tutto il file
+///    con <see cref="ScanOptions.VerifyBeforeMove"/>;
 /// 4. non deve essere lo stesso file della copia da tenere raggiunto da un altro percorso, e dopo lo spostamento
 ///    la copia da tenere deve essere ancora al suo posto (altrimenti il file torna subito dov'era);
 /// 5. niente viene cancellato: solo spostato in quarantena o nel Cestino, e annotato nel registro.
@@ -84,8 +85,11 @@ public sealed class ActionSession(ScanOptions options, IProgress<string>? progre
         if (FileIdentity.AreSameFile(keeper.Path, f.Path))
             return Warn(MoveResult.SameFile, Lang.T($"È lo stesso file della copia da tenere ({keeper.Path}), raggiunto da un altro percorso: non lo sposto: {f.Path}",
                 $"It is the same file as the copy to keep ({keeper.Path}), reached through another path: not moved: {f.Path}"));
-        if (member.Kind == MatchKind.ExactBytes && !ExactMatcher.FilesAreIdentical(keeper.Path, f.Path))
-            return Warn(MoveResult.ByteCheckFailed, Lang.T($"La verifica byte per byte è fallita, saltato: {f.Path}", $"The byte-by-byte check failed, skipped: {f.Path}"));
+        if (member.Kind == MatchKind.ExactBytes && !StillIdentical(keeper, f))
+            return Warn(MoveResult.ByteCheckFailed, options.VerifyBeforeMove
+                ? Lang.T($"La verifica byte per byte è fallita, saltato: {f.Path}", $"The byte-by-byte check failed, skipped: {f.Path}")
+                : Lang.T($"Inizio o fine del file non sono più uguali alla copia da tenere, saltato: {f.Path}",
+                         $"The start or end of the file no longer matches the copy to keep, skipped: {f.Path}"));
 
         try
         {
@@ -120,6 +124,14 @@ public sealed class ActionSession(ScanOptions options, IProgress<string>? progre
             return Warn(MoveResult.Failed, Lang.T($"Impossibile spostare {f.Path}: {ex.Message}", $"Could not move {f.Path}: {ex.Message}"));
         }
     }
+
+    /// <summary>
+    /// I due file "identici" lo sono ancora? Di solito si riconfrontano solo inizio e fine (l'analisi li ha già
+    /// confrontati per intero, e peso e data sono appena stati ricontrollati); per intero con VerifyBeforeMove.
+    /// </summary>
+    private bool StillIdentical(PhotoFile keeper, PhotoFile f) => options.VerifyBeforeMove
+        ? ExactMatcher.FilesAreIdentical(keeper.Path, f.Path)
+        : ExactMatcher.HeadAndTailAreIdentical(keeper.Path, f.Path, options.PartialHashBytes);
 
     private MoveOutcome Warn(MoveResult result, string message)
     {

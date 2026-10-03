@@ -135,6 +135,7 @@ async Task<int> Analyze(string[] a)
                 };
                 break;
             case "--quarantena" or "--quarantine": o.QuarantineRoot = Path.GetFullPath(Next()); break;
+            case "--verifica-completa" or "--full-check": o.VerifyBeforeMove = true; break;
             case "--report": report = Path.GetFullPath(Next()); break;
             case "--modello" or "--model": model = Path.GetFullPath(Next()); break;
             case "--acceleratore" or "--accelerator":
