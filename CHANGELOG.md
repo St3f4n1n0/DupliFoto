@@ -3,7 +3,9 @@
 All notable changes to DupliFoto are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
-## [0.4.0] - 2026-10-03
+## [1.0.0] - 2026-10-03
+
+The first stable version. The search, the safety rules and the app have been used and tested on every feature: from here on, the command-line options, the settings and the journal format stay compatible within version 1.
 
 ### Added
 
@@ -106,6 +108,8 @@ First public release.
 - Tested automatically on Windows Server 2025 and Windows Server 2022 (the Windows 10 base); not yet on physical Windows 10 PCs, dedicated NPUs, or large HEIC/RAW archives.
 - The ARM64 executables are built but not run in CI, which only has x64 machines.
 
+[1.0.0]: https://github.com/St3f4n1n0/DupliFoto/releases/tag/v1.0.0
+[0.3.1]: https://github.com/St3f4n1n0/DupliFoto/releases/tag/v0.3.1
 [0.3.0]: https://github.com/St3f4n1n0/DupliFoto/releases/tag/v0.3.0
 [0.2.0]: https://github.com/St3f4n1n0/DupliFoto/releases/tag/v0.2.0
 [0.1.1]: https://github.com/St3f4n1n0/DupliFoto/releases/tag/v0.1.1
