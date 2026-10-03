@@ -11,6 +11,7 @@ internal sealed class ProgressCounter(IProgress<string>? progress, int total, Fu
     private int _done;
     private long _bytes;
     private long _last = Environment.TickCount64;
+    private int _reported = -1; // l'ultimo conto scritto: la fine non lo ripete
 
     public int Done => Volatile.Read(ref _done);
 
@@ -20,12 +21,15 @@ internal sealed class ProgressCounter(IProgress<string>? progress, int total, Fu
         long read = Interlocked.Add(ref _bytes, bytes);
         long now = Environment.TickCount64, last = Interlocked.Read(ref _last);
         if (now - last >= IntervalMs && Interlocked.CompareExchange(ref _last, now, last) == last)
+        {
+            Volatile.Write(ref _reported, done);
             progress?.Report(message(done, total, read));
+        }
     }
 
     /// <summary>L'ultimo messaggio, con il conto completo (se c'era qualcosa da fare).</summary>
     public void Finish()
     {
-        if (total > 0) progress?.Report(message(Done, total, Interlocked.Read(ref _bytes)));
+        if (total > 0 && Volatile.Read(ref _reported) != Done) progress?.Report(message(Done, total, Interlocked.Read(ref _bytes)));
     }
 }

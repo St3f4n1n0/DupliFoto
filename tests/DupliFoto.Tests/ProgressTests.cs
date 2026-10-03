@@ -53,5 +53,7 @@ public sealed class ProgressTests : IDisposable
 
         Assert.True(messages.All.Count < 20, $"{messages.All.Count} messaggi");
         Assert.Equal("100000 di 100000", messages.All[^1]);
+        Assert.Single(messages.All, m => m == "100000 di 100000"); // la fine non ripete l'ultimo conto
+        Assert.Equal(messages.All.Distinct(), messages.All);
     }
 }
