@@ -48,11 +48,14 @@ public sealed class ReadmeScreenshotTests : IDisposable
 
         Application.Current!.RequestedThemeVariant = ThemeVariant.Light;
         Lang.Set(Lang.English); // il README è in inglese
-        var vm = new MainViewModel(new SettingsStore(null)) { CachePath = null };
+        var vm = new MainViewModel(new SettingsStore(null))
+        {
+            CachePath = null,
+            QuarantineRoot = Path.Combine(Path.GetTempPath(), "DupliFoto-Quarantena"),
+        };
         vm.AddFolders([holidays, whatsapp, exported]);
         vm.Folders[0].IsKept = true;
         vm.SelectedMode = vm.Modes.Single(m => m.Value == RunMode.Assisted);
-        vm.QuarantineRoot = Path.Combine(Path.GetTempPath(), "DupliFoto-Quarantena");
         var window = new MainWindow { DataContext = vm, WindowState = Avalonia.Controls.WindowState.Normal, Width = 1360, Height = 930 };
         window.Show();
         await vm.StartCommand.ExecuteAsync(null);

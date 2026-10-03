@@ -176,6 +176,18 @@ async Task<int> Analyze(string[] a)
     // si tolgono intanto, in sottofondo (se il programma finisce prima, si riprende la volta dopo).
     AppFiles.Prepare();
     new Thread(() => AppFiles.RemoveOldExtractions()) { IsBackground = true, Priority = ThreadPriority.BelowNormal }.Start();
+    // Chiavette, schede di memoria e dischi di rete non hanno un Cestino: lo si dice subito e si usa la quarantena.
+    if (o.Disposal == DisposalMethod.RecycleBin && o.Roots.FirstOrDefault(r => !RecycleBin.IsAvailableFor(r)) is { } lacking)
+    {
+        o.Disposal = DisposalMethod.Quarantine;
+        Ui.Color(ConsoleColor.Yellow, T(
+            $"{lacking} è su un'unità senza Cestino (chiavetta, scheda di memoria o disco di rete): da lì eliminare un file " +
+            $"vorrebbe dire cancellarlo per sempre. I doppioni andranno in quarantena, in {o.QuarantineRoot}. " +
+            "Quando hai controllato, se vuoi liberare spazio, cancellali tu a mano da lì.",
+            $"{lacking} is on a drive with no Recycle Bin (USB stick, memory card or network drive): there, deleting a file " +
+            $"would mean erasing it for good. The duplicates will go to quarantine, in {o.QuarantineRoot}. " +
+            "Once you have checked, if you want to free up space, delete them from there yourself."));
+    }
     if (o.CrossFolderOnly)
         Console.WriteLine(T("Solo tra cartelle diverse: i doppioni dentro la stessa cartella vengono ignorati.",
                             "Only across different folders: duplicates within the same folder are ignored."));

@@ -9,14 +9,16 @@ namespace DupliFoto.Core;
 /// "DupliFoto-dati" accanto all'exe, che sia su una chiavetta o sul disco: sul PC non resta niente di sparso. Solo se lì
 /// non si può scrivere (un CD, una cartella protetta come Programmi) si ripiega su %LOCALAPPDATA%\DupliFoto.
 /// Nella cartella c'è anche «Pulisci DupliFoto.bat», che toglie dal PC i file di lavoro di tutte le versioni.
-/// Restano fuori solo la copia del programma che l'exe scompatta in %TEMP% (la toglie l'app alla chiusura, vedi
-/// <see cref="RemoveExtractionAtExit"/>) e le foto in quarantena, che sono dell'utente.
+/// Accanto all'exe c'è anche la quarantena, "DupliFoto-Quarantena": le foto spostate sono dell'utente, e «Pulisci
+/// DupliFoto.bat» non le tocca. Resta fuori solo la copia del programma che l'exe scompatta in %TEMP% (la toglie l'app
+/// alla chiusura, vedi <see cref="RemoveExtractionAtExit"/>).
 /// </summary>
 public static class AppFiles
 {
     public const string FolderName = "DupliFoto-dati";
     public const string CleanupScriptName = "Pulisci DupliFoto.bat";
     public const string ReportFolderName = "Report";
+    public const string QuarantineFolderName = "DupliFoto-Quarantena";
 
     /// <summary>Un file che c'è solo nelle copie scompattate di DupliFoto (app e riga di comando, di ogni versione).</summary>
     private const string Signature = "DupliFoto.Core.dll";
@@ -46,6 +48,14 @@ public static class AppFiles
     public static string ReportFolder => IsNextToExe
         ? Path.Combine(Folder, ReportFolderName)
         : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "DupliFoto");
+
+    /// <summary>
+    /// La quarantena: "DupliFoto-Quarantena" accanto all'exe, vicino a "DupliFoto-dati". Viene creata solo al primo
+    /// spostamento. Se accanto all'exe non si può scrivere, in Immagini\DupliFoto-Quarantena.
+    /// </summary>
+    public static string QuarantineFolder => IsNextToExe
+        ? Path.Combine(Path.GetDirectoryName(Folder)!, QuarantineFolderName)
+        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), QuarantineFolderName);
 
     /// <summary>La cartella dell'exe; con "dotnet DupliFoto.dll" (in sviluppo) quella della DLL, non quella di dotnet.</summary>
     internal static string? ProgramFolder(string? processPath, string baseDirectory)
@@ -299,12 +309,14 @@ public static class AppFiles
             T("echo        %APPDATA%\\DupliFoto        (versioni 0.2 e precedenti)",
               "echo        %APPDATA%\\DupliFoto        (versions 0.2 and earlier)"),
             "echo.",
-            T("echo   NON tocco le foto in quarantena (Immagini\\DupliFoto-Quarantena, o la cartella",
-              "echo   I do NOT touch the photos in quarantine (Pictures\\DupliFoto-Quarantena, or the"),
-            T("echo   scelta nell'app) ne' i report (la cartella Report qui, o Documenti\\DupliFoto):",
-              "echo   folder chosen in the app) or the reports (the Report folder here, or"),
-            T("echo   sono tuoi. Gli exe di DupliFoto restano dove sono.",
-              "echo   Documents\\DupliFoto): they are yours. The DupliFoto exe files stay where they are."),
+            T("echo   NON tocco le foto in quarantena (DupliFoto-Quarantena accanto all'exe, o",
+              "echo   I do NOT touch the photos in quarantine (DupliFoto-Quarantena next to the exe,"),
+            T("echo   Immagini\\DupliFoto-Quarantena delle versioni precedenti) ne' i report (la",
+              "echo   or Pictures\\DupliFoto-Quarantena of earlier versions) or the reports (the"),
+            T("echo   cartella Report qui, o Documenti\\DupliFoto): sono tuoi. Gli exe di DupliFoto",
+              "echo   Report folder here, or Documents\\DupliFoto): they are yours. The DupliFoto exe"),
+            T("echo   restano dove sono.",
+              "echo   files stay where they are."),
             "echo.",
             T("echo   Prima chiudi DupliFoto.", "echo   Close DupliFoto first."),
             "echo.",

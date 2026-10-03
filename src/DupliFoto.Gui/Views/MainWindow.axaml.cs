@@ -84,12 +84,6 @@ public partial class MainWindow : Window
         Vm?.AddFolders(folders.Select(f => f.TryGetLocalPath()).OfType<string>());
     });
 
-    private async void OnBrowseQuarantine(object? sender, RoutedEventArgs e) => await Guard(async () =>
-    {
-        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions { Title = Strings.QuarantineFolder });
-        if (Vm is { } vm && folders.FirstOrDefault()?.TryGetLocalPath() is { } path) vm.QuarantineRoot = path;
-    });
-
     private async void OnBrowseModel(object? sender, RoutedEventArgs e) => await Guard(async () =>
     {
         var files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions

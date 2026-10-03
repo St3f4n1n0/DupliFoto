@@ -19,8 +19,9 @@ internal static class Help
           auto           sposta da sola fino a --soglia (predefinita 99, minimo 90); il resto lo chiede
 
         OPZIONI
-          --azione quarantena|cestino   dove spostare i doppioni (predefinita: quarantena)
-          --quarantena <cartella>       cartella di quarantena (predefinita: Immagini\DupliFoto-Quarantena)
+          --azione quarantena|cestino   dove spostare i doppioni (predefinita: quarantena). Chiavette, schede
+                                        di memoria e dischi di rete non hanno il Cestino: lì si usa la quarantena
+          --quarantena <cartella>       cartella di quarantena (predefinita: DupliFoto-Quarantena accanto all'exe)
           --verifica-completa           prima di spostare un file identico, riconfrontalo per intero con la
                                         copia da tenere (lento sui dischi esterni). Senza, si ricontrollano
                                         peso, data, inizio e fine del file: la ricerca li ha già confrontati
@@ -42,8 +43,8 @@ internal static class Help
           duplifoto-cli --language en help
 
         FILE DI LAVORO
-          Cache, registro e report (aperto con un doppio clic) stanno in "DupliFoto-dati" accanto all'exe:
-          sul PC non resta niente di sparso. Aperto con un doppio clic, alla chiusura toglie anche la copia
+          Cache, registro e report (aperto con un doppio clic) stanno in "DupliFoto-dati" accanto all'exe, e
+          la quarantena in "DupliFoto-Quarantena", sempre accanto all'exe: sul PC non resta niente di sparso. Aperto con un doppio clic, alla chiusura toglie anche la copia
           di sé scompattata in %TEMP%\.net; da un terminale la lascia, per ripartire subito al comando dopo.
           «Pulisci DupliFoto.bat /si», in DupliFoto-dati, toglie tutto (report esclusi).
 
@@ -70,8 +71,9 @@ internal static class Help
           auto           moves on its own down to --threshold (default 99, minimum 90); asks for the rest
 
         OPTIONS
-          --action quarantine|recycle-bin   where duplicates go (default: quarantine)
-          --quarantine <folder>         quarantine folder (default: Pictures\DupliFoto-Quarantena)
+          --action quarantine|recycle-bin   where duplicates go (default: quarantine). USB sticks, memory
+                                        cards and network drives have no Recycle Bin: there the quarantine is used
+          --quarantine <folder>         quarantine folder (default: DupliFoto-Quarantena next to the exe)
           --full-check                  before moving an identical file, compare it again in full with the
                                         copy to keep (slow on external drives). Without it, size, date,
                                         start and end of the file are checked again: the search has
@@ -93,7 +95,8 @@ internal static class Help
 
         WORKING FILES
           Cache, log and reports (when started with a double-click) live in "DupliFoto-dati" next to the
-          exe: nothing is left scattered around the PC. Started with a double-click, on closing it also
+          exe, and the quarantine in "DupliFoto-Quarantena", also next to the exe: nothing is left
+          scattered around the PC. Started with a double-click, on closing it also
           removes the copy of itself unpacked into %TEMP%\.net; from a terminal it keeps it, so that the
           next command starts at once. "Pulisci DupliFoto.bat /yes", in DupliFoto-dati, removes everything
           (except the reports).

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DupliFoto.Core;
@@ -26,6 +27,7 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly Func<IMetadataReader> _metadataFactory;
     private readonly Func<string?, string, IProgress<string>, Task<IEmbeddingProvider?>> _neuralFactory;
     private readonly Func<Task<IReadOnlyList<EngineAvailability>>> _detectEngines;
+    private readonly Func<string, bool> _hasRecycleBin;
     private ScanOptions? _options;
     private ScanResult? _result;
     private ActionSession? _session;
@@ -36,11 +38,13 @@ public sealed partial class MainViewModel : ObservableObject
 
     /// <param name="neural">La rete neurale (modello, acceleratore, messaggi): di norma Windows ML, nei test una finta.</param>
     /// <param name="detectEngines">Cosa offre il PC a CPU, GPU e NPU: di norma lo chiede a Windows ML.</param>
+    /// <param name="hasRecycleBin">C'è un Cestino per questa cartella? Di norma lo chiede a Windows.</param>
     public MainViewModel(SettingsStore store, Func<IImageDecoder>? decoder = null, Func<IMetadataReader>? metadata = null,
         Func<string?, string, IProgress<string>, Task<IEmbeddingProvider?>>? neural = null,
-        Func<Task<IReadOnlyList<EngineAvailability>>>? detectEngines = null)
+        Func<Task<IReadOnlyList<EngineAvailability>>>? detectEngines = null, Func<string, bool>? hasRecycleBin = null)
     {
         _detectEngines = detectEngines ?? Neural.DetectEnginesAsync;
+        _hasRecycleBin = hasRecycleBin ?? RecycleBin.IsAvailableFor;
         _store = store;
         _decoderFactory = decoder ?? (() => new MagickImageDecoder());
         _metadataFactory = metadata ?? (() => new ExifMetadataReader());
@@ -53,7 +57,6 @@ public sealed partial class MainViewModel : ObservableObject
         _selectedFilter = Filters[0];
         _selectedLanguage = Languages[0];
         Lang.Changed += OnLanguageChanged;
-        _quarantineRoot = new ScanOptions().QuarantineRoot;
         Folders.CollectionChanged += (_, _) =>
         {
             RefreshFolderNames();
@@ -69,6 +72,9 @@ public sealed partial class MainViewModel : ObservableObject
 
     /// <summary>Cache delle analisi (in DupliFoto-dati accanto all'exe); <c>null</c> per non usarla.</summary>
     public string? CachePath { get; init; } = AnalysisCache.DefaultPath;
+
+    /// <summary>La quarantena: sempre "DupliFoto-Quarantena" accanto all'exe, perché sul PC non resti niente di sparso.</summary>
+    public string QuarantineRoot { get; init; } = AppFiles.QuarantineFolder;
 
     public IReadOnlyList<Choice<RunMode>> Modes { get; } =
     [
@@ -90,7 +96,9 @@ public sealed partial class MainViewModel : ObservableObject
     [
         new(DisposalMethod.Quarantine, "Quarantena", "Quarantine",
             "Una cartella da cui si può annullare tutto con un clic.", "A folder from which everything can be undone with one click."),
-        new(DisposalMethod.RecycleBin, "Cestino", "Recycle Bin", "Il Cestino di Windows.", "The Windows Recycle Bin."),
+        new(DisposalMethod.RecycleBin, "Cestino", "Recycle Bin",
+            "Il Cestino di Windows. Le chiavette, le schede di memoria e i dischi di rete non lo hanno: lì si usa la quarantena.",
+            "The Windows Recycle Bin. USB sticks, memory cards and network drives have none: there the quarantine is used."),
     ];
 
     public IReadOnlyList<Choice<string>> Accelerators { get; } =
@@ -127,7 +135,6 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private Choice<RunMode> _selectedMode;
     [ObservableProperty] private decimal _threshold = 99;
     [ObservableProperty] private Choice<DisposalMethod> _selectedDisposal;
-    [ObservableProperty] private string _quarantineRoot;
     /// <summary>Prima di spostare un file identico, riconfrontarlo per intero (e non solo peso, data, inizio e fine).</summary>
     [ObservableProperty] private bool _verifyBeforeMove;
     [ObservableProperty] private bool _detectBursts = true;
@@ -177,6 +184,14 @@ public sealed partial class MainViewModel : ObservableObject
     {
         AppFiles.Prepare();
         Shell.Open(AppFiles.Folder);
+    }
+
+    [RelayCommand]
+    private void OpenQuarantineFolder()
+    {
+        if (Directory.Exists(QuarantineRoot)) Shell.Open(QuarantineRoot);
+        else Say(() => Lang.T($"La quarantena è ancora vuota: la cartella {QuarantineRoot} si crea al primo spostamento.",
+                              $"The quarantine is still empty: the folder {QuarantineRoot} is created at the first move."));
     }
 
     // ------------------------------------------------------------------ stato
@@ -296,15 +311,23 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _confirmTitle = "";
     [ObservableProperty] private string _confirmText = "";
     [ObservableProperty] private string _confirmYesText = "";
+    /// <summary>False per un avviso, che ha solo il pulsante per chiuderlo.</summary>
+    [ObservableProperty] private bool _confirmCanCancel = true;
 
     /// <summary>Mostra una domanda sopra la finestra e aspetta la risposta.</summary>
-    public Task<bool> ConfirmAsync(string title, string text, string yes)
+    public Task<bool> ConfirmAsync(string title, string text, string yes) => Ask(title, text, yes, canCancel: true);
+
+    /// <summary>Mostra un avviso sopra la finestra, con un solo pulsante, e aspetta che lo si chiuda.</summary>
+    public Task InformAsync(string title, string text, string ok) => Ask(title, text, ok, canCancel: false);
+
+    private Task<bool> Ask(string title, string text, string yes, bool canCancel)
     {
         _confirm?.TrySetResult(false);
         _confirm = new TaskCompletionSource<bool>();
         ConfirmTitle = title;
         ConfirmText = text;
         ConfirmYesText = yes;
+        ConfirmCanCancel = canCancel;
         ConfirmVisible = true;
         return _confirm.Task;
     }
@@ -338,6 +361,37 @@ public sealed partial class MainViewModel : ObservableObject
             item.PropertyChanged += OnFolderChanged;
             Folders.Add(item);
         }
+        _ = EnsureRecycleBinAvailableAsync();
+    }
+
+    /// <summary>
+    /// Le chiavette, le schede di memoria e i dischi di rete non hanno un Cestino: da lì "eliminare" vorrebbe dire
+    /// cancellare per sempre. Se si è scelto il Cestino e una delle cartelle è su un'unità così, si passa alla quarantena
+    /// e lo si dice subito: quando si sceglie il Cestino, si aggiunge la cartella o si avvia la ricerca. Non al primo
+    /// spostamento, quando la destinazione non si può più cambiare.
+    /// </summary>
+    private Task EnsureRecycleBinAvailableAsync()
+    {
+        if (SelectedDisposal.Value != DisposalMethod.RecycleBin || !CanChangeDisposal) return Task.CompletedTask;
+        // Le cartelle della lista e, finché ci sono i risultati, quelle della ricerca fatta (anche se tolte dalla lista).
+        var folders = Folders.Select(f => f.Path).Concat(_result is not null && _options is not null ? _options.Roots : []);
+        string? lacking = folders.FirstOrDefault(p => !_hasRecycleBin(p));
+        if (lacking is null) return Task.CompletedTask;
+
+        SelectedDisposal = Disposals.First(d => d.Value == DisposalMethod.Quarantine);
+        return InformAsync(
+            Lang.T("Qui non c'è il Cestino", "No Recycle Bin here"),
+            Lang.T($"«{lacking}» è su un'unità senza Cestino (una chiavetta, una scheda di memoria o un disco di rete): " +
+                   $"da lì «eliminare» un file vorrebbe dire cancellarlo per sempre.\n\n" +
+                   $"Per questo i doppioni andranno in quarantena, in:\n{QuarantineRoot}\n\n" +
+                   "Da lì «Annulla spostamenti» rimette tutto a posto. Quando hai controllato, se vuoi liberare spazio, " +
+                   "cancella tu a mano i file in quella cartella.",
+                   $"“{lacking}” is on a drive with no Recycle Bin (a USB stick, a memory card or a network drive): " +
+                   $"there, “deleting” a file would mean erasing it for good.\n\n" +
+                   $"So the duplicates will go to quarantine, in:\n{QuarantineRoot}\n\n" +
+                   "From there, “Undo moves” puts everything back. Once you have checked, if you want to free up space, " +
+                   "delete the files in that folder yourself."),
+            Lang.T("Ho capito", "Got it"));
     }
 
     private void OnFolderChanged(object? sender, PropertyChangedEventArgs e)
@@ -367,8 +421,9 @@ public sealed partial class MainViewModel : ObservableObject
     private async Task StartAsync()
     {
         if (!CanStart) return;
-        SaveSettings();
         ClearResults();
+        await EnsureRecycleBinAvailableAsync(); // l'avviso va letto prima di cercare
+        SaveSettings();
 
         var o = BuildOptions();
         _options = o;
@@ -430,7 +485,7 @@ public sealed partial class MainViewModel : ObservableObject
             VerifyBeforeMove = VerifyBeforeMove,
             CrossFolderOnly = CrossFolderOnly && HasSeveralFolders,
         };
-        if (!string.IsNullOrWhiteSpace(QuarantineRoot)) o.QuarantineRoot = Path.GetFullPath(QuarantineRoot);
+        o.QuarantineRoot = Path.GetFullPath(QuarantineRoot);
         foreach (var f in Folders)
         {
             o.Roots.Add(f.Path);
@@ -783,20 +838,15 @@ public sealed partial class MainViewModel : ObservableObject
     partial void OnSelectedDisposalChanged(Choice<DisposalMethod> value)
     {
         if (_options is not null) _options.Disposal = value.Value;
+        // Il controllo del Cestino subito dopo, non adesso: il menu sta ancora scrivendo la scelta dell'utente e
+        // ignorerebbe il ritorno alla quarantena. Così vale anche per le impostazioni lette all'avvio, con la finestra
+        // aperta e la quarantena già decisa. Prima di cercare o spostare, il controllo è già fatto.
+        if (value.Value == DisposalMethod.RecycleBin) Dispatcher.UIThread.Post(() => _ = EnsureRecycleBinAvailableAsync());
     }
 
     partial void OnVerifyBeforeMoveChanged(bool value)
     {
         if (_options is not null) _options.VerifyBeforeMove = value;
-    }
-
-    partial void OnQuarantineRootChanged(string value)
-    {
-        if (_options is not null && MovedCount == 0 && !string.IsNullOrWhiteSpace(value))
-        {
-            try { _options.QuarantineRoot = Path.GetFullPath(value); }
-            catch (Exception) { /* percorso non valido: resta il precedente */ }
-        }
     }
 
     partial void OnIsScanningChanged(bool value) => RefreshState();
@@ -886,7 +936,6 @@ public sealed partial class MainViewModel : ObservableObject
         SelectedMode = Modes.FirstOrDefault(m => m.Value == s.Mode) ?? Modes[0];
         Threshold = (decimal)Math.Clamp(s.Threshold, ScanOptions.AutoThresholdFloor, 100);
         SelectedDisposal = Disposals.FirstOrDefault(d => d.Value == s.Disposal) ?? Disposals[0];
-        if (!string.IsNullOrWhiteSpace(s.QuarantineRoot)) QuarantineRoot = s.QuarantineRoot;
         VerifyBeforeMove = s.VerifyBeforeMove;
         IncludeSubfolders = s.IncludeSubfolders;
         DetectBursts = s.DetectBursts;
@@ -904,7 +953,6 @@ public sealed partial class MainViewModel : ObservableObject
         Mode = SelectedMode.Value,
         Threshold = (double)Threshold,
         Disposal = SelectedDisposal.Value,
-        QuarantineRoot = QuarantineRoot,
         VerifyBeforeMove = VerifyBeforeMove,
         IncludeSubfolders = IncludeSubfolders,
         DetectBursts = DetectBursts,

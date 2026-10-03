@@ -289,11 +289,10 @@
 
                         <TextBlock Text="{l:T QuarantineFolder}" Classes="h" Margin="0,8,0,0" />
                         <Grid ColumnDefinitions="*,Auto">
-                          <TextBox Text="{Binding QuarantineRoot}" IsEnabled="{Binding CanChangeDisposal}" />
-                          <Button Grid.Column="1" Content="{l:T Browse}" Margin="8,0,0,0" Click="OnBrowseQuarantine"
-                                  IsEnabled="{Binding CanChangeDisposal}" />
+                          <TextBox Text="{Binding QuarantineRoot, Mode=OneWay}" IsReadOnly="True" />
+                          <Button Grid.Column="1" Content="{l:T Open}" Margin="8,0,0,0" Command="{Binding OpenQuarantineFolderCommand}" />
                         </Grid>
-                        <TextBlock Text="{l:T QuarantineHint}" Classes="muted small" />
+                        <TextBlock Text="{l:T QuarantineHint}" Classes="muted small" TextWrapping="Wrap" />
 
                         <TextBlock Text="{l:T CheckBeforeMoving}" Classes="h" Margin="0,8,0,0" />
                         <CheckBox IsChecked="{Binding VerifyBeforeMove}">
@@ -604,7 +603,7 @@
           <TextBlock Text="{Binding ConfirmTitle}" Classes="title" TextWrapping="Wrap" />
           <TextBlock Text="{Binding ConfirmText}" TextWrapping="Wrap" LineHeight="21" />
           <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="0,8,0,0">
-            <Button Command="{Binding ConfirmNoCommand}" Content="{l:T Cancel}" MinWidth="110" />
+            <Button Command="{Binding ConfirmNoCommand}" Content="{l:T Cancel}" MinWidth="110" IsVisible="{Binding ConfirmCanCancel}" />
             <Button Classes="accent" Command="{Binding ConfirmYesCommand}" MinWidth="110">
               <TextBlock Text="{Binding ConfirmYesText}" FontWeight="SemiBold" />
             </Button>

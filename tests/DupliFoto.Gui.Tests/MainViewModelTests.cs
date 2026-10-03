@@ -15,10 +15,9 @@ public sealed class MainViewModelTests : IDisposable
 
     internal static MainViewModel NewViewModel(SamplePhotos photos, RunMode mode)
     {
-        var vm = new MainViewModel(new SettingsStore(null)) { CachePath = null };
+        var vm = new MainViewModel(new SettingsStore(null)) { CachePath = null, QuarantineRoot = photos.Quarantine };
         vm.AddFolders([photos.Photos]);
         vm.SelectedMode = vm.Modes.Single(m => m.Value == mode);
-        vm.QuarantineRoot = photos.Quarantine;
         return vm;
     }
 

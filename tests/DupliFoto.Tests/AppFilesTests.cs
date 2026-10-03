@@ -30,6 +30,18 @@ public sealed class AppFilesTests : IDisposable
     }
 
     [Fact]
+    public void The_quarantine_is_next_to_the_exe_beside_the_working_files()
+    {
+        Assert.True(AppFiles.IsNextToExe); // accanto all'exe dei test si può scrivere
+        Assert.Equal(Path.GetDirectoryName(AppFiles.Folder), Path.GetDirectoryName(AppFiles.QuarantineFolder));
+        Assert.Equal("DupliFoto-Quarantena", Path.GetFileName(AppFiles.QuarantineFolder));
+        Assert.Equal(AppFiles.QuarantineFolder, new ScanOptions().QuarantineRoot);
+        // Le foto in quarantena sono dell'utente: lo script la nomina solo per dire che non la tocca.
+        Assert.All(AppFiles.CleanupScript.Split("\r\n").Where(l => l.Contains(AppFiles.QuarantineFolderName)),
+            l => Assert.StartsWith("echo ", l));
+    }
+
+    [Fact]
     public void Old_extracted_copies_go_away_and_the_current_version_stays()
     {
         string realCore = typeof(AppFiles).Assembly.Location;

@@ -204,19 +204,35 @@ public sealed class ActionSession(ScanOptions options, IProgress<string>? progre
 /// Cestino di Windows. Mai una cancellazione definitiva: se Windows non può mettere il file nel Cestino
 /// (unità di rete o rimovibile, Cestino disattivato o troppo piccolo), il file resta dov'è.
 /// </summary>
-internal static class RecycleBin
+public static class RecycleBin
 {
-    public static void Send(string path)
+    /// <summary>
+    /// C'è un Cestino per questo percorso? Solo sui dischi fissi di Windows. Le chiavette, le schede di memoria, i CD e le
+    /// unità di rete non lo hanno: lì "eliminare" vorrebbe dire cancellare per sempre. Da controllare PRIMA di cercare,
+    /// quando si può ancora scegliere la quarantena, e non al primo spostamento.
+    /// </summary>
+    public static bool IsAvailableFor(string path)
+    {
+        if (!OperatingSystem.IsWindows()) return false;
+        try
+        {
+            string? root = Path.GetPathRoot(Path.GetFullPath(path));
+            if (string.IsNullOrEmpty(root) || root.StartsWith(@"\\")) return false; // \\server\cartella: in rete
+            return new DriveInfo(root).DriveType == DriveType.Fixed;
+        }
+        catch (Exception) { return false; }
+    }
+
+    internal static void Send(string path)
     {
         if (!OperatingSystem.IsWindows())
             throw new PlatformNotSupportedException(Lang.T("Il Cestino è disponibile solo su Windows: usa la quarantena.",
                 "The Recycle Bin is only available on Windows: use the quarantine."));
 
-        // Sulle unità di rete e rimovibili Windows non ha un Cestino: "eliminare" vorrebbe dire cancellare davvero.
-        var drive = new DriveInfo(Path.GetPathRoot(Path.GetFullPath(path))!);
-        if (drive.DriveType != DriveType.Fixed)
-            throw new IOException(Lang.T($"L'unità {drive.Name} non ha un Cestino ({drive.DriveType}): usa la quarantena.",
-                $"Drive {drive.Name} has no Recycle Bin ({drive.DriveType}): use the quarantine."));
+        // L'ultima difesa: di norma l'interfaccia e la riga di comando hanno già scelto la quarantena (IsAvailableFor).
+        if (!IsAvailableFor(path))
+            throw new IOException(Lang.T($"L'unità di {path} non ha un Cestino: usa la quarantena.",
+                $"The drive of {path} has no Recycle Bin: use the quarantine."));
 
         var op = new NativeMethods.SHFILEOPSTRUCT
         {

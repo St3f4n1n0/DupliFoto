@@ -51,8 +51,8 @@ public sealed class ScanOptions
     /// riconfrontano per intero, byte per byte: la prova al 100%, ma rilegge tutti e due i file.
     /// </summary>
     public bool VerifyBeforeMove { get; set; }
-    public string QuarantineRoot { get; set; } = System.IO.Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "DupliFoto-Quarantena");
+    /// <summary>Dove vanno i doppioni in quarantena: di norma "DupliFoto-Quarantena" accanto all'exe (vedi <see cref="AppFiles.QuarantineFolder"/>).</summary>
+    public string QuarantineRoot { get; set; } = AppFiles.QuarantineFolder;
     /// <summary>Cartelle le cui copie vanno sempre tenute: tra due copie vince quella che sta qui.</summary>
     public List<string> PreferredFolders { get; init; } = new();
     /// <summary>

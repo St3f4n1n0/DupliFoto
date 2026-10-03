@@ -3,6 +3,7 @@ using DupliFoto.Core;
 using DupliFoto.Core.Actions;
 using DupliFoto.Core.Imaging;
 using DupliFoto.Core.Matching;
+using DupliFoto.Core.Scanning;
 using Xunit;
 
 namespace DupliFoto.Tests;
@@ -582,6 +583,29 @@ public sealed class SafetyTests : IDisposable
         Assert.Equal(MoveResult.Moved, outcome.Result);
         Assert.False(File.Exists(path));
         Assert.True(File.Exists(keeperPath));
+    }
+
+    [Fact]
+    public void A_quarantine_of_an_earlier_version_is_never_searched()
+    {
+        // Le versioni fino alla 0.3.1 mettevano la quarantena in Immagini: chi analizza Immagini non deve ritrovarci
+        // i doppioni già spostati, anche se ora la quarantena è altrove.
+        string pictures = Path.Combine(_dir, "Immagini");
+        string old = Path.Combine(pictures, "DupliFoto-Quarantena", "20260901-101500-abc123", "C", "Foto");
+        Directory.CreateDirectory(old);
+        File.WriteAllBytes(Path.Combine(pictures, "mare.jpg"), [1, 2, 3, 4]);
+        File.WriteAllBytes(Path.Combine(old, "mare (1).jpg"), [1, 2, 3, 4]);
+
+        var o = new ScanOptions { Roots = { pictures }, QuarantineRoot = Path.Combine(_dir, "app", "DupliFoto-Quarantena") };
+        var files = FileScanner.Scan(o, ct: TestContext.Current.CancellationToken);
+        Assert.Equal([Path.Combine(pictures, "mare.jpg")], files.Select(f => f.Path));
+    }
+
+    [Fact]
+    public void Only_fixed_drives_have_a_recycle_bin()
+    {
+        Assert.Equal(OperatingSystem.IsWindows(), RecycleBin.IsAvailableFor(_dir)); // la cartella temporanea è sul disco C:
+        Assert.False(RecycleBin.IsAvailableFor(@"\\server\condivisa\Foto"));       // in rete: "eliminare" cancellerebbe davvero
     }
 
     [Theory]

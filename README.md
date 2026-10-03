@@ -62,7 +62,7 @@ The labels below are those of the English interface; in Italian they read *Aggiu
 1. **Folders.** Add one or more folders with **Add folder**, or drag them from File Explorer. With two or more folders, two more choices appear:
    - **Copy to keep:** *Automatic choice* lets the rules below decide; picking a folder means its copies always stay, and only copies elsewhere are moved. When folders are nested (*Photos* and *Photos\Catalogued*), each photo belongs to the most specific folder you added.
    - **Look for duplicates:** *in all photos* compares every photo with every other; *only across different folders* compares each folder only with the others, so duplicates within the same folder are left alone.
-2. **Mode.** Pick a mode (see [Modes](#modes)) and where duplicates go: quarantine or Recycle Bin. Then press **Start search**.
+2. **Mode.** Pick a mode (see [Modes](#modes)) and where duplicates go: quarantine or Recycle Bin. Then press **Start search**. USB sticks, memory cards and network drives have no Recycle Bin: if a folder is on one of them, DupliFoto says so before the search and uses the quarantine.
 3. **Compare.** Each pair appears side by side: the copy to keep (*To keep*) on the left, the copy to move (*To move*) on the right, each with the folder it comes from. In the middle are the confidence and the reason the left-hand copy is kept.
    - **Move the right-hand one** moves the right-hand photo away; the left-hand one stays where it is.
    - **Keep both** keeps both.
@@ -89,7 +89,7 @@ duplifoto-cli --version
 
 `duplifoto-cli help` lists every option:
 
-- where duplicates go: `--action quarantine|recycle-bin`, `--quarantine`;
+- where duplicates go: `--action quarantine|recycle-bin`, `--quarantine` (default: `DupliFoto-Quarantena` next to the `.exe`);
 - the check before moving: `--full-check` (see [Safety](#safety));
 - which copies to keep: `--keep` (copies in that folder always stay);
 - comparing folders only against each other: `--across-folders`;
@@ -139,7 +139,7 @@ Burst shots are always left to you. In unattended command-line runs (`--non-inte
 These rules hold in every mode:
 
 - **Nothing is ever deleted.** Files are only moved, to quarantine (the default) or to the Recycle Bin.
-- **Recycle Bin only when it really exists.** Network and removable drives have no Recycle Bin, and "deleting" there would mean erasing, so those files are not touched. If the Recycle Bin is disabled or too small, Windows asks before erasing instead of doing it silently.
+- **Recycle Bin only when it really exists.** USB sticks, memory cards and network drives have no Recycle Bin, and "deleting" there would mean erasing. DupliFoto checks this before the search, when you choose the Recycle Bin or add a folder: if a folder is on such a drive, it says so and uses the quarantine. Once you have checked the files in quarantine, you delete them yourself. If the Recycle Bin is disabled or too small, Windows asks before erasing instead of doing it silently.
 - **Undo journal.** Every move is written to a JSON Lines journal as it happens. `duplifoto-cli undo` and **Undo moves** restore everything in quarantine; the Recycle Bin is restored from Windows.
 - **Files changed after the scan are not touched,** and neither is anything whose copy-to-keep has gone missing or changed.
 - **Checked again before moving.** Right before an "identical" file is moved, its first and last 64 KB are compared byte by byte with the copy to keep, on top of size and date. That is where the metadata are, and it is quick even on an external drive: the search has already compared the whole files through their full hash. **More options → Check before moving** (`--full-check`) compares all of both files again, byte by byte. That is the 100% proof, but on an external drive it can take as long as the search.
@@ -177,18 +177,18 @@ Reading and decoding files, the real bottleneck together with the disk, run in p
 
 ## Files and folders
 
-DupliFoto adds nothing to the registry, installs no services and nothing that runs with Windows. Everything it writes for itself goes to **one folder next to the `.exe`**, `DupliFoto-dati`, which it creates at start together with **`Pulisci DupliFoto.bat`**, the script that removes it. Run DupliFoto from a USB stick and the folder travels with it.
+DupliFoto adds nothing to the registry, installs no services and nothing that runs with Windows. Everything it writes for itself goes to **one folder next to the `.exe`**, `DupliFoto-dati`, which it creates at start together with **`Pulisci DupliFoto.bat`**, the script that removes it. The duplicates it moves go to **`DupliFoto-Quarantena`**, also next to the `.exe`. Run DupliFoto from a USB stick and both folders travel with it.
 
 | What | Where | When |
 |---|---|---|
 | Settings, analysis cache, error log, `Pulisci DupliFoto.bat` | `DupliFoto-dati` next to the `.exe` | the folder and the script at start; settings when the app closes, the cache after each search, the log only after an error or a slow start |
 | Reports | `DupliFoto-dati\Report` (the command line run from a terminal writes to the current folder) | when you ask for one |
 | Unpacked program | `%TEMP%\.net\<exe name>`, for example `%TEMP%\.net\DupliFoto-0.3.1-x64` | at start; removed when the app closes |
-| Quarantine and move journals | `Pictures\DupliFoto-Quarantena` (or the folder chosen in the app) | first move; the journal is written there also when files go to the Recycle Bin |
+| Quarantine and move journals | `DupliFoto-Quarantena` next to the `.exe` | first move; the journal is written there also when files go to the Recycle Bin |
 
-- **Read-only places.** If the folder next to the `.exe` cannot be written (a CD, or a protected folder such as Program Files), the working files go to `%LOCALAPPDATA%\DupliFoto` and the reports to `Documents\DupliFoto`. **More options → DupliFoto's files** shows where they are.
+- **Read-only places.** If the folder next to the `.exe` cannot be written (a CD, or a protected folder such as Program Files), the working files go to `%LOCALAPPDATA%\DupliFoto`, the reports to `Documents\DupliFoto` and the quarantine to `Pictures\DupliFoto-Quarantena`. **More options** shows where they are.
 - **The unpacked program.** .NET unpacks the `.exe` into `%TEMP%\.net` before DupliFoto starts: this is the one place outside its folder that DupliFoto cannot avoid. When the app closes, a hidden Command Prompt removes that copy as soon as no DupliFoto window uses it any more. The next start unpacks again, which takes a few seconds. To keep the copy for quicker starts, untick *On closing, also remove the program's temporary files* in **More options → DupliFoto's files**. The command-line tool removes its copy only when it is started with a double-click, so that commands run one after another from a terminal or a script start at once. Copies of older versions are removed at every start; a copy that is in use is left alone.
-- **Earlier versions.** Versions up to 0.3.0 kept their files in `%LOCALAPPDATA%\DupliFoto`, and versions 0.2 and earlier kept the settings in `%APPDATA%\DupliFoto`. At start, DupliFoto moves settings, cache and error log into `DupliFoto-dati` and removes those folders. It touches only the files it wrote itself.
+- **Earlier versions.** Versions up to 0.3.0 kept their files in `%LOCALAPPDATA%\DupliFoto`, and versions 0.2 and earlier kept the settings in `%APPDATA%\DupliFoto`. At start, DupliFoto moves settings, cache and error log into `DupliFoto-dati` and removes those folders. It touches only the files it wrote itself. Up to 0.3.1 the quarantine was in `Pictures\DupliFoto-Quarantena`, or in a folder chosen in the app: the files moved there stay there, and `duplifoto-cli undo` still puts them back.
 - **Removing DupliFoto.** Close it, run `Pulisci DupliFoto.bat` ("clean up DupliFoto", in English when the app is in English) in `DupliFoto-dati`, then delete the `.exe`. The script removes the unpacked copies and the working files of every version, and leaves the `Report` folder. It never touches the quarantine or the `.exe` files: delete those yourself if you no longer need them.
 - **Windows ML.** If you select a neural model, Windows may download the NPU/GPU components; Windows installs and manages them.
 

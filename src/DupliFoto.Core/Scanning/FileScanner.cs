@@ -45,7 +45,10 @@ public static class FileScanner
                 ShouldIncludePredicate = (ref FileSystemEntry e) =>
                     !e.IsDirectory && options.Extensions.Contains(Path.GetExtension(e.FileName).ToString()) && !IsLink(ref e),
                 // Mai seguire collegamenti simbolici e giunzioni: eviterebbe cicli infiniti e foto contate due volte.
-                ShouldRecursePredicate = (ref FileSystemEntry e) => !IsLink(ref e),
+                // Mai entrare in una quarantena di DupliFoto, ovunque sia: anche quelle delle versioni precedenti
+                // (in Immagini) contengono doppioni già spostati.
+                ShouldRecursePredicate = (ref FileSystemEntry e) =>
+                    !IsLink(ref e) && !e.FileName.Equals(AppFiles.QuarantineFolderName, StringComparison.OrdinalIgnoreCase),
             };
 
             foreach (var path in files)

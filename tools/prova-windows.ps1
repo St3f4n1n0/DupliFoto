@@ -109,21 +109,40 @@ Check ($help -match 'USO' -and $help -match '--solo-tra-cartelle') 'in italiano:
 Check (-not (Test-Path $oldLocal)) 'niente in %LOCALAPPDATA%\DupliFoto'
 
 if ($Full) {
-    # 2) Semi-automatica: sposta da sola solo la copia identica; poi "annulla" la riporta al suo posto.
-    $q = Join-Path $Work 'quarantena'
-    Run $dir --modo semi-auto --non-interattivo --no-cache --quarantena $q --report "$reportDir\semi.html"
+    # 2) Semi-automatica: sposta da sola solo la copia identica, nella quarantena accanto all'exe; poi "annulla" la
+    #    riporta al suo posto.
+    $q0 = Join-Path $appDir 'DupliFoto-Quarantena'
+    Run $dir --modo semi-auto --non-interattivo --no-cache --report "$reportDir\semi.html"
     Check (-not (Test-Path "$dir\mare (1).jpg")) 'semi-auto: copia identica spostata'
+    Check (@(Get-ChildItem $q0 -Recurse -Filter 'mare (1).jpg').Count -eq 1) 'semi-auto: in quarantena accanto all''exe'
     Check (Test-Path "$dir\mare.jpg") 'semi-auto: originale al suo posto'
     Check (Test-Path "$dir\WhatsApp\IMG-20260810-WA0001.jpg") 'semi-auto: le copie non identiche restano'
-    $journal = Get-ChildItem $q -Filter 'registro-*.jsonl' | Select-Object -First 1
+    $journal = Get-ChildItem $q0 -Filter 'registro-*.jsonl' | Select-Object -First 1
     Run annulla $journal.FullName
     Check (Test-Path "$dir\mare (1).jpg") 'annulla: copia ripristinata'
-    # Con la verifica completa (rilegge per intero tutti e due i file) il risultato è lo stesso.
-    Run $dir --modo semi-auto --non-interattivo --no-cache --quarantena $q --full-check --report "$reportDir\semi-completa.html"
+    # Con la verifica completa (rilegge per intero tutti e due i file) il risultato è lo stesso; la quarantena,
+    # da riga di comando, si può ancora scegliere.
+    $q = Join-Path $Work 'quarantena'
+    Run $dir --modo semi-auto --non-interattivo --no-cache --quarantine $q --full-check --report "$reportDir\semi-completa.html"
     Check (-not (Test-Path "$dir\mare (1).jpg")) 'semi-auto con verifica completa: copia identica spostata'
-    $journal = Get-ChildItem $q -Filter 'registro-*.jsonl' | Where-Object { $_.FullName -ne $journal.FullName } | Select-Object -First 1
+    $journal = Get-ChildItem $q -Filter 'registro-*.jsonl' | Sort-Object LastWriteTime | Select-Object -Last 1
     Run annulla $journal.FullName
     Check (Test-Path "$dir\mare (1).jpg") 'annulla: copia ripristinata anche dopo la verifica completa'
+
+    # Il Cestino su un'unità che non lo ha (qui la stessa cartella, raggiunta in rete): lo dice prima di cercare e usa
+    # la quarantena accanto all'exe.
+    $unc = '\\localhost\' + $dir.Substring(0, 1) + '$' + $dir.Substring(2)
+    if (Test-Path $unc) {
+        $out = & $cli $unc --modo semi-auto --azione cestino --non-interattivo --no-cache --report "$reportDir\rete.html" | Out-String
+        if ($LASTEXITCODE -ne 0) { throw "duplifoto-cli in rete -> codice $LASTEXITCODE`n$out" }
+        Check ($out -match 'senza Cestino' -and $out -match [regex]::Escape($q0)) 'in rete: avvisa prima e indica la quarantena'
+        Check (-not (Test-Path "$dir\mare (1).jpg")) 'in rete: copia identica spostata lo stesso'
+        $journal = Get-ChildItem $q0 -Filter 'registro-*.jsonl' | Sort-Object LastWriteTime | Select-Object -Last 1
+        Run annulla $journal.FullName
+        Check (Test-Path "$dir\mare (1).jpg") 'in rete: annulla la riporta al suo posto'
+    } else {
+        Write-Host "salto la prova in rete: $unc non raggiungibile"
+    }
 
     # 3) Catena Windows ML / ONNX Runtime con un modello minuscolo (colore medio) sulla CPU.
     python -m pip install --quiet onnx

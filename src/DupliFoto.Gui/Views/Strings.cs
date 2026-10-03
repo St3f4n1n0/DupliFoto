@@ -34,7 +34,7 @@ public static class Strings
     public static string MoreOptions => Lang.T("Altre opzioni", "More options");
     public static string QuarantineFolder => Lang.T("Cartella di quarantena", "Quarantine folder");
     public static string Browse => Lang.T("Sfoglia…", "Browse…");
-    public static string QuarantineHint => Lang.T("Da qui «Annulla spostamenti» rimette tutto a posto.", "From here, “Undo moves” puts everything back.");
+    public static string QuarantineHint => Lang.T("Accanto all'exe, come DupliFoto-dati. Da qui «Annulla spostamenti» rimette tutto a posto; quando hai controllato, i file in quarantena li cancelli tu.", "Next to the exe, like DupliFoto-dati. From here, “Undo moves” puts everything back; once you have checked, you delete the files in quarantine yourself.");
     public static string CheckBeforeMoving => Lang.T("Controllo prima di spostare", "Check before moving");
     public static string FullCheck => Lang.T("Riconfronta per intero i file identici al byte", "Compare byte-identical files again in full");
     public static string FullCheckHint => Lang.T("Di solito, subito prima di spostare un file identico, ne riconfronto peso, data, inizio e fine con la copia da tenere: è rapido anche sui dischi esterni, e la ricerca li ha già confrontati per intero. Con questa opzione rileggo tutti e due i file: è la prova al 100%, ma su un disco esterno può durare quanto la ricerca.", "Usually, just before moving an identical file, I check its size, date, start and end again against the copy to keep: it is quick even on external drives, and the search has already compared them in full. With this option I read both files again: it is the 100% proof, but on an external drive it can take as long as the search.");

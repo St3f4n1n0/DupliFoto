@@ -52,10 +52,10 @@ public sealed class EngineDotTests : IDisposable
             detectEngines: pc is null ? null : () => Task.FromResult(pc))
         {
             CachePath = null,
+            QuarantineRoot = _photos.Quarantine,
         };
         vm.AddFolders([_photos.Photos]);
         vm.SelectedMode = vm.Modes.Single(m => m.Value == RunMode.Assisted);
-        vm.QuarantineRoot = _photos.Quarantine;
         return vm;
     }
 
