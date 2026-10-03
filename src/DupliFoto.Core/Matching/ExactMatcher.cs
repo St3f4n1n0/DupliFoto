@@ -24,11 +24,16 @@ public static class ExactMatcher
         progress?.Report(Lang.T($"Stesso peso: {sameSize.Count:N0} file candidati su {files.Count:N0}.", $"Same size: {sameSize.Count:N0} candidate files out of {files.Count:N0}."));
 
         // 2) Hash parziale: legge solo 2 × 64 KB per file.
-        Parallel.ForEach(sameSize.Where(f => f.PartialHash is null), parallel, f =>
+        var toPartial = sameSize.Where(f => f.PartialHash is null).ToList();
+        var partial = new ProgressCounter(progress, toPartial.Count, (done, total, _) =>
+            Lang.T($"Hash parziali: {done:N0} di {total:N0} file...", $"Partial hashes: {done:N0} of {total:N0} files..."));
+        Parallel.ForEach(toPartial, parallel, f =>
         {
             try { f.PartialHash = ComputePartialHash(f.Path, f.Size, options.PartialHashBytes); }
             catch (Exception ex) { f.AnalysisError = Lang.T($"Lettura: {ex.Message}", $"Reading: {ex.Message}"); }
+            partial.Add();
         });
+        partial.Finish();
 
         var samePartial = sameSize
             .Where(f => f.PartialHash is not null)
@@ -38,12 +43,19 @@ public static class ExactMatcher
             .ToList();
         progress?.Report(Lang.T($"Stesso hash parziale: {samePartial.Count:N0} file. Calcolo hash completi...", $"Same partial hash: {samePartial.Count:N0} files. Computing full hashes..."));
 
-        // 3) Hash completo (xxHash128), solo per i sopravvissuti.
-        Parallel.ForEach(samePartial.Where(f => f.FullHash is null), parallel, f =>
+        // 3) Hash completo (xxHash128), solo per i sopravvissuti: legge i file interi, è la parte lunga.
+        var toFull = samePartial.Where(f => f.FullHash is null).ToList();
+        string totalSize = Reporting.ReportWriter.FormatBytes(toFull.Sum(f => f.Size));
+        var full = new ProgressCounter(progress, toFull.Count, (done, total, read) =>
+            Lang.T($"Hash completi: {done:N0} di {total:N0} file ({Reporting.ReportWriter.FormatBytes(read)} di {totalSize})...",
+                   $"Full hashes: {done:N0} of {total:N0} files ({Reporting.ReportWriter.FormatBytes(read)} of {totalSize})..."));
+        Parallel.ForEach(toFull, parallel, f =>
         {
             try { f.FullHash = ComputeFullHash(f.Path); }
             catch (Exception ex) { f.AnalysisError = Lang.T($"Lettura: {ex.Message}", $"Reading: {ex.Message}"); }
+            full.Add(f.Size);
         });
+        full.Finish();
 
         return samePartial
             .Where(f => f.FullHash is not null)

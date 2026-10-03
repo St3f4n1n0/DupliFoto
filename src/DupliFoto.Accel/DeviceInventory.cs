@@ -28,13 +28,29 @@ public static class DeviceInventory
         }
         catch (Exception) { /* Windows precedente a 24H2 o criteri aziendali: restano DirectML e CPU */ }
 
-        var devices = Devices();
+        // Senza i dispositivi che hanno fatto chiudere il programma (vedi CrashGuard).
+        var blocked = CrashGuard.Blocked(afterCrash: false);
+        var all = Devices();
+        var devices = all.Where(d => !blocked.Contains(CrashGuard.Key(d))).ToList();
         return
         [
             new(ComputeEngine.Cpu, true, Cpu()),
-            Gpu(devices),
-            Npu(devices, missing, PnpDevices.Present("ComputeAccelerator")),
+            WithCrashed(Gpu(devices), ComputeEngine.Gpu, all, blocked),
+            WithCrashed(Npu(devices, missing, PnpDevices.Present("ComputeAccelerator")), ComputeEngine.Npu, all, blocked),
         ];
+    }
+
+    /// <summary>Un motore non utilizzabile perché il suo dispositivo ha fatto chiudere il programma: lo si dice.</summary>
+    private static EngineAvailability WithCrashed(EngineAvailability found, ComputeEngine engine, IReadOnlyList<OrtEpDevice> all, HashSet<string> blocked)
+    {
+        var crashed = all.Where(d => EngineOf(d) == engine && blocked.Contains(CrashGuard.Key(d))).Select(Describe).ToList();
+        if (found.Usable || crashed.Count == 0) return found;
+        string names = string.Join(", ", crashed);
+        return found with
+        {
+            Detail = new($"{names}: ha fatto chiudere DupliFoto, quindi non si usa più (per riprovare cancella {CrashGuard.BlockedFile})",
+                         $"{names}: it made DupliFoto close, so it is no longer used (to try again, delete {CrashGuard.BlockedFile})"),
+        };
     }
 
     /// <summary>I dispositivi che ONNX Runtime sa usare, con il loro componente (execution provider).</summary>
@@ -47,10 +63,19 @@ public static class DeviceInventory
     internal static ComputeEngine? EngineOf(OrtEpDevice d) => d.HardwareDevice.Type switch
     {
         OrtHardwareDeviceType.CPU => ComputeEngine.Cpu,
-        OrtHardwareDeviceType.GPU => ComputeEngine.Gpu,
+        OrtHardwareDeviceType.GPU when !IsSoftwareAdapter(d) => ComputeEngine.Gpu,
         OrtHardwareDeviceType.NPU => ComputeEngine.Npu,
         _ => null,
     };
+
+    /// <summary>
+    /// L'adattatore video software di Windows (Microsoft Basic Render Driver, produttore 0x1414), quello delle macchine
+    /// virtuali senza scheda video: non è una GPU, e con DirectML ha fatto chiudere il programma. Per le prove,
+    /// DUPLIFOTO_PROVA_GPU_SOFTWARE=1 lo fa contare come GPU.
+    /// </summary>
+    internal static bool IsSoftwareAdapter(OrtEpDevice d) =>
+        d.HardwareDevice.Type == OrtHardwareDeviceType.GPU && d.HardwareDevice.VendorId == 0x1414 &&
+        Environment.GetEnvironmentVariable("DUPLIFOTO_PROVA_GPU_SOFTWARE") != "1";
 
     /// <summary>"Intel via OpenVINOExecutionProvider", "GPU via DmlExecutionProvider".</summary>
     internal static string Describe(OrtEpDevice d) =>
@@ -73,7 +98,7 @@ public static class DeviceInventory
     private static EngineAvailability Gpu(IReadOnlyList<OrtEpDevice> devices)
     {
         var gpus = devices.Where(d => EngineOf(d) == ComputeEngine.Gpu).Select(Describe).Distinct().ToList();
-        string adapters = string.Join(", ", PnpDevices.Present("Display"));
+        string adapters = string.Join(", ", PnpDevices.Present("Display").Where(a => !a.Contains("Basic Render", StringComparison.OrdinalIgnoreCase)));
         string name = adapters.Length > 0 ? adapters : "GPU";
         return gpus.Count > 0
             ? new(ComputeEngine.Gpu, true, new($"{name} ({string.Join(", ", gpus)})", $"{name} ({string.Join(", ", gpus)})"))

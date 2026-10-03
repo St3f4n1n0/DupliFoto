@@ -54,7 +54,15 @@ public sealed class WindowsMlEmbeddingProvider : IEmbeddingProvider
 
         var env = OrtEnv.Instance(); // l'ambiente ONNX Runtime deve esistere prima di registrare i provider
         await RegisterCertifiedProvidersAsync(log);
-        var devices = DeviceInventory.Devices();
+        var blocked = CrashGuard.Blocked(afterCrash: true);
+        var devices = new List<OrtEpDevice>();
+        foreach (var d in DeviceInventory.Devices())
+        {
+            if (!blocked.Contains(CrashGuard.Key(d))) devices.Add(d);
+            else if (DeviceInventory.EngineOf(d) is ComputeEngine.Gpu or ComputeEngine.Npu)
+                log?.Report(Lang.T($"Rete neurale: {DeviceInventory.Describe(d)} ha fatto chiudere DupliFoto all'ultimo tentativo, lo salto (per riprovarlo cancella {CrashGuard.BlockedFile}).",
+                                   $"Neural network: {DeviceInventory.Describe(d)} made DupliFoto close at the last attempt, skipping it (to try it again, delete {CrashGuard.BlockedFile})."));
+        }
 
         // Se il motore scelto non c'è o rifiuta il modello, si passa al successivo. "Automatico" parte dalla NPU:
         // è fatta per la rete neurale e consuma poco.
@@ -110,8 +118,12 @@ public sealed class WindowsMlEmbeddingProvider : IEmbeddingProvider
             return null;
         }
 
-        foreach (bool whole in new[] { true, false })
+        // Con la CPU stessa al posto della NPU (solo nelle prove) "tutto sul dispositivo" non ha senso: ONNX Runtime lo rifiuta.
+        bool[] attempts = device.EpName == "CPUExecutionProvider" ? [false] : [true, false];
+        foreach (bool whole in attempts)
         {
+            WindowsMlEmbeddingProvider? provider = null;
+            CrashGuard.Begin(device);
             try
             {
                 using var so = new SessionOptions { GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL };
@@ -129,17 +141,32 @@ public sealed class WindowsMlEmbeddingProvider : IEmbeddingProvider
                     : Lang.T($"Windows ML sulla {label}: {what}, con alcune operazioni sulla CPU",
                              $"Windows ML on the {label}: {what}, with some operations on the CPU");
                 int batch = engine == ComputeEngine.Npu ? 1 : 16;
-                return new WindowsMlEmbeddingProvider(session, engine, description, batch);
+                provider = new WindowsMlEmbeddingProvider(session, engine, description, batch);
+                provider.WarmUp(); // una foto finta: un dispositivo che sa creare la sessione ma poi non calcola, si scarta subito
+                return provider;
             }
             catch (Exception ex)
             {
+                provider?.Dispose();
                 log?.Report(whole
                     ? Lang.T($"La {label} ({what}) non esegue tutto il modello ({ex.Message}): provo con una parte sulla CPU.",
                              $"The {label} ({what}) cannot run the whole model ({ex.Message}): trying with part of it on the CPU.")
                     : Lang.T($"La {label} ({what}) non accetta il modello: {ex.Message}", $"The {label} ({what}) does not accept the model: {ex.Message}"));
             }
+            finally
+            {
+                CrashGuard.End();
+            }
         }
         return null;
+    }
+
+    /// <summary>Un calcolo su un'immagine tutta nera: se il dispositivo non sa davvero eseguire il modello, lo si vede qui.</summary>
+    private void WarmUp()
+    {
+        var input = new DenseTensor<float>(new float[3 * _side * _side], [1, 3, _side, _side]);
+        using var results = _session.Run([NamedOnnxValue.CreateFromTensor(_inputName, input)]);
+        _ = results.First().AsTensor<float>().Length;
     }
 
     /// <summary>
@@ -183,7 +210,9 @@ public sealed class WindowsMlEmbeddingProvider : IEmbeddingProvider
     {
         try
         {
-            return DeviceInventory.Devices().Select(d => $"{d.HardwareDevice.Type} {DeviceInventory.Describe(d)}").Distinct().ToList();
+            return DeviceInventory.Devices().Select(d =>
+                $"{d.HardwareDevice.Type} {DeviceInventory.Describe(d)} ({d.HardwareDevice.VendorId:x4}:{d.HardwareDevice.DeviceId:x4})" +
+                (DeviceInventory.IsSoftwareAdapter(d) ? Lang.T(", adattatore software: non usato", ", software adapter: not used") : "")).Distinct().ToList();
         }
         catch (Exception ex)
         {

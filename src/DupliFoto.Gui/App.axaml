@@ -151,6 +151,13 @@
       <Setter Property="Padding" Value="6" />
     </Style>
 
+    <!-- Selettori numerici alti come gli altri controlli (32): senza, il testo andava a capo e il selettore era alto il doppio -->
+    <Style Selector="NumericUpDown /template/ TextBox#PART_TextBox">
+      <Setter Property="TextWrapping" Value="NoWrap" />
+      <Setter Property="MinWidth" Value="0" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
     <!-- Affidabilità: verde = si può spostare tranquilli; ambra = guarda bene prima (sotto il 90%). Il resto è testo normale. -->
     <Style Selector="TextBlock.conf.ok">
       <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />

@@ -14,9 +14,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - **The neural model now really runs on the NPU.** The model had a variable batch size, and NPUs such as Intel AI Boost only accept fixed shapes: ONNX Runtime quietly ran the whole model on the CPU. On the NPU the model now gets fixed shapes and runs one photo at a time. DupliFoto also picks the device itself, so the report and the dots say where the model actually ran. If a device refuses the model, DupliFoto says why and moves on to the next one.
 
+- **Number boxes and check boxes twice as tall.** Since 0.3.1 a style meant for the main layout also hit the check boxes, which have an inner part with the same name: the row of options grew to twice its height, and the threshold box was stretched with its number stuck at the top. Both are back to the height of the other controls.
+
+- **A device that crashes is not tried again.** An error inside a graphics or NPU driver closes the program at once, with nothing to catch. DupliFoto now notes each device before trying it and, if the program closed, skips that device from then on and says so (`rete-neurale-esclusi.txt` in `DupliFoto-dati` lists them; delete it to try again). Each device also runs one blank picture before it is used, and Windows' software display adapter (virtual machines without a graphics card) no longer counts as a GPU.
+
 ### Changed
 
+- **Progress while hashing.** The full hashes, the longest phase on large archives, now show how many files are done out of how many, and how much data has been read: "Hash completi: 1.234 di 12.959 file (8,1 GB di 85 GB)". The visual analysis, the pixel comparison and the neural network show the same kind of count.
 - **Automatic** now means NPU, then GPU, then CPU. It used to leave the choice to Windows ML, which usually picked the GPU.
+- **A more compact top panel.** *Add folder* is a discreet grey button right after the folders, and the row of options is lower: more room for the photos, especially on small screens.
 
 ## [0.3.1] - 2026-10-01
 

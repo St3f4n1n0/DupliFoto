@@ -114,6 +114,8 @@ if ($Full) {
     Check ($out -match 'Rete neurale: Windows ML') 'modello caricato con Windows ML'
     Check ($out -match 'Embedding neurali su') 'embedding calcolati'
     Check ($out -notmatch 'Embedding non disponibili') 'nessun errore di inferenza'
+    Check ($out -match 'Hash completi: \d+ di \d+ file') 'avanzamento degli hash: fatti su quanti'
+    Check ($out -match 'Hash completi: \d+ di \d+ file') 'avanzamento degli hash: fatti su quanti'
 
     # La strada per la NPU: modello a dimensioni fisse, dispositivo scelto da DupliFoto, prima tutto il modello lì.
     # Qui non c'è una NPU: DUPLIFOTO_PROVA_NPU fa passare la CPU per la NPU, lungo la stessa strada.
@@ -132,6 +134,23 @@ if ($Full) {
     Check ($out -match 'nessuna NPU utilizzabile') 'senza NPU: lo dice'
     Check ($out -match 'Rete neurale: Windows ML sulla (GPU|CPU)') 'senza NPU: passa alla GPU o alla CPU'
     Check ($out -match 'Embedding neurali su') 'senza NPU: embedding calcolati'
+    Check ($out -match 'Rete neurale: \d+ di \d+ foto') 'avanzamento della rete neurale'
+
+    # Qui l'unica "GPU" e' l'adattatore video software di Windows, che l'app non usa: lo si prova lo stesso. Se DirectML
+    # fa chiudere il programma, al giro dopo quel dispositivo dev'essere saltato (CrashGuard).
+    $env:DUPLIFOTO_PROVA_GPU_SOFTWARE = '1'
+    $out = & $cli $dir --non-interattivo --no-cache --modello "$Work\modello-prova.onnx" --acceleratore gpu --report "$reportDir\gpu.html" 2>&1 | Out-String
+    $first = $LASTEXITCODE
+    Write-Host $out
+    Write-Host "Adattatore software con DirectML: codice di uscita $first"
+    if ($first -ne 0) {
+        $out = & $cli $dir --non-interattivo --no-cache --modello "$Work\modello-prova.onnx" --acceleratore gpu --report "$reportDir\gpu2.html" 2>&1 | Out-String
+        Write-Host $out
+        Check ($LASTEXITCODE -eq 0) 'dopo una chiusura nel driver: il giro dopo finisce bene'
+        Check ($out -match 'ha fatto chiudere DupliFoto') 'dopo una chiusura nel driver: quel dispositivo si salta, e lo dice'
+    }
+    Remove-Item Env:DUPLIFOTO_PROVA_GPU_SOFTWARE
+    Remove-Item (Join-Path $data 'rete-neurale-*.txt') -ErrorAction SilentlyContinue
 }
 
 # 4) Interfaccia grafica: si apre con la cartella passata come argomento e resta aperta.

@@ -41,14 +41,14 @@ public partial class MainWindow : Window
         double available = Scroller.Bounds.Height;
         if (available <= 0) return;
         bool compact = available < CompactBelow;
-        var rows = RootGrid.RowDefinitions;
-        if (compact != RootGrid.Classes.Contains("compact"))
+        var rows = MainLayout.RowDefinitions;
+        if (compact != MainLayout.Classes.Contains("compact"))
         {
-            RootGrid.Classes.Set("compact", compact);
+            MainLayout.Classes.Set("compact", compact);
             rows[3].Height = new GridLength(compact ? 185 : 230); // contatori ed elenco; poi l'altezza la decide il divisore
         }
         double minimum = TopCard.Bounds.Height + rows[1].MinHeight + rows[2].Height.Value + rows[3].MinHeight;
-        RootGrid.Height = Math.Max(available - RootGrid.Margin.Top - RootGrid.Margin.Bottom, minimum);
+        MainLayout.Height = Math.Max(available - MainLayout.Margin.Top - MainLayout.Margin.Bottom, minimum);
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)

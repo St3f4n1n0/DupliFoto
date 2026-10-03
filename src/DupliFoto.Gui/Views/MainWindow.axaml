@@ -15,7 +15,7 @@
 
   <Window.Styles>
     <!-- Misure normali. Stanno qui e non sui controlli, così la disposizione compatta le può cambiare. -->
-    <Style Selector="Grid#RootGrid">
+    <Style Selector="Grid#MainLayout">
       <Setter Property="Margin" Value="16,12,16,16" />
     </Style>
     <Style Selector="Border#TopCard">
@@ -28,8 +28,16 @@
       <Setter Property="MaxWidth" Value="460" />
     </Style>
     <Style Selector="Border.options">
-      <Setter Property="Margin" Value="0,8,0,0" />
-      <Setter Property="Padding" Value="0,12,0,0" />
+      <Setter Property="Margin" Value="0,6,0,0" />
+      <Setter Property="Padding" Value="0,8,0,0" />
+    </Style>
+    <!-- «Aggiungi cartella»: grigio e discreto come le cartelle accanto, della stessa altezza -->
+    <Style Selector="Button.add-folder">
+      <Setter Property="Background" Value="{DynamicResource SubtleBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeBrush}" />
+      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+      <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="Padding" Value="10,6" />
     </Style>
     <Style Selector="Border#Stage">
       <Setter Property="Margin" Value="0,12,0,0" />
@@ -61,42 +69,42 @@
 
     <!-- Disposizione compatta per gli schermi bassi (1366×768, o con il ridimensionamento al 125%):
          la attiva MainWindow quando l'altezza utile scende sotto i 860 punti, e lì l'elenco in basso è più basso. -->
-    <Style Selector="Grid#RootGrid.compact">
+    <Style Selector="Grid#MainLayout.compact">
       <Setter Property="Margin" Value="12,8,12,8" />
     </Style>
-    <Style Selector="Grid#RootGrid.compact Border#TopCard">
+    <Style Selector="Grid#MainLayout.compact Border#TopCard">
       <Setter Property="Padding" Value="14,8" />
     </Style>
-    <Style Selector="Grid#RootGrid.compact StackPanel.top">
+    <Style Selector="Grid#MainLayout.compact StackPanel.top">
       <Setter Property="Spacing" Value="6" />
     </Style>
-    <Style Selector="Grid#RootGrid.compact TextBlock.chip">
+    <Style Selector="Grid#MainLayout.compact TextBlock.chip">
       <Setter Property="MaxWidth" Value="300" />
     </Style>
-    <Style Selector="Grid#RootGrid.compact Border.options">
+    <Style Selector="Grid#MainLayout.compact Border.options">
       <Setter Property="Margin" Value="0,4,0,0" />
-      <Setter Property="Padding" Value="0,6,0,0" />
+      <Setter Property="Padding" Value="0,5,0,0" />
     </Style>
-    <Style Selector="Grid#RootGrid.compact TextBlock.hint">
+    <Style Selector="Grid#MainLayout.compact TextBlock.hint">
       <Setter Property="IsVisible" Value="False" />
     </Style>
-    <Style Selector="Grid#RootGrid.compact Border#Stage">
+    <Style Selector="Grid#MainLayout.compact Border#Stage">
       <Setter Property="Margin" Value="0,8,0,0" />
     </Style>
-    <Style Selector="Grid#RootGrid.compact Grid.photo">
+    <Style Selector="Grid#MainLayout.compact Grid.photo">
       <Setter Property="Margin" Value="14,8,14,4" />
     </Style>
-    <Style Selector="Grid#RootGrid.compact Panel.photo-area">
+    <Style Selector="Grid#MainLayout.compact Panel.photo-area">
       <Setter Property="Margin" Value="0,4" />
     </Style>
-    <Style Selector="Grid#RootGrid.compact TextBlock.details">
+    <Style Selector="Grid#MainLayout.compact TextBlock.details">
       <Setter Property="TextWrapping" Value="NoWrap" />
       <Setter Property="TextTrimming" Value="CharacterEllipsis" />
     </Style>
-    <Style Selector="Grid#RootGrid.compact TextBlock.big">
+    <Style Selector="Grid#MainLayout.compact TextBlock.big">
       <Setter Property="FontSize" Value="30" />
     </Style>
-    <Style Selector="Grid#RootGrid.compact Border#DecisionBar">
+    <Style Selector="Grid#MainLayout.compact Border#DecisionBar">
       <Setter Property="Padding" Value="12,5" />
     </Style>
   </Window.Styles>
@@ -155,9 +163,9 @@
 
   <Panel>
     <!-- Il confronto e l'elenco si dividono l'altezza; se nemmeno la disposizione compatta ci sta, la finestra scorre
-         (l'altezza di RootGrid la imposta MainWindow) invece di mettere una parte sopra l'altra. -->
+         (l'altezza di MainLayout la imposta MainWindow) invece di mettere una parte sopra l'altra. -->
     <ScrollViewer x:Name="Scroller" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
-    <Grid x:Name="RootGrid">
+    <Grid x:Name="MainLayout">
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto" />
         <RowDefinition Height="*" MinHeight="280" />
@@ -170,19 +178,12 @@
         <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto">
 
           <StackPanel Classes="top">
-            <Grid ColumnDefinitions="*,Auto">
-              <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                <TextBlock Text="{l:T FoldersToScan}" Classes="h" VerticalAlignment="Center" />
-                <TextBlock Text="{l:T DragHint}" Classes="faint small" VerticalAlignment="Center" />
-              </StackPanel>
-              <Button Grid.Column="1" x:Name="AddFolderButton" Click="OnAddFolder" IsEnabled="{Binding IsIdle}">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                  <PathIcon Data="{StaticResource IconFolderAdd}" />
-                  <TextBlock Text="{l:T AddFolder}" />
-                </StackPanel>
-              </Button>
-            </Grid>
-            <TextBlock Text="{l:T NoFolders}" Classes="muted" IsVisible="{Binding !HasFolders}" Margin="0,2,0,6" />
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <TextBlock Text="{l:T FoldersToScan}" Classes="h" VerticalAlignment="Center" />
+              <TextBlock Text="{l:T DragHint}" Classes="faint small" VerticalAlignment="Center" />
+            </StackPanel>
+            <!-- Le cartelle, e subito dopo, discreto, il pulsante per aggiungerne -->
+            <WrapPanel>
             <ItemsControl ItemsSource="{Binding Folders}">
               <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
@@ -206,6 +207,14 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
+            <TextBlock Text="{l:T NoFolders}" Classes="muted" IsVisible="{Binding !HasFolders}" VerticalAlignment="Center" Margin="0,0,12,8" />
+            <Button x:Name="AddFolderButton" Classes="add-folder" Click="OnAddFolder" IsEnabled="{Binding IsIdle}" Margin="0,0,8,8">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <PathIcon Data="{StaticResource IconFolderAdd}" Width="14" Height="14" />
+                <TextBlock Text="{l:T AddFolder}" />
+              </StackPanel>
+            </Button>
+            </WrapPanel>
 
             <!-- Con due o più cartelle: quale copia tenere, e se confrontare anche dentro la stessa cartella.
                  Sulla stessa riga quando c'è posto. -->

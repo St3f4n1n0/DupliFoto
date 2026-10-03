@@ -64,14 +64,15 @@ public sealed class DedupEngine(IImageDecoder decoder, IMetadataReader metadata,
         var toAnalyze = reps.Where(f => !f.IsAnalyzed).ToList();
         progress?.Report(Lang.T($"Analisi visiva di {toAnalyze.Count:N0} foto ({reps.Count - toAnalyze.Count:N0} già in cache)...",
             $"Visual analysis of {toAnalyze.Count:N0} photos ({reps.Count - toAnalyze.Count:N0} already in the cache)..."));
-        int done = 0;
+        var analysed = new ProgressCounter(progress, toAnalyze.Count, (done, total, _) =>
+            Lang.T($"Analisi visiva: {done:N0} di {total:N0} foto...", $"Visual analysis: {done:N0} of {total:N0} photos..."));
         Parallel.ForEach(toAnalyze, parallel, f =>
         {
             try { _analyzer.Analyze(f, o.ThumbnailSide); }
             catch (Exception ex) { f.AnalysisError = Lang.T($"Decodifica: {ex.Message}", $"Decoding: {ex.Message}"); }
-            int n = Interlocked.Increment(ref done);
-            if (n % 500 == 0) progress?.Report(Lang.T($"  analizzate {n:N0}/{toAnalyze.Count:N0}", $"  analysed {n:N0}/{toAnalyze.Count:N0}"));
+            analysed.Add();
         });
+        analysed.Finish();
 
         // I doppioni esatti hanno lo stesso contenuto della copia tenuta: ne ereditano l'analisi (utile per il report).
         foreach (var g in groups)
@@ -95,11 +96,15 @@ public sealed class DedupEngine(IImageDecoder decoder, IMetadataReader metadata,
         {
             progress?.Report(Lang.T($"Livello 2: confronto pixel a piena risoluzione su {pixelCandidates.Count:N0} foto...",
                 $"Level 2: full-resolution pixel comparison on {pixelCandidates.Count:N0} photos..."));
+            var compared = new ProgressCounter(progress, pixelCandidates.Count, (done, total, _) =>
+                Lang.T($"Livello 2: {done:N0} di {total:N0} foto confrontate pixel per pixel...", $"Level 2: {done:N0} of {total:N0} photos compared pixel by pixel..."));
             Parallel.ForEach(pixelCandidates, parallel, f =>
             {
                 try { _analyzer.ComputePixelHash(f); }
                 catch (Exception) { /* resta senza hash dei pixel: verrà valutata come percettiva */ }
+                compared.Add();
             });
+            compared.Finish();
         }
 
         // ---------- Embedding neurali (NPU/GPU/CPU), solo sulle foto candidate ----------
@@ -212,6 +217,8 @@ public sealed class DedupEngine(IImageDecoder decoder, IMetadataReader metadata,
             $"Neural embeddings for {targets.Count:N0} photos with {provider.DeviceDescription}..."));
         int done = 0;
         int batch = Math.Max(1, provider.PreferredBatchSize);
+        var examined = new ProgressCounter(progress, targets.Count, (n, total, _) =>
+            Lang.T($"Rete neurale: {n:N0} di {total:N0} foto...", $"Neural network: {n:N0} of {total:N0} photos..."));
         for (int start = 0; start < targets.Count; start += batch)
         {
             ct.ThrowIfCancellationRequested();
@@ -224,6 +231,7 @@ public sealed class DedupEngine(IImageDecoder decoder, IMetadataReader metadata,
             });
 
             var ok = Enumerable.Range(0, chunk.Count).Where(i => images[i] is not null).ToList();
+            foreach (var _ in chunk) examined.Add();
             if (ok.Count == 0) continue;
             try
             {
@@ -238,6 +246,7 @@ public sealed class DedupEngine(IImageDecoder decoder, IMetadataReader metadata,
                 return done;
             }
         }
+        examined.Finish();
         return done;
     }
 

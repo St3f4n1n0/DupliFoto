@@ -121,6 +121,32 @@ public sealed class ScreenshotTests : IDisposable
     });
 
     /// <summary>
+    /// La barra delle opzioni in modalità automatica, con il selettore della soglia: deve restare bassa come gli altri
+    /// controlli (il selettore numerico, con i pulsanti del tema, era alto il doppio). E «Aggiungi cartella» sta accanto
+    /// alle cartelle, non in una riga a parte.
+    /// </summary>
+    [Fact]
+    public Task Options_bar_and_folder_row_are_compact() => Ui.Run(() =>
+    {
+        Application.Current!.RequestedThemeVariant = ThemeVariant.Dark;
+        var vm = MainViewModelTests.NewViewModel(_photos, RunMode.Automatic);
+        vm.AddFolders([Path.Combine(_photos.Photos, "WhatsApp")]);
+        var window = Show(vm);
+        Save(window, "7-barra-opzioni");
+
+        var spinner = window.GetVisualDescendants().OfType<NumericUpDown>().Single(n => n.IsEffectivelyVisible);
+        Assert.InRange(spinner.Bounds.Height, 24, 34);
+        var options = window.GetVisualDescendants().OfType<Border>().Single(b => b.Classes.Contains("options"));
+        Assert.True(options.Bounds.Height <= 52, $"barra delle opzioni alta {options.Bounds.Height:0} punti");
+        var add = window.FindControl<Button>("AddFolderButton")!;
+        var firstChip = window.GetVisualDescendants().OfType<TextBlock>().First(t => t.Classes.Contains("chip"));
+        double Top(Visual v) => v.TranslatePoint(default, window)!.Value.Y;
+        Assert.True(Math.Abs(Top(add) + add.Bounds.Height / 2 - (Top(firstChip) + firstChip.Bounds.Height / 2)) < 30,
+            "«Aggiungi cartella» sta sulla riga delle cartelle");
+        window.Close();
+    });
+
+    /// <summary>
     /// Senza Mica (Windows 10, e qui) la finestra deve avere lo sfondo pieno del tema: su Windows 10 Avalonia
     /// ripiega su una finestra trasparente, e con lo sfondo trasparente si vedeva il desktop attraverso l'app.
     /// </summary>
