@@ -7,7 +7,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- **English.** The app follows the language of Windows: Italian on an Italian Windows, English everywhere else. **More options → Language** switches at once, without restarting, and the choice is saved. Messages, reasons, reports and the clean-up script follow the language too. The command-line tool stays in Italian.
+- **English.** The app follows the language of Windows: Italian on an Italian Windows, English everywhere else. **More options → Language** switches at once, without restarting, and the choice is saved. Messages, reasons, reports and the clean-up script follow the language too.
+- **The command-line tool in English.** It follows the language of Windows as well, or `--language it|en|auto` (also the `DUPLIFOTO_LANG` variable). Commands and options have English names (`scan`, `undo`, `help`, `--mode read-only`, `--keep`, `--across-folders`, `--non-interactive`...), and the Italian ones keep working, so existing scripts run unchanged. In the questions the keys follow the language (*y*/*n*/*a* in English, *s*/*n*/*t* in Italian) and are never mixed.
 - **CPU, GPU and NPU at a glance.** Three dots at the bottom right of the window: green where DupliFoto is working, yellow where it could work, red where the device is missing or has no compatible driver or Windows ML component. Hovering over a dot shows the device, the component and how many photos the neural model examined in the last search. At start nothing is downloaded: DupliFoto only looks at what is installed. `duplifoto-cli hardware` shows the same information.
 
 ### Fixed

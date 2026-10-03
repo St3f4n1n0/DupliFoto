@@ -16,6 +16,9 @@ param(
     [switch] $Pulizia
 )
 $ErrorActionPreference = 'Stop'
+# La riga di comando segue la lingua di Windows (sui server di GitHub l'inglese): le prove qui sotto leggono i suoi
+# messaggi in italiano, e quelle in inglese lo chiedono con --language en, che vale più della variabile.
+$env:DUPLIFOTO_LANG = 'it'
 $appDir = Join-Path $Work 'app'
 Remove-Item $appDir -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $appDir | Out-Null
@@ -89,6 +92,20 @@ Check ($rows | Where-Object { $_.ruolo -eq 'doppione' -and $_.percorso -like '*\
 Check (-not ($rows | Where-Object { $_.percorso -like '*\montagna.jpg' })) 'la foto diversa non e'' un doppione'
 Check ((Get-ChildItem $dir -Recurse -File).Count -eq 5) 'sola lettura: nessun file spostato'
 Check (Test-Path (Join-Path $data 'Pulisci DupliFoto.bat')) 'i file di lavoro stanno in DupliFoto-dati accanto all''exe'
+
+# La riga di comando in inglese: nomi inglesi di comandi e opzioni, messaggi, avanzamento, report e aiuto.
+$out = & $cli --language en scan $dir --mode read-only --non-interactive --no-cache --report "$reportDir\english.html" | Out-String
+Write-Host $out
+Check ($LASTEXITCODE -eq 0) 'in inglese: codice di uscita 0'
+Check ($out -match 'mode: read-only') 'in inglese: i messaggi sono in inglese'
+Check ($out -match 'Full hashes: \d+ of \d+ files') 'in inglese: anche l''avanzamento degli hash'
+$csv = @(Get-Content "$reportDir\english.csv" -Encoding UTF8)
+Check ($csv[0] -like 'group;role;kind;confidence;reason;path*') 'in inglese: le colonne del CSV'
+Check (@($csv | Where-Object { $_ -match ';duplicate;Byte-identical;' }).Count -ge 1) 'in inglese: i valori del CSV'
+$help = & $cli --language en help | Out-String
+Check ($help -match 'USAGE' -and $help -match '--across-folders') 'in inglese: l''aiuto'
+$help = & $cli aiuto | Out-String
+Check ($help -match 'USO' -and $help -match '--solo-tra-cartelle') 'in italiano: l''aiuto'
 Check (-not (Test-Path $oldLocal)) 'niente in %LOCALAPPDATA%\DupliFoto'
 
 if ($Full) {

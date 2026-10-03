@@ -31,7 +31,7 @@
 - **Many formats:** JPEG, PNG, HEIC, AVIF, WebP, TIFF, JPEG XL and the common RAW formats.
 - **Optional neural model** (DINOv2) that runs on the NPU, the GPU or the CPU through Windows ML. Three dots at the bottom of the window show at a glance which of CPU, GPU and NPU is available and which one is working.
 - **English and Italian.** The app follows the language of Windows (Italian on an Italian Windows, English everywhere else), or the one you pick in **More options**.
-- **Command-line tool** for scripts and scheduled clean-ups (in Italian).
+- **Command-line tool** for scripts and scheduled clean-ups, in English and Italian too.
 
 ## Download
 
@@ -77,26 +77,29 @@ In the semi-automatic and automatic modes, the app offers to move right away the
 ## Command line
 
 ```powershell
-duplifoto-cli "D:\Foto"                                  # read-only: report only
-duplifoto-cli "D:\Foto" --modo assistita                 # ask for every group
-duplifoto-cli "D:\Foto" "E:\Phone" --modo semi-auto --preferisci "D:\Foto"
-duplifoto-cli "D:\Catalogate" "D:\Download" --solo-tra-cartelle --preferisci "D:\Catalogate"
-duplifoto-cli "D:\Foto" --modo auto --soglia 98 --modello dinov2-small.onnx --non-interattivo
-duplifoto-cli annulla "...\DupliFoto-Quarantena\registro-20260930-101500-3fa2c1.jsonl"
-duplifoto-cli hardware                                   # NPU / GPU / CPU available
-duplifoto-cli --versione
+duplifoto-cli "D:\Photos"                                  # read-only: report only
+duplifoto-cli "D:\Photos" --mode assisted                  # ask for every group
+duplifoto-cli "D:\Photos" "E:\Phone" --mode semi-auto --keep "D:\Photos"
+duplifoto-cli "D:\Catalogued" "D:\Downloads" --across-folders --keep "D:\Catalogued"
+duplifoto-cli "D:\Photos" --mode auto --threshold 98 --model dinov2-small.onnx --non-interactive
+duplifoto-cli undo "...\DupliFoto-Quarantena\registro-20260930-101500-3fa2c1.jsonl"
+duplifoto-cli hardware                                     # CPU / GPU / NPU available
+duplifoto-cli --version
 ```
 
-`duplifoto-cli aiuto` lists every option:
+`duplifoto-cli help` lists every option:
 
-- where duplicates go: `--azione quarantena|cestino`, `--quarantena`;
-- which copies to keep: `--preferisci` (copies in that folder always stay);
-- comparing folders only against each other: `--solo-tra-cartelle`;
+- where duplicates go: `--action quarantine|recycle-bin`, `--quarantine`;
+- which copies to keep: `--keep` (copies in that folder always stay);
+- comparing folders only against each other: `--across-folders`;
 - output: `--report`;
-- neural model: `--modello`, `--acceleratore`;
-- burst shots: `--raffica`, `--no-raffiche`;
-- scanning: `--no-sottocartelle`, `--nascosti`, `--no-cache`, `--thread`;
-- unattended runs: `--non-interattivo`.
+- neural model: `--model`, `--accelerator`;
+- burst shots: `--burst`, `--no-bursts`;
+- scanning: `--no-subfolders`, `--hidden`, `--no-cache`, `--threads`;
+- unattended runs: `--non-interactive`;
+- language: `--language it|en|auto`, or the `DUPLIFOTO_LANG` variable.
+
+Messages, questions, help and report follow the language of Windows, like the app. Every command and option also has an Italian name, which keeps working in both languages: `analizza`, `annulla`, `aiuto`, `--modo sola-lettura`, `--preferisci`, `--solo-tra-cartelle`, `--non-interattivo` and so on. Scripts written for earlier versions run unchanged. In interactive questions the keys follow the language: *y*/*n*/*a* in English, *s*/*n*/*t* in Italian.
 
 Every run writes an HTML report and a CSV file. Browsers cannot preview HEIC and RAW files in the report, but the paths are clickable. Dropping a folder onto `duplifoto-cli.exe` runs a read-only analysis, and the report opens in the browser.
 
@@ -136,7 +139,7 @@ These rules hold in every mode:
 
 - **Nothing is ever deleted.** Files are only moved, to quarantine (the default) or to the Recycle Bin.
 - **Recycle Bin only when it really exists.** Network and removable drives have no Recycle Bin, and "deleting" there would mean erasing, so those files are not touched. If the Recycle Bin is disabled or too small, Windows asks before erasing instead of doing it silently.
-- **Undo journal.** Every move is written to a JSON Lines journal as it happens. `duplifoto-cli annulla` and **Undo moves** restore everything in quarantine; the Recycle Bin is restored from Windows.
+- **Undo journal.** Every move is written to a JSON Lines journal as it happens. `duplifoto-cli undo` and **Undo moves** restore everything in quarantine; the Recycle Bin is restored from Windows.
 - **Files changed after the scan are not touched,** and neither is anything whose copy-to-keep has gone missing or changed.
 - **Byte-by-byte check.** "Identical" files are compared byte by byte again right before being moved.
 - **One file, two paths.** A folder added twice by different routes (`Z:\Foto` and `\\NAS\Foto`, a SUBST drive, a junction) does not turn each photo into its own duplicate: the file is recognised by its identity on disk. After every move DupliFoto also checks that the copy to keep is still there; if it is not, the file goes straight back.
@@ -145,7 +148,7 @@ These rules hold in every mode:
 
 ## Which copy is kept
 
-- **Duplicates.** The copy in the folder to keep wins (chosen in the app, or with `--preferisci`). After that:
+- **Duplicates.** The copy in the folder to keep wins (chosen in the app, or with `--keep`). After that:
   1. the higher resolution;
   2. the richer metadata;
   3. the name without "(1)" or "Copia";
