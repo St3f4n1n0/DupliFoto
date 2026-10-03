@@ -64,6 +64,8 @@ public enum PairStatus
     Skipped,
     /// <summary>Una regola di sicurezza ha impedito lo spostamento (file cambiato, copia da tenere sparita...).</summary>
     Blocked,
+    /// <summary>Cancellato per sempre: la quarantena era piena e l'utente lo ha confermato due volte.</summary>
+    Deleted,
 }
 
 /// <summary>
@@ -84,7 +86,8 @@ public sealed partial class PairItem(DuplicateGroup group, GroupMember member) :
     [ObservableProperty] private string _note = "";
 
     public bool IsPending => Status == PairStatus.Pending;
-    public bool IsMoved => Status == PairStatus.Moved;
+    /// <summary>Il doppione non è più al suo posto: spostato, o cancellato per sempre.</summary>
+    public bool IsMoved => Status is PairStatus.Moved or PairStatus.Deleted;
     public bool IsBlocked => Status == PairStatus.Blocked;
 
     public string StatusText => Status switch
@@ -94,6 +97,7 @@ public sealed partial class PairItem(DuplicateGroup group, GroupMember member) :
         PairStatus.Moved => Lang.T("Spostato", "Moved"),
         PairStatus.Skipped => Lang.T("Tenute entrambe", "Kept both"),
         PairStatus.Blocked => Lang.T("Non toccato", "Left alone"),
+        PairStatus.Deleted => Lang.T("Cancellato per sempre", "Deleted for good"),
         _ => Status.ToString(),
     };
 

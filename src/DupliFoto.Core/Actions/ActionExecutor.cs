@@ -14,11 +14,19 @@ public sealed record PromptAnswer(UserChoice Choice, PhotoFile? NewKeeper = null
 public interface IDecisionPrompt
 {
     PromptAnswer Ask(PromptRequest request);
+
+    /// <summary>
+    /// Il disco della quarantena è quasi pieno (<paramref name="reason"/>): cancellare per sempre i doppioni che non
+    /// entrano più? Va chiesto con due conferme. Chi non lo implementa risponde no, e gli spostamenti si fermano.
+    /// </summary>
+    bool AllowPermanentDeletion(string reason) => false;
 }
 
 public sealed class ActionSummary
 {
     public int Moved { get; set; }
+    /// <summary>Quanti dei <see cref="Moved"/> sono stati cancellati per sempre, perché la quarantena era piena.</summary>
+    public int DeletedForGood { get; set; }
     public long BytesFreed { get; set; }
     public int AutomaticActions { get; set; }
     public int ConfirmedActions { get; set; }
@@ -32,20 +40,24 @@ public sealed class ActionSummary
 /// Applica le decisioni gruppo per gruppo secondo la modalità scelta (usato dalla riga di comando).
 /// Le regole di sicurezza sono in <see cref="ActionSession"/> e valgono in TUTTE le modalità.
 /// </summary>
-public sealed class ActionExecutor(ScanOptions options, IDecisionPrompt? prompt, IProgress<string>? progress = null)
+/// <param name="disks">Dischi, spazio e Cestino: di norma quelli veri; nei test si fingono.</param>
+public sealed class ActionExecutor(ScanOptions options, IDecisionPrompt? prompt, IProgress<string>? progress = null, Disks? disks = null)
 {
+    /// <summary>Il disco della quarantena si è quasi riempito e nessuno ha scelto di cancellare: ci si ferma.</summary>
+    private bool _suspended;
+
     public ActionSummary Execute(ScanResult result)
     {
         if (options.Mode == RunMode.ReadOnly) return new ActionSummary();
 
-        using var session = new ActionSession(options, progress);
+        using var session = new ActionSession(options, progress, disks);
         var summary = session.Summary;
         var approvedKinds = new HashSet<MatchKind>();
         bool quit = false;
 
         foreach (var group in result.Groups)
         {
-            if (quit) { summary.AwaitingReview += group.Duplicates.Count; continue; }
+            if (quit || _suspended) { summary.AwaitingReview += group.Duplicates.Count; continue; }
 
             var auto = group.Duplicates.Where(m => ActionPolicy.IsAutomatic(options, m)).ToList();
             var ask = group.Duplicates.Except(auto).ToList();
@@ -54,6 +66,7 @@ public sealed class ActionExecutor(ScanOptions options, IDecisionPrompt? prompt,
                 summary.AutomaticActions += n;
 
             if (ask.Count == 0) continue;
+            if (_suspended) { summary.AwaitingReview += ask.Count; continue; }
 
             // Anche con "sì a tutti", sotto il 60% si chiede sempre.
             if (approvedKinds.Contains(group.Kind) && ask.All(m => m.Confidence >= 60))
@@ -98,7 +111,7 @@ public sealed class ActionExecutor(ScanOptions options, IDecisionPrompt? prompt,
     }
 
     /// <summary>Sposta i membri indicati; <c>null</c> se la copia da tenere non è più disponibile.</summary>
-    private static int? Apply(ActionSession session, DuplicateGroup group, PhotoFile keeper, IReadOnlyList<GroupMember> members, bool automatic)
+    private int? Apply(ActionSession session, DuplicateGroup group, PhotoFile keeper, IReadOnlyList<GroupMember> members, bool automatic)
     {
         if (!session.IsKeeperAvailable(keeper))
         {
@@ -106,6 +119,27 @@ public sealed class ActionExecutor(ScanOptions options, IDecisionPrompt? prompt,
                 $"Group {group.Id}: the copy to keep is no longer available or has changed, group skipped."));
             return null;
         }
-        return members.Count(m => session.Move(keeper, m, automatic).Moved);
+        int moved = 0;
+        for (int i = 0; i < members.Count; i++)
+        {
+            var outcome = session.Move(keeper, members[i], automatic);
+            if (outcome.Result == MoveResult.QuarantineFull)
+            {
+                // Disco della quarantena quasi pieno: si cancella per sempre solo se qualcuno lo conferma due volte.
+                if (prompt?.AllowPermanentDeletion(outcome.Message) != true)
+                {
+                    _suspended = true;
+                    session.Summary.Warnings.Add(outcome.Message + Lang.T(
+                        " Libera spazio e rilancia: i doppioni rimasti sono nel report.",
+                        " Free up some space and run again: the remaining duplicates are in the report."));
+                    session.Summary.AwaitingReview += members.Count - i;
+                    break;
+                }
+                session.DeleteWhenQuarantineFull = true;
+                outcome = session.Move(keeper, members[i], automatic);
+            }
+            if (outcome.Moved) moved++;
+        }
+        return moved;
     }
 }

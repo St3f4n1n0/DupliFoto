@@ -5,6 +5,7 @@ using DupliFoto.Core;
 using DupliFoto.Gui.Services;
 using DupliFoto.Gui.ViewModels;
 using DupliFoto.Gui.Views;
+using DupliFoto.Tests;
 using Xunit;
 
 namespace DupliFoto.Gui.Tests;
@@ -16,15 +17,16 @@ namespace DupliFoto.Gui.Tests;
 public sealed class RecycleBinTests : IDisposable
 {
     private readonly SamplePhotos _photos = new();
-    private bool _stickPlugged = true;
+    private readonly FakeDisks _disks;
+
+    public RecycleBinTests() => _disks = new FakeDisks { Stick = Stick, StickHasRecycleBin = false };
 
     public void Dispose() => _photos.Dispose();
 
     private string Stick => _photos.P("WhatsApp");
 
     private MainViewModel NewViewModel(SettingsStore? store = null) =>
-        new(store ?? new SettingsStore(null),
-            hasRecycleBin: path => !(_stickPlugged && path.StartsWith(Stick, StringComparison.OrdinalIgnoreCase)))
+        new(store ?? new SettingsStore(null), disks: _disks)
         {
             CachePath = null,
             QuarantineRoot = _photos.Quarantine,
@@ -76,13 +78,13 @@ public sealed class RecycleBinTests : IDisposable
     public Task Saved_settings_with_the_recycle_bin_and_a_stick_warn_at_start() => Ui.Run(() =>
     {
         var store = new SettingsStore(Path.Combine(_photos.Root, "gui.json"));
-        _stickPlugged = false;
+        _disks.StickHasRecycleBin = true;
         var before = NewViewModel(store);
         before.AddFolders([_photos.Photos, Stick]);
         before.SelectedDisposal = Choice(before, DisposalMethod.RecycleBin);
         before.SaveSettings();
 
-        _stickPlugged = true; // ora quella cartella è su una chiavetta
+        _disks.StickHasRecycleBin = false; // ora quella cartella è su una chiavetta
         var vm = NewViewModel(store);
         Dispatcher.UIThread.RunJobs(); // il controllo si fa appena parte la finestra
         AssertWarned(vm);
@@ -91,14 +93,14 @@ public sealed class RecycleBinTests : IDisposable
     [Fact]
     public Task The_search_waits_for_the_warning_and_the_duplicates_go_to_quarantine() => Ui.Run(async () =>
     {
-        _stickPlugged = false;
+        _disks.StickHasRecycleBin = true;
         var vm = NewViewModel();
         vm.AddFolders([_photos.Photos, Stick]);
         vm.SelectedMode = vm.Modes.Single(m => m.Value == RunMode.Assisted);
         vm.SelectedDisposal = Choice(vm, DisposalMethod.RecycleBin);
         Dispatcher.UIThread.RunJobs();
 
-        _stickPlugged = true; // la chiavetta è stata cambiata dopo aver scelto
+        _disks.StickHasRecycleBin = false; // la chiavetta è stata cambiata dopo aver scelto
         var search = vm.StartCommand.ExecuteAsync(null);
         await Task.Delay(100);
         Assert.False(search.IsCompleted);

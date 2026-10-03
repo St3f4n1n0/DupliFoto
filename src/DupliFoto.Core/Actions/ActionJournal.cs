@@ -55,6 +55,13 @@ public sealed class ActionJournal : IDisposable
         var messages = new List<string>();
         foreach (var e in Read(journalPath).Reverse())
         {
+            if (e.Method == DisposalMethod.PermanentlyDeleted)
+            {
+                skipped++;
+                messages.Add(Lang.T($"Cancellato per sempre (la quarantena era piena), non si può ripristinare: {e.OriginalPath}",
+                                    $"Deleted for good (the quarantine was full), it cannot be restored: {e.OriginalPath}"));
+                continue;
+            }
             if (e.Method != DisposalMethod.Quarantine || e.MovedTo is null)
             {
                 skipped++;

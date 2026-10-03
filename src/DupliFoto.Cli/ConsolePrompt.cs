@@ -72,6 +72,30 @@ internal sealed class ConsolePrompt : IDecisionPrompt
         }
     }
 
+    /// <summary>Due passi: prima la scelta tra fermarsi e cancellare, poi una parola da scrivere per intero.</summary>
+    public bool AllowPermanentDeletion(string reason)
+    {
+        Console.WriteLine();
+        Ui.Color(ConsoleColor.Yellow, "  " + reason);
+        Console.WriteLine(Lang.T(
+            "  Puoi fermarti qui, liberare spazio (per esempio controllando e cancellando i file già in quarantena) e\n" +
+            "  rilanciare, oppure cancellare per sempre i doppioni che restano, senza quarantena: non si potranno recuperare.",
+            "  You can stop here, free up some space (for example by checking and deleting the files already in quarantine)\n" +
+            "  and run again, or delete the remaining duplicates for good, without the quarantine: they cannot be recovered."));
+        Console.Write(Lang.T("  [f] fermati  [c] cancella per sempre > ", "  [s] stop  [d] delete for good > "));
+        string choice = (Console.ReadLine() ?? "").Trim().ToLowerInvariant();
+        if (choice != Lang.T("c", "d")) return false;
+
+        Ui.Color(ConsoleColor.Red, Lang.T(
+            "  ATTENZIONE: i doppioni che non entrano più in quarantena verranno cancellati per sempre: niente quarantena,\n" +
+            "  niente Cestino, «annulla» non potrà riportarli indietro. La copia da tenere resta sempre al suo posto.",
+            "  WARNING: the duplicates that no longer fit in quarantine will be deleted for good: no quarantine, no\n" +
+            "  Recycle Bin, undo cannot bring them back. The copy to keep always stays where it is."));
+        string word = Lang.T("CANCELLA", "DELETE");
+        Console.Write(Lang.T($"  Per confermare scrivi {word} > ", $"  To confirm, type {word} > "));
+        return string.Equals((Console.ReadLine() ?? "").Trim(), word, StringComparison.OrdinalIgnoreCase);
+    }
+
     public static void Open(string path)
     {
         try { Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); }

@@ -140,6 +140,22 @@
       <Setter Property="Background" Value="Transparent" />
       <Setter Property="BorderThickness" Value="0" />
     </Style>
+    <!-- Il pulsante di un'azione che non si annulla (cancellare per sempre): rosso, in entrambi i temi -->
+    <Style Selector="Button.accent.danger /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#C42B1C" />
+      <Setter Property="BorderBrush" Value="#C42B1C" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.accent.danger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#B02718" />
+      <Setter Property="BorderBrush" Value="#B02718" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.accent.danger:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#9A2215" />
+      <Setter Property="BorderBrush" Value="#9A2215" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
     <Style Selector="Button.subtle:pointerover /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="{DynamicResource SubtleBrush}" />
     </Style>

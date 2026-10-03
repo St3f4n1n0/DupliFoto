@@ -27,7 +27,7 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly Func<IMetadataReader> _metadataFactory;
     private readonly Func<string?, string, IProgress<string>, Task<IEmbeddingProvider?>> _neuralFactory;
     private readonly Func<Task<IReadOnlyList<EngineAvailability>>> _detectEngines;
-    private readonly Func<string, bool> _hasRecycleBin;
+    private readonly Disks _disks;
     private ScanOptions? _options;
     private ScanResult? _result;
     private ActionSession? _session;
@@ -38,13 +38,13 @@ public sealed partial class MainViewModel : ObservableObject
 
     /// <param name="neural">La rete neurale (modello, acceleratore, messaggi): di norma Windows ML, nei test una finta.</param>
     /// <param name="detectEngines">Cosa offre il PC a CPU, GPU e NPU: di norma lo chiede a Windows ML.</param>
-    /// <param name="hasRecycleBin">C'è un Cestino per questa cartella? Di norma lo chiede a Windows.</param>
+    /// <param name="disks">Dischi, spazio e Cestino: di norma quelli veri; nei test si finge una chiavetta o un disco pieno.</param>
     public MainViewModel(SettingsStore store, Func<IImageDecoder>? decoder = null, Func<IMetadataReader>? metadata = null,
         Func<string?, string, IProgress<string>, Task<IEmbeddingProvider?>>? neural = null,
-        Func<Task<IReadOnlyList<EngineAvailability>>>? detectEngines = null, Func<string, bool>? hasRecycleBin = null)
+        Func<Task<IReadOnlyList<EngineAvailability>>>? detectEngines = null, Disks? disks = null)
     {
         _detectEngines = detectEngines ?? Neural.DetectEnginesAsync;
-        _hasRecycleBin = hasRecycleBin ?? RecycleBin.IsAvailableFor;
+        _disks = disks ?? Disks.System;
         _store = store;
         _decoderFactory = decoder ?? (() => new MagickImageDecoder());
         _metadataFactory = metadata ?? (() => new ExifMetadataReader());
@@ -275,7 +275,7 @@ public sealed partial class MainViewModel : ObservableObject
     public bool IsLow => SelectedPair?.IsLow == true;
 
     public bool CanDecide => IsIdle && !IsReadOnlyMode && SelectedPair?.Status is PairStatus.Pending or PairStatus.Skipped;
-    public bool CanSwap => IsIdle && SelectedPair is { Status: not PairStatus.Moved };
+    public bool CanSwap => IsIdle && SelectedPair is { IsMoved: false };
     public bool CanNavigate => HasResults && VisiblePairs.Count > 0;
     public bool CanUndo => IsIdle && MovedCount > 0 && _session?.Summary.JournalPath is not null;
     public int AutomaticCount => _options is null ? 0 : Pairs.Count(p => p.IsPending && ActionPolicy.IsAutomatic(_options, p.Member));
@@ -311,23 +311,30 @@ public sealed partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _confirmTitle = "";
     [ObservableProperty] private string _confirmText = "";
     [ObservableProperty] private string _confirmYesText = "";
+    [ObservableProperty] private string _confirmNoText = "";
     /// <summary>False per un avviso, che ha solo il pulsante per chiuderlo.</summary>
     [ObservableProperty] private bool _confirmCanCancel = true;
+    /// <summary>Il "sì" non si può annullare (cancellare per sempre): pulsante rosso.</summary>
+    [ObservableProperty] private bool _confirmIsDangerous;
 
     /// <summary>Mostra una domanda sopra la finestra e aspetta la risposta.</summary>
-    public Task<bool> ConfirmAsync(string title, string text, string yes) => Ask(title, text, yes, canCancel: true);
+    /// <param name="no">Il pulsante per dire di no; di norma «Annulla».</param>
+    public Task<bool> ConfirmAsync(string title, string text, string yes, string? no = null, bool dangerous = false) =>
+        Ask(title, text, yes, no, canCancel: true, dangerous);
 
     /// <summary>Mostra un avviso sopra la finestra, con un solo pulsante, e aspetta che lo si chiuda.</summary>
-    public Task InformAsync(string title, string text, string ok) => Ask(title, text, ok, canCancel: false);
+    public Task InformAsync(string title, string text, string ok) => Ask(title, text, ok, null, canCancel: false, dangerous: false);
 
-    private Task<bool> Ask(string title, string text, string yes, bool canCancel)
+    private Task<bool> Ask(string title, string text, string yes, string? no, bool canCancel, bool dangerous)
     {
         _confirm?.TrySetResult(false);
         _confirm = new TaskCompletionSource<bool>();
         ConfirmTitle = title;
         ConfirmText = text;
         ConfirmYesText = yes;
+        ConfirmNoText = no ?? Lang.T("Annulla", "Cancel");
         ConfirmCanCancel = canCancel;
+        ConfirmIsDangerous = dangerous;
         ConfirmVisible = true;
         return _confirm.Task;
     }
@@ -375,7 +382,7 @@ public sealed partial class MainViewModel : ObservableObject
         if (SelectedDisposal.Value != DisposalMethod.RecycleBin || !CanChangeDisposal) return Task.CompletedTask;
         // Le cartelle della lista e, finché ci sono i risultati, quelle della ricerca fatta (anche se tolte dalla lista).
         var folders = Folders.Select(f => f.Path).Concat(_result is not null && _options is not null ? _options.Roots : []);
-        string? lacking = folders.FirstOrDefault(p => !_hasRecycleBin(p));
+        string? lacking = folders.FirstOrDefault(p => !_disks.HasRecycleBin(p));
         if (lacking is null) return Task.CompletedTask;
 
         SelectedDisposal = Disposals.First(d => d.Value == DisposalMethod.Quarantine);
@@ -498,6 +505,7 @@ public sealed partial class MainViewModel : ObservableObject
     {
         _session?.Dispose();
         _session = null;
+        _crossDriveNoticeShown = false;
         _result = null;
         SelectedPair = null;
         Pairs.Clear();
@@ -509,7 +517,7 @@ public sealed partial class MainViewModel : ObservableObject
 
     private void ShowResults(ScanResult result)
     {
-        _session = new ActionSession(_options!);
+        _session = new ActionSession(_options!, disks: _disks);
         var status = DefaultStatus;
         foreach (var g in result.Groups)
             foreach (var m in g.Duplicates)
@@ -579,7 +587,7 @@ public sealed partial class MainViewModel : ObservableObject
             Lang.T($"Spostare tutti i «{p.KindLabel}»?", $"Move all “{p.KindLabel}”?"),
             Lang.T($"Sposto {Destination} i {targets.Count:N0} doppioni ancora da decidere di questo tipo ({ReportWriter.FormatBytes(bytes)}). ",
                    $"I will move {Destination} the {targets.Count:N0} duplicates of this kind still to decide ({ReportWriter.FormatBytes(bytes)}). ") +
-            KeepSentence,
+            KeepSentence + CrossDriveSentence(targets),
             Lang.T($"Sposta {targets.Count:N0}", $"Move {targets.Count:N0}"));
         if (!ok) return;
         await MoveAsync(targets, automatic: false);
@@ -606,7 +614,8 @@ public sealed partial class MainViewModel : ObservableObject
             Lang.T($"La modalità «{SelectedMode.Label}» può spostare da sola {targets.Count:N0} doppioni ({size}): {rule}. " +
                    $"Li sposto {Destination}? {KeepSentence} Le altre coppie te le mostro una per una.",
                    $"The “{SelectedMode.Label}” mode can move {targets.Count:N0} duplicates on its own ({size}): {rule}. " +
-                   $"Shall I move them {Destination}? {KeepSentence} I will show you the other pairs one by one."),
+                   $"Shall I move them {Destination}? {KeepSentence} I will show you the other pairs one by one.") +
+            CrossDriveSentence(targets),
             Lang.T($"Sposta {targets.Count:N0}", $"Move {targets.Count:N0}"));
         if (!ok) return;
         await MoveAsync(targets, automatic: true);
@@ -623,29 +632,86 @@ public sealed partial class MainViewModel : ObservableObject
         ? Lang.T($"in quarantena ({(_options ?? BuildOptions()).QuarantineRoot})", $"to quarantine ({(_options ?? BuildOptions()).QuarantineRoot})")
         : Lang.T("nel Cestino", "to the Recycle Bin");
 
+    /// <summary>L'avviso che la quarantena è su un altro disco (spostare vuol dire copiare) si dà una volta per ricerca.</summary>
+    private bool _crossDriveNoticeShown;
+
+    private bool AnyCrossDrive(IEnumerable<PairItem> items) =>
+        _session is { } s && items.Any(p => !p.IsMoved && s.IsCrossDrive(p.Duplicate));
+
+    /// <summary>Per le domande prima di spostare molti file: la quarantena su un altro disco rende lo spostamento lento.</summary>
+    private string CrossDriveSentence(IEnumerable<PairItem> items)
+    {
+        if (_crossDriveNoticeShown || !AnyCrossDrive(items)) return "";
+        _crossDriveNoticeShown = true;
+        return Lang.T(" La quarantena è su un altro disco: ogni file viene copiato per intero e poi tolto, e con una chiavetta " +
+                      "o un disco esterno può volerci parecchio.",
+                      " The quarantine is on another drive: every file is copied in full and then removed, and with a USB stick " +
+                      "or an external drive it can take a while.");
+    }
+
     private async Task MoveAsync(IReadOnlyList<PairItem> items, bool automatic)
     {
         if (_session is null) return;
         var session = _session;
+        if (!_crossDriveNoticeShown && AnyCrossDrive(items))
+        {
+            _crossDriveNoticeShown = true;
+            await InformAsync(
+                Lang.T("Spostamento su un altro disco", "Moving to another drive"),
+                Lang.T($"La quarantena ({QuarantineRoot}) è su un disco diverso da quello delle foto: ogni file viene copiato " +
+                       "per intero e poi tolto dal suo posto, non solo spostato. Con una chiavetta o un disco esterno può volerci " +
+                       "parecchio: lascia lavorare DupliFoto finché non ha finito.\n\n" +
+                       "Se sul disco della quarantena lo spazio libero scende sotto il 10%, gli spostamenti si fermano e ti chiedo cosa fare.",
+                       $"The quarantine ({QuarantineRoot}) is on a different drive from the photos: every file is copied in full " +
+                       "and then removed from its place, not just moved. With a USB stick or an external drive it can take a while: " +
+                       "let DupliFoto work until it has finished.\n\n" +
+                       "If the free space on the quarantine drive drops below 10%, the moves stop and I will ask you what to do."),
+                Lang.T("Ho capito", "Got it"));
+        }
+
         IsWorking = true;
+        bool suspended = false;
         try
         {
             await ReleasePreviewFilesAsync();
             int done = 0;
-            foreach (var p in items)
+            for (int i = 0; i < items.Count; i++)
             {
+                var p = items[i];
                 if (p.IsMoved) continue;
                 var outcome = await Task.Run(() => session.Move(p.Keeper, p.Member, automatic));
-                p.Status = outcome.Result is MoveResult.Moved or MoveResult.AlreadyHandled ? PairStatus.Moved : PairStatus.Blocked;
+                if (outcome.Result == MoveResult.QuarantineFull)
+                {
+                    // Il disco della quarantena è quasi pieno: ci si ferma, e si cancella per sempre solo con due conferme.
+                    int remaining = items.Skip(i).Count(x => !x.IsMoved);
+                    if (!await AllowPermanentDeletionAsync(outcome.Message, items.Count(x => x.IsMoved), remaining))
+                    {
+                        suspended = true;
+                        Say(() => outcome.Message + Lang.T(" Libera spazio e riprendi.", " Free up some space and carry on."));
+                        break;
+                    }
+                    session.DeleteWhenQuarantineFull = true;
+                    outcome = await Task.Run(() => session.Move(p.Keeper, p.Member, automatic));
+                }
+                p.Status = outcome.Result switch
+                {
+                    MoveResult.Moved or MoveResult.AlreadyHandled => PairStatus.Moved,
+                    MoveResult.Deleted => PairStatus.Deleted,
+                    _ => PairStatus.Blocked,
+                };
                 p.Note = outcome.Message;
                 if (items.Count > 1 && ++done % 25 == 0) Say(() => Lang.T($"Spostati {done:N0} di {items.Count:N0}...", $"Moved {done:N0} of {items.Count:N0}..."));
             }
+            if (suspended) return;
             int moved = items.Count(p => p.IsMoved);
+            int deleted = items.Count(p => p.Status == PairStatus.Deleted);
             int blocked = items.Count(p => p.IsBlocked);
-            Say(() => blocked == 0
+            Say(() => (blocked == 0
                 ? Lang.T($"Spostati {moved:N0} file {Destination}.", $"Moved {moved:N0} files {Destination}.")
                 : Lang.T($"Spostati {moved:N0} file; {blocked:N0} non toccati per sicurezza (vedi la colonna Stato).",
-                         $"Moved {moved:N0} files; {blocked:N0} left alone for safety (see the Status column)."));
+                         $"Moved {moved:N0} files; {blocked:N0} left alone for safety (see the Status column).")) +
+                (deleted == 0 ? "" : Lang.T($" Di questi, {deleted:N0} cancellati per sempre: la quarantena era piena.",
+                                            $" Of these, {deleted:N0} deleted for good: the quarantine was full.")));
         }
         finally
         {
@@ -653,6 +719,42 @@ public sealed partial class MainViewModel : ObservableObject
             RefreshCounters();
             _imagesTask = LoadImagesAsync(SelectedPair); // le anteprime interrotte vanno ricaricate
         }
+    }
+
+    /// <summary>
+    /// Il disco della quarantena è quasi pieno: fermarsi (la risposta prudente, sempre possibile) o cancellare per
+    /// sempre i doppioni che restano. Per cancellare servono due conferme, la seconda con il pulsante rosso.
+    /// </summary>
+    private async Task<bool> AllowPermanentDeletionAsync(string reason, int movedSoFar, int remaining)
+    {
+        bool delete = await ConfirmAsync(
+            Lang.T("Disco della quarantena quasi pieno", "Quarantine drive almost full"),
+            reason + "\n\n" +
+            Lang.T($"Spostati finora: {movedSoFar:N0}; ancora da spostare: {remaining:N0}.\n\n" +
+                   $"Puoi fermarti qui, liberare spazio (per esempio controllando e cancellando i file già in quarantena, in " +
+                   $"{QuarantineRoot}) e riprendere. Oppure puoi cancellare per sempre i doppioni che restano, senza passare " +
+                   "dalla quarantena: non si potranno recuperare.",
+                   $"Moved so far: {movedSoFar:N0}; still to move: {remaining:N0}.\n\n" +
+                   $"You can stop here, free up some space (for example by checking and deleting the files already in " +
+                   $"quarantine, in {QuarantineRoot}) and carry on. Or you can delete the remaining duplicates for good, " +
+                   "without the quarantine: they cannot be recovered."),
+            Lang.T("Cancella per sempre…", "Delete for good…"),
+            Lang.T("Fermati", "Stop"),
+            dangerous: true);
+        if (!delete) return false;
+
+        return await ConfirmAsync(
+            Lang.T("Cancellare per sempre?", "Delete for good?"),
+            Lang.T("I doppioni che non entrano più in quarantena verranno cancellati definitivamente: niente quarantena, niente " +
+                   "Cestino, e «Annulla spostamenti» non potrà riportarli indietro.\n\n" +
+                   "La copia da tenere di ogni coppia resta sempre al suo posto, e prima di cancellare ogni file ricontrollo tutto " +
+                   "come per lo spostamento. Vale fino alla prossima ricerca.",
+                   "The duplicates that no longer fit in quarantine will be deleted permanently: no quarantine, no Recycle Bin, " +
+                   "and “Undo moves” cannot bring them back.\n\n" +
+                   "The copy to keep of every pair always stays where it is, and before deleting each file I check everything " +
+                   "again as for a move. This holds until the next search."),
+            Lang.T("Cancella per sempre", "Delete for good"),
+            dangerous: true);
     }
 
     /// <summary>
@@ -687,7 +789,7 @@ public sealed partial class MainViewModel : ObservableObject
                 p.Status = DefaultStatus;
                 p.Note = Lang.T("ripristinato", "restored");
             }
-            _session = new ActionSession(_options);
+            _session = new ActionSession(_options, disks: _disks);
             Say(() => r.Skipped == 0
                 ? Lang.T($"Ripristinati {r.Restored:N0} file.", $"Restored {r.Restored:N0} files.")
                 : Lang.T($"Ripristinati {r.Restored:N0} file, {r.Skipped:N0} no: {r.Messages.FirstOrDefault()}",
@@ -696,7 +798,7 @@ public sealed partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             ErrorLog.Write(ex, "annulla");
-            _session = new ActionSession(_options);
+            _session = new ActionSession(_options, disks: _disks);
             Say(() => Lang.T($"Ripristino non completato: {ex.Message}. Il registro è in {journal}.",
                                 $"Restore not completed: {ex.Message}. The journal is in {journal}."));
         }
@@ -767,15 +869,15 @@ public sealed partial class MainViewModel : ObservableObject
         var old = Pairs.Where(p => ReferenceEquals(p.Group, g)).ToList();
         int at = old.Count > 0 ? Pairs.IndexOf(old[0]) : Pairs.Count;
         // Resta valido solo lo stato "spostato": il file non c'è più. Tutto il resto va rivalutato.
-        var moved = old.Where(p => p.IsMoved).ToDictionary(p => p.Duplicate.Path, p => p.Note, StringComparer.OrdinalIgnoreCase);
+        var moved = old.Where(p => p.IsMoved).ToDictionary(p => p.Duplicate.Path, p => p, StringComparer.OrdinalIgnoreCase);
         foreach (var p in old) Pairs.Remove(p);
 
         var status = DefaultStatus;
         // Un file già spostato che con la nuova copia da tenere non è più un doppione (solo tra cartelle diverse)
         // resta comunque nell'elenco: è stato spostato davvero.
         var fresh = old.Where(p => p.IsMoved && !g.Duplicates.Any(m => ReferenceEquals(m.File, p.Duplicate)))
-            .Concat(g.Duplicates.Select(m => moved.TryGetValue(m.File.Path, out var note)
-                ? new PairItem(g, m) { Status = PairStatus.Moved, Note = note }
+            .Concat(g.Duplicates.Select(m => moved.TryGetValue(m.File.Path, out var was)
+                ? new PairItem(g, m) { Status = was.Status, Note = was.Note }
                 : new PairItem(g, m) { Status = status })).ToList();
         for (int i = 0; i < fresh.Count; i++) Pairs.Insert(at + i, fresh[i]);
 

@@ -21,7 +21,10 @@ internal static class Help
         OPZIONI
           --azione quarantena|cestino   dove spostare i doppioni (predefinita: quarantena). Chiavette, schede
                                         di memoria e dischi di rete non hanno il Cestino: lì si usa la quarantena
-          --quarantena <cartella>       cartella di quarantena (predefinita: DupliFoto-Quarantena accanto all'exe)
+          --quarantena <cartella>       cartella di quarantena (predefinita: DupliFoto-Quarantena accanto all'exe).
+                                        Se è su un altro disco e lì lo spazio libero scende sotto il 10%, gli
+                                        spostamenti si fermano; puoi cancellare per sempre i doppioni rimasti
+                                        solo confermandolo due volte (mai con --non-interattivo)
           --verifica-completa           prima di spostare un file identico, riconfrontalo per intero con la
                                         copia da tenere (lento sui dischi esterni). Senza, si ricontrollano
                                         peso, data, inizio e fine del file: la ricerca li ha già confrontati
@@ -73,7 +76,10 @@ internal static class Help
         OPTIONS
           --action quarantine|recycle-bin   where duplicates go (default: quarantine). USB sticks, memory
                                         cards and network drives have no Recycle Bin: there the quarantine is used
-          --quarantine <folder>         quarantine folder (default: DupliFoto-Quarantena next to the exe)
+          --quarantine <folder>         quarantine folder (default: DupliFoto-Quarantena next to the exe).
+                                        If it is on another drive and the free space there drops below 10%,
+                                        the moves stop; the remaining duplicates can be deleted for good only
+                                        by confirming twice (never with --non-interactive)
           --full-check                  before moving an identical file, compare it again in full with the
                                         copy to keep (slow on external drives). Without it, size, date,
                                         start and end of the file are checked again: the search has

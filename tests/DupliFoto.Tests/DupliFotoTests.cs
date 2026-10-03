@@ -343,6 +343,41 @@ public sealed class EngineEndToEndTests : IDisposable
     }
 
     [Fact]
+    public void Without_anyone_to_ask_a_full_quarantine_stops_the_moves()
+    {
+        var o = Options(RunMode.SemiAutomatic);
+        var disks = new FakeDisks { Stick = _photos, Space = FakeDisks.AlmostFull };
+        var s = new ActionExecutor(o, prompt: null, disks: disks).Execute(Scan(o));
+
+        Assert.Equal(0, s.Moved);
+        Assert.True(File.Exists(Path.Combine(_photos, "mare (1).ppm")));
+        Assert.Contains(s.Warnings, w => w.Contains("meno del 10%") && w.Contains("Libera spazio"));
+        Assert.True(s.AwaitingReview >= 4);
+    }
+
+    [Fact]
+    public void A_full_quarantine_deletes_for_good_only_if_the_user_allows_it()
+    {
+        var o = Options(RunMode.SemiAutomatic);
+        var disks = new FakeDisks { Stick = _photos, Space = FakeDisks.AlmostFull };
+        var prompt = new AllowingPrompt();
+        var s = new ActionExecutor(o, prompt, disks: disks).Execute(Scan(o));
+
+        Assert.Equal(1, prompt.Asked);                                   // una volta sola: poi vale per la sessione
+        Assert.Equal(1, s.Moved);
+        Assert.Equal(1, s.DeletedForGood);
+        Assert.False(File.Exists(Path.Combine(_photos, "mare (1).ppm")));
+        Assert.True(File.Exists(Path.Combine(_photos, "mare.ppm")));
+    }
+
+    private sealed class AllowingPrompt : IDecisionPrompt
+    {
+        public int Asked { get; private set; }
+        public PromptAnswer Ask(PromptRequest request) => new(UserChoice.Skip);
+        public bool AllowPermanentDeletion(string reason) { Asked++; return true; }
+    }
+
+    [Fact]
     public void User_answers_are_respected()
     {
         var o = Options(RunMode.Assisted);
@@ -683,6 +718,128 @@ public sealed class SafetyTests : IDisposable
         Assert.Equal(expected, outcome.Result);
         Assert.Equal(!full, !File.Exists(twin.File.Path));
         Assert.True(File.Exists(keeper.Path));
+    }
+
+    /// <summary>Una copia da tenere e un doppione identico su una chiavetta (E:); la quarantena è sul disco C:.</summary>
+    private (PhotoFile Keeper, GroupMember Twin, FakeDisks Disks, ScanOptions Options) PairOnAStick(DiskSpace? space)
+    {
+        string stick = Path.Combine(_dir, "Chiavetta");
+        Directory.CreateDirectory(stick);
+        File.WriteAllBytes(Path.Combine(stick, "tieni.jpg"), [1, 2, 3, 4]);
+        File.WriteAllBytes(Path.Combine(stick, "copia.jpg"), [1, 2, 3, 4]);
+        var twin = new GroupMember { File = Existing(Path.Combine(stick, "copia.jpg")), Kind = MatchKind.ExactBytes, Confidence = 100, Reason = Text.Empty };
+        return (Existing(Path.Combine(stick, "tieni.jpg")), twin, new FakeDisks { Stick = stick, Space = space },
+                new ScanOptions { QuarantineRoot = Path.Combine(_dir, "Q") });
+    }
+
+    [Fact]
+    public void A_nearly_full_quarantine_drive_suspends_the_moves_and_touches_nothing()
+    {
+        var (keeper, twin, disks, o) = PairOnAStick(FakeDisks.AlmostFull);
+        using var session = new ActionSession(o, disks: disks);
+        Assert.True(session.IsCrossDrive(twin.File));
+
+        var outcome = session.Move(keeper, twin, automatic: true);
+
+        Assert.Equal(MoveResult.QuarantineFull, outcome.Result);
+        Assert.Contains("meno del 10%", outcome.Message);
+        Assert.True(File.Exists(twin.File.Path));
+        Assert.False(Directory.Exists(o.QuarantineRoot));
+        Assert.Equal(0, session.Summary.Moved);
+    }
+
+    [Theory]
+    [InlineData(5_000L)]      // 0,5% libero: sotto la soglia
+    [InlineData(100_003L)]    // dopo i 4 byte del file resterebbe il 9,9999%: sotto la soglia
+    public void The_guard_counts_the_file_about_to_be_copied(long free)
+    {
+        var (keeper, twin, disks, o) = PairOnAStick(new DiskSpace(free, 1_000_000));
+        using var session = new ActionSession(o, disks: disks);
+        Assert.Equal(MoveResult.QuarantineFull, session.Move(keeper, twin, automatic: false).Result);
+
+        disks.Space = new DiskSpace(100_004, 1_000_000);  // dopo la copia resta esattamente il 10%
+        Assert.Equal(MoveResult.Moved, session.Move(keeper, twin, automatic: false).Result);
+    }
+
+    [Fact]
+    public void On_the_same_drive_moving_takes_no_space_and_is_never_suspended()
+    {
+        var (keeper, twin, disks, o) = PairOnAStick(FakeDisks.AlmostFull);
+        disks.Stick = null; // tutto sul disco C:, quarantena compresa: spostare è solo cambiare nome
+        using var session = new ActionSession(o, disks: disks);
+
+        Assert.False(session.IsCrossDrive(twin.File));
+        Assert.Equal(MoveResult.Moved, session.Move(keeper, twin, automatic: true).Result);
+    }
+
+    [Fact]
+    public void Deleting_for_good_happens_only_when_allowed_and_cannot_be_undone()
+    {
+        var (keeper, twin, disks, o) = PairOnAStick(FakeDisks.AlmostFull);
+        using (var session = new ActionSession(o, disks: disks) { DeleteWhenQuarantineFull = true })
+        {
+            var outcome = session.Move(keeper, twin, automatic: false);
+
+            Assert.Equal(MoveResult.Deleted, outcome.Result);
+            Assert.True(outcome.Moved);
+            Assert.False(File.Exists(twin.File.Path));
+            Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(twin.File.Path)!, "*.duplifoto-da-cancellare*"));
+            Assert.True(File.Exists(keeper.Path));                   // la copia da tenere resta sempre
+            Assert.Equal(1, session.Summary.DeletedForGood);
+            Assert.Empty(Directory.GetFiles(o.QuarantineRoot, "copia.jpg", SearchOption.AllDirectories));
+        }
+
+        string journal = Directory.GetFiles(o.QuarantineRoot, "registro-*.jsonl").Single();
+        Assert.Equal(DisposalMethod.PermanentlyDeleted, ActionJournal.Read(journal).Single().Method);
+        var undo = ActionJournal.Undo(journal);
+        Assert.Equal(0, undo.Restored);
+        Assert.Contains("non si può ripristinare", Assert.Single(undo.Messages));
+    }
+
+    [Fact]
+    public void A_read_only_duplicate_is_never_deleted_for_good()
+    {
+        if (!OperatingSystem.IsWindows()) return; // la sola lettura che blocca la cancellazione è di Windows
+        var (keeper, twin, disks, o) = PairOnAStick(FakeDisks.AlmostFull);
+        File.SetAttributes(twin.File.Path, FileAttributes.ReadOnly);
+        try
+        {
+            using var session = new ActionSession(o, disks: disks) { DeleteWhenQuarantineFull = true };
+            var outcome = session.Move(keeper, twin, automatic: false);
+
+            Assert.Equal(MoveResult.Failed, outcome.Result);
+            Assert.True(File.Exists(twin.File.Path));                  // al suo posto, con il suo nome
+            Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(twin.File.Path)!, "*.duplifoto-da-cancellare*"));
+        }
+        finally
+        {
+            File.SetAttributes(twin.File.Path, FileAttributes.Normal);
+        }
+    }
+
+    [Fact]
+    public void Deleting_for_good_never_takes_the_copy_to_keep_reached_through_another_path()
+    {
+        string real = Path.Combine(_dir, "Foto"), alias = Path.Combine(_dir, "Stessa cartella");
+        Directory.CreateDirectory(real);
+        File.WriteAllBytes(Path.Combine(real, "a.jpg"), [1, 2, 3]);
+        CreateFolderAlias(alias, real);
+        var keeper = Existing(Path.Combine(real, "a.jpg"));
+        var twin = new GroupMember { File = Existing(Path.Combine(alias, "a.jpg")), Kind = MatchKind.ExactBytes, Confidence = 100, Reason = Text.Empty };
+        var disks = new FakeDisks { Stick = alias, Space = FakeDisks.AlmostFull };
+
+        using var session = new ActionSession(new ScanOptions { QuarantineRoot = Path.Combine(_dir, "Q") }, disks: disks)
+        {
+            DeleteWhenQuarantineFull = true,
+        };
+        var outcome = session.Move(keeper, twin, automatic: true);
+
+        // Su Windows lo riconosce l'identità del file; altrove il doppione prima cambia nome, la copia da tenere
+        // sparisce con lui, e allora il nome torna com'era e non si cancella niente.
+        Assert.Equal(MoveResult.SameFile, outcome.Result);
+        Assert.True(File.Exists(keeper.Path));
+        Assert.Equal([1, 2, 3], File.ReadAllBytes(keeper.Path));
+        Assert.Equal(0, session.Summary.Moved);
     }
 }
 

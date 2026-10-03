@@ -26,13 +26,18 @@ public enum RunMode
     Automatic,
 }
 
-/// <summary>Cosa fare dei doppioni. La cancellazione definitiva volutamente non esiste.</summary>
+/// <summary>Cosa fare dei doppioni. Non si sceglie mai la cancellazione definitiva: vedi <see cref="PermanentlyDeleted"/>.</summary>
 public enum DisposalMethod
 {
     /// <summary>Sposta in una cartella di quarantena, con registro per annullare.</summary>
     Quarantine,
     /// <summary>Sposta nel Cestino di Windows.</summary>
     RecycleBin,
+    /// <summary>
+    /// Cancellato per sempre: solo nel registro, per i doppioni che non entravano più in quarantena (disco quasi
+    /// pieno) e che l'utente ha deciso, con due conferme, di cancellare. Non si annulla.
+    /// </summary>
+    PermanentlyDeleted,
 }
 
 /// <summary>Una foto trovata sul disco, con tutto ciò che il motore ne ha ricavato.</summary>

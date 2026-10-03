@@ -230,6 +230,17 @@ async Task<int> Analyze(string[] a)
 
     if (o.Mode == RunMode.ReadOnly || result.Groups.Count == 0) return 0;
 
+    // Tra due dischi ogni file si copia per intero nella quarantena: con una chiavetta o un disco esterno è lento.
+    if (o.Disposal == DisposalMethod.Quarantine &&
+        result.Groups.SelectMany(g => g.Duplicates).Any(m => !Disks.System.SameDrive(m.File.Path, o.QuarantineRoot)))
+        Ui.Color(ConsoleColor.Yellow, T(
+            $"Nota: la quarantena ({o.QuarantineRoot}) è su un altro disco rispetto alle foto, quindi ogni file viene copiato " +
+            "per intero e poi tolto dal suo posto: con una chiavetta o un disco esterno può volerci parecchio. Se su quel disco " +
+            "lo spazio libero scende sotto il 10%, gli spostamenti si fermano.",
+            $"Note: the quarantine ({o.QuarantineRoot}) is on another drive than the photos, so every file is copied in full " +
+            "and then removed from its place: with a USB stick or an external drive it can take a while. If the free space " +
+            "on that drive drops below 10%, the moves stop."));
+
     // Una conferma iniziale prima di qualunque azione automatica, se c'è qualcuno davanti allo schermo.
     // Sì è "s" in italiano e "y" in inglese: mai l'una per l'altra.
     if (interactive && o.Mode is RunMode.SemiAutomatic or RunMode.Automatic)
@@ -248,6 +259,9 @@ async Task<int> Analyze(string[] a)
     Ui.Color(ConsoleColor.Green, T(
         $"Spostati {summary.Moved:N0} file ({ReportWriter.FormatBytes(summary.BytesFreed)}): {summary.AutomaticActions:N0} automatici, {summary.ConfirmedActions:N0} confermati.",
         $"Moved {summary.Moved:N0} files ({ReportWriter.FormatBytes(summary.BytesFreed)}): {summary.AutomaticActions:N0} automatic, {summary.ConfirmedActions:N0} confirmed."));
+    if (summary.DeletedForGood > 0)
+        Ui.Color(ConsoleColor.Red, T($"Di questi, cancellati per sempre perché la quarantena era piena: {summary.DeletedForGood:N0}",
+                                     $"Of these, deleted for good because the quarantine was full: {summary.DeletedForGood:N0}"));
     if (summary.SkippedByUser > 0) Console.WriteLine(T($"Saltati da te: {summary.SkippedByUser:N0}", $"Skipped by you: {summary.SkippedByUser:N0}"));
     if (summary.AwaitingReview > 0) Console.WriteLine(T($"Da rivedere (non toccati): {summary.AwaitingReview:N0}", $"To review (left alone): {summary.AwaitingReview:N0}"));
     foreach (var w in summary.Warnings) Ui.Color(ConsoleColor.Yellow, "  " + w);

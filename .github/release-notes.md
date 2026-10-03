@@ -23,6 +23,6 @@ DupliFoto is **portable**: download the `.exe` and run it. There is nothing to i
 - Windows 10 version 1809 or later, or Windows 11, on x64 or ARM64.
 - The optional neural model uses the NPU or GPU automatically on Windows 11 24H2 or later.
 
-DupliFoto never deletes files. Duplicates are moved to a quarantine folder, which can be restored with one click, or to the Recycle Bin.
+DupliFoto never deletes files on its own. Duplicates are moved to a quarantine folder, which can be restored with one click, or to the Recycle Bin.
 
 [Documentation](https://github.com/St3f4n1n0/DupliFoto#readme) · [Changelog](https://github.com/St3f4n1n0/DupliFoto/blob/main/CHANGELOG.md) · [Third-party notices](https://github.com/St3f4n1n0/DupliFoto/blob/main/THIRD-PARTY-NOTICES.md)

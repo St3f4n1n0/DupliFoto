@@ -136,6 +136,7 @@ if ($Full) {
         $out = & $cli $unc --modo semi-auto --azione cestino --non-interattivo --no-cache --report "$reportDir\rete.html" | Out-String
         if ($LASTEXITCODE -ne 0) { throw "duplifoto-cli in rete -> codice $LASTEXITCODE`n$out" }
         Check ($out -match 'senza Cestino' -and $out -match [regex]::Escape($q0)) 'in rete: avvisa prima e indica la quarantena'
+        Check ($out -match 'su un altro disco') 'in rete: avvisa che spostare su un altro disco vuol dire copiare'
         Check (-not (Test-Path "$dir\mare (1).jpg")) 'in rete: copia identica spostata lo stesso'
         $journal = Get-ChildItem $q0 -Filter 'registro-*.jsonl' | Sort-Object LastWriteTime | Select-Object -Last 1
         Run annulla $journal.FullName

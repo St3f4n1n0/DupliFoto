@@ -26,7 +26,7 @@
   - several shots of the same scene taken seconds apart.
 - **Side-by-side comparison.** The copy to keep is on the left and the one to move on the right, with a confidence score and the reason. You can move the right-hand copy, keep both, or swap which one to keep.
 - **You choose which folder wins.** Pick the folder whose copies must always stay (for example, the one you have already catalogued), and compare folders only against each other if you like: "what in *Downloads* is already in *Photos*?".
-- **Never deletes anything.** Duplicates go to a quarantine folder that can be restored with one click, or to the Recycle Bin.
+- **Never deletes anything on its own.** Duplicates go to a quarantine folder that can be restored with one click, or to the Recycle Bin.
 - **Portable.** A single `.exe` with nothing to install: .NET and every library are included.
 - **Many formats:** JPEG, PNG, HEIC, AVIF, WebP, TIFF, JPEG XL and the common RAW formats.
 - **Optional neural model** (DINOv2) that runs on the NPU, the GPU or the CPU through Windows ML. Three dots at the bottom of the window show at a glance which of CPU, GPU and NPU is available and which one is working.
@@ -138,7 +138,8 @@ Burst shots are always left to you. In unattended command-line runs (`--non-inte
 
 These rules hold in every mode:
 
-- **Nothing is ever deleted.** Files are only moved, to quarantine (the default) or to the Recycle Bin.
+- **Nothing is deleted unless you say so twice.** Files are only moved, to quarantine (the default) or to the Recycle Bin. The one exception is a choice you make yourself when the quarantine drive is almost full (see below).
+- **A quarantine on another drive.** When the quarantine is on a different drive from the photos (for example the photos on a USB stick and the `.exe` on the PC), moving a file means copying it in full and then removing it. With a USB stick or an external drive that can be slow, and DupliFoto says so before the first move. If less than 10% of the quarantine drive would stay free, the moves stop. You can free up some space and carry on, or, after two confirmations, delete for good the duplicates that no longer fit. Each one is still checked as for a move, the copy to keep always stays, and the journal lists it, but Undo cannot bring it back. The command line asks the same way (you type `DELETE`), and with `--non-interactive` it always stops.
 - **Recycle Bin only when it really exists.** USB sticks, memory cards and network drives have no Recycle Bin, and "deleting" there would mean erasing. DupliFoto checks this before the search, when you choose the Recycle Bin or add a folder: if a folder is on such a drive, it says so and uses the quarantine. Once you have checked the files in quarantine, you delete them yourself. If the Recycle Bin is disabled or too small, Windows asks before erasing instead of doing it silently.
 - **Undo journal.** Every move is written to a JSON Lines journal as it happens. `duplifoto-cli undo` and **Undo moves** restore everything in quarantine; the Recycle Bin is restored from Windows.
 - **Files changed after the scan are not touched,** and neither is anything whose copy-to-keep has gone missing or changed.

@@ -15,8 +15,9 @@
     <ProjectReference Include="..\..\src\DupliFoto.Gui\DupliFoto.Gui.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Stesse immagini sintetiche dei test del motore -->
+    <!-- Stesse immagini sintetiche, e stessi dischi finti, dei test del motore -->
     <Compile Include="..\DupliFoto.Tests\TestImages.cs" Link="Shared\TestImages.cs" />
     <Compile Include="..\DupliFoto.Tests\RealImages.cs" Link="Shared\RealImages.cs" />
+    <Compile Include="..\DupliFoto.Tests\FakeDisks.cs" Link="Shared\FakeDisks.cs" />
   </ItemGroup>
 </Project>
