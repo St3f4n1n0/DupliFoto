@@ -30,8 +30,10 @@ public partial class App : Application
             window.Opened += (_, _) =>
             {
                 NoteSlowStartup();
-                // A finestra aperta, senza rallentare l'avvio: via le copie scompattate delle versioni precedenti.
+                // A finestra aperta, senza rallentare l'avvio: via le copie scompattate delle versioni precedenti,
+                // e cosa offre il PC per i pallini CPU, GPU e NPU.
                 Task.Run(() => AppFiles.RemoveOldExtractions());
+                _ = vm.DetectEnginesAsync();
             };
             desktop.MainWindow = window;
             // Alla chiusura anche la copia scompattata di questa versione, se l'utente non ha scelto di tenerla.

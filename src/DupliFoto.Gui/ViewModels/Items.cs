@@ -111,6 +111,55 @@ public sealed partial class PairItem(DuplicateGroup group, GroupMember member) :
     public bool IsLow => Member.Confidence < 90;
 }
 
+public enum DotState
+{
+    /// <summary>Rosso: non c'è, o driver e componenti non sono compatibili.</summary>
+    Off,
+    /// <summary>Giallo: c'è ed è compatibile, ma ora lavora un altro motore.</summary>
+    Ready,
+    /// <summary>Verde: lo si sta usando.</summary>
+    Active,
+}
+
+/// <summary>Un pallino CPU, GPU o NPU in fondo alla finestra.</summary>
+public sealed partial class EngineDot(ComputeEngine engine) : ObservableObject
+{
+    public ComputeEngine Engine { get; } = engine;
+    public string Name { get; } = engine.ToString().ToUpperInvariant();
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsOff), nameof(IsReady), nameof(IsActive), nameof(Tip))]
+    private DotState _state;
+
+    /// <summary>Cosa offre il PC per questo motore (nome, componente, o perché non si può usare).</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(Tip))] private Text _detail = Text.Empty;
+
+    /// <summary>Cosa ci fa ora DupliFoto, se lo usa.</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(Tip))] private Text _work = Text.Empty;
+
+    public bool IsOff => State == DotState.Off;
+    public bool IsReady => State == DotState.Ready;
+    public bool IsActive => State == DotState.Active;
+
+    public string Tip
+    {
+        get
+        {
+            string state = State switch
+            {
+                DotState.Active => Lang.T("in uso", "in use"),
+                DotState.Ready => Lang.T("disponibile, ma ora lavora un altro motore", "available, but another engine is working now"),
+                _ => Lang.T("non disponibile", "not available"),
+            };
+            string work = Work.IsEmpty ? "" : $"\n{Work}";
+            string detail = Detail.IsEmpty ? "" : $"\n{Detail}";
+            return $"{Name}: {state}{work}{detail}";
+        }
+    }
+
+    public void Refresh() => OnPropertyChanged(nameof(Tip));
+}
+
 /// <summary>Metà dello schermo di confronto: una foto con le sue informazioni.</summary>
 public sealed partial class PhotoPanel(bool isKeeper) : ObservableObject
 {

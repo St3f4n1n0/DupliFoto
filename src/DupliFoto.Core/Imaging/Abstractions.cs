@@ -66,6 +66,9 @@ public interface IEmbeddingProvider : IDisposable
     /// <summary>Descrizione leggibile dell'hardware in uso, per il report.</summary>
     string DeviceDescription { get; }
 
+    /// <summary>Il motore su cui lavora davvero la rete neurale.</summary>
+    ComputeEngine Engine { get; }
+
     /// <summary>Quante immagini conviene passare insieme (le GPU/NPU rendono meglio a lotti).</summary>
     int PreferredBatchSize { get; }
 

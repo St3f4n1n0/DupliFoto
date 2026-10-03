@@ -29,10 +29,9 @@
 - **Never deletes anything.** Duplicates go to a quarantine folder that can be restored with one click, or to the Recycle Bin.
 - **Portable.** A single `.exe` with nothing to install: .NET and every library are included.
 - **Many formats:** JPEG, PNG, HEIC, AVIF, WebP, TIFF, JPEG XL and the common RAW formats.
-- **Optional neural model** (DINOv2) that runs on the NPU, the GPU or the CPU through Windows ML.
-- **Command-line tool** for scripts and scheduled clean-ups.
-
-The user interface is currently in Italian.
+- **Optional neural model** (DINOv2) that runs on the NPU, the GPU or the CPU through Windows ML. Three dots at the bottom of the window show at a glance which of CPU, GPU and NPU is available and which one is working.
+- **English and Italian.** The app follows the language of Windows (Italian on an Italian Windows, English everywhere else), or the one you pick in **More options**.
+- **Command-line tool** for scripts and scheduled clean-ups (in Italian).
 
 ## Download
 
@@ -58,16 +57,18 @@ Download the `.exe` and double-click it. Keep it wherever you like: Desktop, a U
 
 ## Using the app
 
-1. **Folders.** Add one or more folders with **Aggiungi cartella**, or drag them from File Explorer. With two or more folders, two more choices appear:
-   - **Copia da tenere** (copy to keep): *Scelta automatica* lets the rules below decide; picking a folder means its copies always stay, and only copies elsewhere are moved. When folders are nested (*Foto* and *Foto\Catalogate*), each photo belongs to the most specific folder you added.
-   - **Cerca i doppioni** (look for duplicates): *in tutte le foto* compares every photo with every other; *solo tra cartelle diverse* compares each folder only with the others, so duplicates within the same folder are left alone.
-2. **Mode.** Pick a mode (see [Modes](#modes)) and where duplicates go: quarantine or Recycle Bin. Then press **Avvia ricerca**.
-3. **Compare.** Each pair appears side by side: the copy to keep (*Da tenere*) on the left, the copy to move (*Da spostare*) on the right, each with the folder it comes from. In the middle are the confidence and the reason the left-hand copy is kept.
-   - **Sposta quella a destra** moves the right-hand photo away; the left-hand one stays where it is.
-   - **Tieni entrambe** keeps both.
-   - **Scambia** keeps the right-hand one instead.
+The labels below are those of the English interface; in Italian they read *Aggiungi cartella*, *Copia da tenere*, *Avvia ricerca* and so on.
+
+1. **Folders.** Add one or more folders with **Add folder**, or drag them from File Explorer. With two or more folders, two more choices appear:
+   - **Copy to keep:** *Automatic choice* lets the rules below decide; picking a folder means its copies always stay, and only copies elsewhere are moved. When folders are nested (*Photos* and *Photos\Catalogued*), each photo belongs to the most specific folder you added.
+   - **Look for duplicates:** *in all photos* compares every photo with every other; *only across different folders* compares each folder only with the others, so duplicates within the same folder are left alone.
+2. **Mode.** Pick a mode (see [Modes](#modes)) and where duplicates go: quarantine or Recycle Bin. Then press **Start search**.
+3. **Compare.** Each pair appears side by side: the copy to keep (*To keep*) on the left, the copy to move (*To move*) on the right, each with the folder it comes from. In the middle are the confidence and the reason the left-hand copy is kept.
+   - **Move the right-hand one** moves the right-hand photo away; the left-hand one stays where it is.
+   - **Keep both** keeps both.
+   - **Swap** keeps the right-hand one instead.
    - The next pair to decide comes up automatically.
-4. **Review.** Counters and the full list of pairs sit at the bottom, and the list can be filtered. Above the list, **Annulla spostamenti** puts back everything moved to quarantine during the session, and **Report** saves an HTML report with thumbnails and a CSV file for Excel in `DupliFoto-dati\Report`.
+4. **Review.** Counters and the full list of pairs sit at the bottom, and the list can be filtered. Above the list, **Undo moves** puts back everything moved to quarantine during the session, and **Report** saves an HTML report with thumbnails and a CSV file for Excel in `DupliFoto-dati\Report`.
 
 On low screens (1366×768, or a higher resolution with 125–150% scaling) the window uses a compact layout, and scrolls if even that does not fit.
 
@@ -135,7 +136,7 @@ These rules hold in every mode:
 
 - **Nothing is ever deleted.** Files are only moved, to quarantine (the default) or to the Recycle Bin.
 - **Recycle Bin only when it really exists.** Network and removable drives have no Recycle Bin, and "deleting" there would mean erasing, so those files are not touched. If the Recycle Bin is disabled or too small, Windows asks before erasing instead of doing it silently.
-- **Undo journal.** Every move is written to a JSON Lines journal as it happens. `duplifoto-cli annulla` and **Annulla spostamenti** restore everything in quarantine; the Recycle Bin is restored from Windows.
+- **Undo journal.** Every move is written to a JSON Lines journal as it happens. `duplifoto-cli annulla` and **Undo moves** restore everything in quarantine; the Recycle Bin is restored from Windows.
 - **Files changed after the scan are not touched,** and neither is anything whose copy-to-keep has gone missing or changed.
 - **Byte-by-byte check.** "Identical" files are compared byte by byte again right before being moved.
 - **One file, two paths.** A folder added twice by different routes (`Z:\Foto` and `\\NAS\Foto`, a SUBST drive, a junction) does not turn each photo into its own duplicate: the file is recognised by its identity on disk. After every move DupliFoto also checks that the copy to keep is still there; if it is not, the file goes straight back.
@@ -155,12 +156,18 @@ These rules hold in every mode:
 
 ## NPU and GPU acceleration
 
-The neural model is only used for burst shots (level 4) and is optional: without it, DupliFoto relies on classic algorithms alone.
+The neural model is only used for burst shots (level 4) and is optional: without it, DupliFoto relies on classic algorithms alone, which run on the CPU. **The NPU and the GPU are only used by the neural model**, and the model is not included in the download.
 
-- **The model.** `tools/export_dinov2.py` exports `dinov2-small.onnx`. Select it in **Altre opzioni** in the app, or pass `--modello` on the command line. To test the Windows ML pipeline alone, `tools/crea_modello_prova.py` creates a tiny model that returns the average colour of a photo.
+- **The model.** `tools/export_dinov2.py` exports `dinov2-small.onnx`. Select it in **More options** in the app, or pass `--modello` on the command line. To test the Windows ML pipeline alone, `tools/crea_modello_prova.py` creates a tiny model that returns the average colour of a photo.
 - **Execution providers.** Windows ML downloads the certified providers for your hardware through Windows Update: Qualcomm QNN, Intel OpenVINO, AMD VitisAI/MIGraphX, NVIDIA TensorRT-RTX. It also includes DirectML for any DirectX 12 GPU.
-- **Device choice.** Automatic, NPU, GPU or CPU (`--acceleratore auto|npu|gpu|cpu`). If a device is not available, the next one is used without errors.
-- **Only where needed.** Embeddings are computed only for candidate photos, not for the whole archive.
+- **Device choice.** Automatic (NPU, then GPU, then CPU), NPU, GPU or CPU (`--acceleratore auto|npu|gpu|cpu`). DupliFoto picks the device itself instead of leaving it to an ONNX Runtime policy, so it always knows where the model runs. On the NPU the model gets fixed shapes and runs one photo at a time, because NPUs such as Intel AI Boost do not accept variable shapes. If a device is missing or refuses the model, DupliFoto says why and moves on to the next one.
+- **The three dots.** At the bottom right of the window:
+  - **green:** the engine is working. The CPU is always green, because it reads and compares the photos; the GPU or the NPU turns green when the neural model runs on it;
+  - **yellow:** the engine is there and compatible, but another one is working (for example, there is no model);
+  - **red:** the engine is missing, or Windows ML has no compatible component for it.
+
+  Hover over a dot for the details: the device name, the Windows ML component, and how many photos the model examined in the last search. At start, DupliFoto only looks at what is already installed and downloads nothing. `duplifoto-cli hardware` shows the same information, and also lets Windows download the components for your NPU or GPU.
+- **Only where needed.** Embeddings are computed only for candidate photos, not for the whole archive. The NPU therefore works only for a few seconds, if at all, during a search.
 
 Reading and decoding files, the real bottleneck together with the disk, run in parallel on all CPU cores. Later scans are much faster thanks to the cache.
 
@@ -175,10 +182,10 @@ DupliFoto adds nothing to the registry, installs no services and nothing that ru
 | Unpacked program | `%TEMP%\.net\<exe name>`, for example `%TEMP%\.net\DupliFoto-0.3.1-x64` | at start; removed when the app closes |
 | Quarantine and move journals | `Pictures\DupliFoto-Quarantena` (or the folder chosen in the app) | first move; the journal is written there also when files go to the Recycle Bin |
 
-- **Read-only places.** If the folder next to the `.exe` cannot be written (a CD, or a protected folder such as Program Files), the working files go to `%LOCALAPPDATA%\DupliFoto` and the reports to `Documents\DupliFoto`. **Altre opzioni → File di DupliFoto** shows where they are.
-- **The unpacked program.** .NET unpacks the `.exe` into `%TEMP%\.net` before DupliFoto starts: this is the one place outside its folder that DupliFoto cannot avoid. When the app closes, a hidden Command Prompt removes that copy as soon as no DupliFoto window uses it any more. The next start unpacks again, which takes a few seconds. To keep the copy for quicker starts, untick *Alla chiusura togli anche i file temporanei del programma* in **Altre opzioni → File di DupliFoto**. The command-line tool removes its copy only when it is started with a double-click, so that commands run one after another from a terminal or a script start at once. Copies of older versions are removed at every start; a copy that is in use is left alone.
+- **Read-only places.** If the folder next to the `.exe` cannot be written (a CD, or a protected folder such as Program Files), the working files go to `%LOCALAPPDATA%\DupliFoto` and the reports to `Documents\DupliFoto`. **More options → DupliFoto's files** shows where they are.
+- **The unpacked program.** .NET unpacks the `.exe` into `%TEMP%\.net` before DupliFoto starts: this is the one place outside its folder that DupliFoto cannot avoid. When the app closes, a hidden Command Prompt removes that copy as soon as no DupliFoto window uses it any more. The next start unpacks again, which takes a few seconds. To keep the copy for quicker starts, untick *On closing, also remove the program's temporary files* in **More options → DupliFoto's files**. The command-line tool removes its copy only when it is started with a double-click, so that commands run one after another from a terminal or a script start at once. Copies of older versions are removed at every start; a copy that is in use is left alone.
 - **Earlier versions.** Versions up to 0.3.0 kept their files in `%LOCALAPPDATA%\DupliFoto`, and versions 0.2 and earlier kept the settings in `%APPDATA%\DupliFoto`. At start, DupliFoto moves settings, cache and error log into `DupliFoto-dati` and removes those folders. It touches only the files it wrote itself.
-- **Removing DupliFoto.** Close it, run `Pulisci DupliFoto.bat` in `DupliFoto-dati`, then delete the `.exe`. The script removes the unpacked copies and the working files of every version, and leaves the `Report` folder. It never touches the quarantine or the `.exe` files: delete those yourself if you no longer need them.
+- **Removing DupliFoto.** Close it, run `Pulisci DupliFoto.bat` ("clean up DupliFoto", in English when the app is in English) in `DupliFoto-dati`, then delete the `.exe`. The script removes the unpacked copies and the working files of every version, and leaves the `Report` folder. It never touches the quarantine or the `.exe` files: delete those yourself if you no longer need them.
 - **Windows ML.** If you select a neural model, Windows may download the NPU/GPU components; Windows installs and manages them.
 
 ## Privacy
@@ -240,7 +247,7 @@ On every push, GitHub Actions builds the solution and runs all tests on Linux an
 - **The safety rules:** links, the same file reached through two paths, the last copy that automatic mode must always keep, the folder to keep (also with nested folders), journals, locked files, and the Recycle Bin on Windows.
 - **Comparing folders:** only pairs between different folders, duplicates inside a folder left alone, and swapping the copy to keep.
 - **Real libraries:** Magick.NET and MetadataExtractor on generated JPEG and PNG files, checking EXIF with sub-seconds and GPS, orientation, greyscale and transparency.
-- **The app:** the full flow on real photos (search, move, swap, keep both, undo, semi-automatic, read-only), plus screenshots in light and dark theme.
+- **The app:** the full flow on real photos (search, move, swap, keep both, undo, semi-automatic, read-only), switching between Italian and English with the window open, the CPU/GPU/NPU dots, plus screenshots in light and dark theme.
 
 Then CI runs the published executables on real photos:
 
@@ -263,7 +270,7 @@ The ARM64 build is compiled but not run, because the CI machines are x64.
 
 ## Roadmap
 
-1. **English user interface.**
+1. **The neural model in the download**, so that the NPU can be used without Python.
 2. **App.** Synchronised zoom on the two photos, keyboard shortcuts, a thumbnail grid for large groups.
 3. **Best shot.** Open eyes and smiles to pick the best burst shot (face detection via ONNX).
 4. **Native burst IDs** (Apple BurstUUID, Samsung) and Live Photo pairs (HEIC+MOV).

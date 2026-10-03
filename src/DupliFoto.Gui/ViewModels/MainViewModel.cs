@@ -24,6 +24,8 @@ public sealed partial class MainViewModel : ObservableObject
     private readonly ImageLoader _images;
     private readonly Func<IImageDecoder> _decoderFactory;
     private readonly Func<IMetadataReader> _metadataFactory;
+    private readonly Func<string?, string, IProgress<string>, Task<IEmbeddingProvider?>> _neuralFactory;
+    private readonly Func<Task<IReadOnlyList<EngineAvailability>>> _detectEngines;
     private ScanOptions? _options;
     private ScanResult? _result;
     private ActionSession? _session;
@@ -32,11 +34,17 @@ public sealed partial class MainViewModel : ObservableObject
     private Task _imagesTask = Task.CompletedTask;
     private TaskCompletionSource<bool>? _confirm;
 
-    public MainViewModel(SettingsStore store, Func<IImageDecoder>? decoder = null, Func<IMetadataReader>? metadata = null)
+    /// <param name="neural">La rete neurale (modello, acceleratore, messaggi): di norma Windows ML, nei test una finta.</param>
+    /// <param name="detectEngines">Cosa offre il PC a CPU, GPU e NPU: di norma lo chiede a Windows ML.</param>
+    public MainViewModel(SettingsStore store, Func<IImageDecoder>? decoder = null, Func<IMetadataReader>? metadata = null,
+        Func<string?, string, IProgress<string>, Task<IEmbeddingProvider?>>? neural = null,
+        Func<Task<IReadOnlyList<EngineAvailability>>>? detectEngines = null)
     {
+        _detectEngines = detectEngines ?? Neural.DetectEnginesAsync;
         _store = store;
         _decoderFactory = decoder ?? (() => new MagickImageDecoder());
         _metadataFactory = metadata ?? (() => new ExifMetadataReader());
+        _neuralFactory = neural ?? Neural.TryCreateAsync;
         _images = new ImageLoader(_decoderFactory());
 
         _selectedMode = Modes[0];
@@ -52,6 +60,7 @@ public sealed partial class MainViewModel : ObservableObject
             RefreshState();
         };
         LoadSettings();
+        RefreshEngines(); // la CPU subito verde; GPU e NPU appena si sa cosa offre il PC
     }
 
     // ------------------------------------------------------------------ impostazioni
@@ -370,9 +379,13 @@ public sealed partial class MainViewModel : ObservableObject
         IEmbeddingProvider? embeddings = null;
         try
         {
-            embeddings = await Neural.TryCreateAsync(ModelPath, SelectedAccelerator.Value, progress);
+            embeddings = await _neuralFactory(ModelPath, SelectedAccelerator.Value, progress);
+            NeuralEngine = embeddings?.Engine;
+            _neuralPhotos = null;
+            RefreshEngines();
             var engine = new DedupEngine(_decoderFactory(), _metadataFactory(), embeddings);
             _result = await Task.Run(() => engine.Run(o, progress, ct), ct);
+            _neuralPhotos = _result.NeuralPhotos;
         }
         catch (OperationCanceledException)
         {
@@ -388,6 +401,10 @@ public sealed partial class MainViewModel : ObservableObject
         {
             embeddings?.Dispose();
             IsScanning = false;
+            _neuralPhotos ??= 0;
+            RefreshEngines();
+            // Windows può aver appena scaricato il componente per la NPU o la GPU: si riguarda cosa c'è.
+            if (embeddings is not null) _ = DetectEnginesAsync();
         }
 
         ShowResults(_result);
@@ -885,6 +902,64 @@ public sealed partial class MainViewModel : ObservableObject
         Language = SelectedLanguage.Value,
     });
 
+    // ------------------------------------------------------------------ motori: i pallini CPU, GPU e NPU
+
+    public IReadOnlyList<EngineDot> Engines { get; } = [new(ComputeEngine.Cpu), new(ComputeEngine.Gpu), new(ComputeEngine.Npu)];
+
+    private IReadOnlyList<EngineAvailability> _availability = [];
+
+    /// <summary>Dove lavora (o ha lavorato nell'ultima ricerca) la rete neurale; null se non è stata usata.</summary>
+    public ComputeEngine? NeuralEngine { get; private set; }
+
+    /// <summary>Quante foto ha esaminato la rete neurale nell'ultima ricerca (null durante la ricerca).</summary>
+    private int? _neuralPhotos;
+
+    /// <summary>Guarda cosa offre il PC (senza scaricare niente) e aggiorna i pallini.</summary>
+    public async Task DetectEnginesAsync() => SetEngines(await _detectEngines());
+
+    internal void SetEngines(IReadOnlyList<EngineAvailability> availability)
+    {
+        _availability = availability;
+        RefreshEngines();
+    }
+
+    /// <summary>
+    /// Verde dove si lavora: la CPU sempre (legge e confronta le foto), la GPU o la NPU quando ci lavora la rete neurale.
+    /// Giallo dove si potrebbe lavorare, rosso dove no.
+    /// </summary>
+    private void RefreshEngines()
+    {
+        foreach (var dot in Engines)
+        {
+            var found = _availability.FirstOrDefault(a => a.Engine == dot.Engine);
+            bool neural = NeuralEngine == dot.Engine;
+            dot.Detail = found?.Detail ?? Text.Empty;
+            dot.State = dot.Engine == ComputeEngine.Cpu || neural ? DotState.Active
+                : found is { Usable: true } ? DotState.Ready
+                : DotState.Off;
+            dot.Work = (dot.Engine, neural) switch
+            {
+                (ComputeEngine.Cpu, true) => new("legge e confronta le foto, e fa lavorare la rete neurale",
+                                                 "reads and compares the photos, and runs the neural network"),
+                (ComputeEngine.Cpu, false) => new("legge e confronta le foto", "reads and compares the photos"),
+                (_, true) => _neuralPhotos switch
+                {
+                    null => new("la rete neurale lavora qui", "the neural network is working here"),
+                    0 => new("la rete neurale era pronta qui, ma nell'ultima ricerca nessuna foto ne aveva bisogno",
+                             "the neural network was ready here, but no photo in the last search needed it"),
+                    int n => new($"la rete neurale ha lavorato qui: {n:N0} foto nell'ultima ricerca",
+                                 $"the neural network worked here: {n:N0} photos in the last search"),
+                },
+                _ when dot.State == DotState.Ready && string.IsNullOrWhiteSpace(ModelPath) =>
+                    new("la usa la rete neurale: scegli un modello in «Altre opzioni»",
+                        "the neural network uses it: choose a model in “More options”"),
+                _ => Text.Empty,
+            };
+        }
+    }
+
+    partial void OnModelPathChanged(string? value) => RefreshEngines();
+
     // ------------------------------------------------------------------ lingua
 
     partial void OnSelectedLanguageChanged(Choice<string> value) => Lang.Set(value.Value);
@@ -897,6 +972,7 @@ public sealed partial class MainViewModel : ObservableObject
     private void OnLanguageChanged()
     {
         foreach (var c in Modes.Concat<IChoice>(Disposals).Concat(Accelerators).Concat(Filters).Concat(Languages)) c.Refresh();
+        foreach (var dot in Engines) dot.Refresh();
         foreach (var f in Folders) f.Refresh();
         foreach (var p in Pairs) p.Refresh();
         Left.Refresh();

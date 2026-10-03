@@ -218,9 +218,13 @@ int Undo(string[] a)
 
 async Task<int> Hardware()
 {
-    Console.WriteLine($"CPU: {Environment.ProcessorCount} thread logici, {System.Runtime.InteropServices.RuntimeInformation.OSArchitecture}");
-    await WindowsMlEmbeddingProvider.RegisterCertifiedProvidersAsync(progress);
-    Console.WriteLine("Dispositivi di calcolo per la rete neurale:");
+    // Qui sì che si scarica: Windows ML prende i componenti per la NPU o la GPU di questo PC, come alla prima
+    // ricerca con il modello. I pallini dell'app invece guardano solo cosa c'è già.
+    var engines = await DeviceInventory.DetectAsync(download: true);
+    Console.WriteLine($"Motori di calcolo per la rete neurale ({System.Runtime.InteropServices.RuntimeInformation.OSArchitecture}):");
+    foreach (var e in engines)
+        Console.WriteLine($"  {e.Engine.ToString().ToUpperInvariant()}  {(e.Usable ? "sì" : "no")}  {e.Detail}");
+    Console.WriteLine("Dispositivi visti da ONNX Runtime:");
     foreach (var d in WindowsMlEmbeddingProvider.ListDevices()) Console.WriteLine("  " + d);
     return 0;
 }
@@ -259,7 +263,7 @@ static void PrintHelp() => Console.WriteLine("""
     USO
       duplifoto-cli [analizza] <cartella> [<cartella>...] [opzioni]
       duplifoto-cli annulla <registro.jsonl>    riporta i file dalla quarantena
-      duplifoto-cli hardware                    mostra NPU/GPU/CPU disponibili
+      duplifoto-cli hardware                    mostra CPU, GPU e NPU che la rete neurale può usare
       duplifoto-cli --versione
 
     MODALITÀ  (--modo)
@@ -276,7 +280,7 @@ static void PrintHelp() => Console.WriteLine("""
                                     la stessa cartella vengono ignorati (servono almeno due cartelle)
       --report <file.html>          dove salvare il report (accanto viene creato anche il .csv)
       --modello <file.onnx>         modello neurale per riconoscere gli scatti multipli (es. DINOv2)
-      --acceleratore auto|npu|gpu|cpu   dispositivo preferito per il modello (predefinito: auto)
+      --acceleratore auto|npu|gpu|cpu   dove far lavorare il modello (predefinito: auto = NPU, poi GPU, poi CPU)
       --raffica <secondi>           distanza massima tra scatti multipli (predefinita: 10)
       --no-raffiche                 non cercare scatti multipli
       --no-sottocartelle  --nascosti  --no-cache  --thread <n>

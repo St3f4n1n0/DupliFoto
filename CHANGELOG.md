@@ -3,6 +3,21 @@
 All notable changes to DupliFoto are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-10-03
+
+### Added
+
+- **English.** The app follows the language of Windows: Italian on an Italian Windows, English everywhere else. **More options → Language** switches at once, without restarting, and the choice is saved. Messages, reasons, reports and the clean-up script follow the language too. The command-line tool stays in Italian.
+- **CPU, GPU and NPU at a glance.** Three dots at the bottom right of the window: green where DupliFoto is working, yellow where it could work, red where the device is missing or has no compatible driver or Windows ML component. Hovering over a dot shows the device, the component and how many photos the neural model examined in the last search. At start nothing is downloaded: DupliFoto only looks at what is installed. `duplifoto-cli hardware` shows the same information.
+
+### Fixed
+
+- **The neural model now really runs on the NPU.** The model had a variable batch size, and NPUs such as Intel AI Boost only accept fixed shapes: ONNX Runtime quietly ran the whole model on the CPU. On the NPU the model now gets fixed shapes and runs one photo at a time. DupliFoto also picks the device itself, so the report and the dots say where the model actually ran. If a device refuses the model, DupliFoto says why and moves on to the next one.
+
+### Changed
+
+- **Automatic** now means NPU, then GPU, then CPU. It used to leave the choice to Windows ML, which usually picked the GPU.
+
 ## [0.3.1] - 2026-10-01
 
 ### Changed

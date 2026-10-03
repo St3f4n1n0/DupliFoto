@@ -1,3 +1,4 @@
+using DupliFoto.Core;
 using DupliFoto.Core.Imaging;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
@@ -11,13 +12,19 @@ public enum AcceleratorPreference { Auto, Npu, Gpu, Cpu }
 /// Calcola embedding di immagini con un modello ONNX (es. DINOv2-small) tramite Windows ML.
 /// Windows ML scarica e registra gli execution provider certificati per l'hardware presente
 /// (Qualcomm QNN, Intel OpenVINO, AMD VitisAI/MIGraphX, NVIDIA TensorRT-RTX) e include DirectML
-/// per qualunque GPU DirectX 12. ONNX Runtime poi sceglie il dispositivo secondo la preferenza;
-/// se nessun acceleratore è disponibile si ricade sulla CPU, senza errori.
+/// per qualunque GPU DirectX 12.
+/// Il dispositivo lo sceglie DupliFoto, non una politica di ONNX Runtime: così sa sempre dove lavora la rete
+/// neurale (i pallini nella finestra, il report). Per la NPU il modello viene reso a dimensioni fisse, una foto alla
+/// volta: le NPU (Intel OpenVINO in testa) non accettano dimensioni variabili, e con il lotto variabile il modello
+/// finiva tutto sulla CPU senza dirlo. Se un motore non c'è o rifiuta il modello si passa al successivo, dicendo perché.
 /// </summary>
 public sealed class WindowsMlEmbeddingProvider : IEmbeddingProvider
 {
     private static readonly float[] Mean = [0.485f, 0.456f, 0.406f]; // normalizzazione ImageNet
     private static readonly float[] Std = [0.229f, 0.224f, 0.225f];
+
+    /// <summary>Solo per le prove su un PC senza NPU: "gpu" o "cpu" fa passare quel dispositivo per la NPU.</summary>
+    private const string TestNpuVariable = "DUPLIFOTO_PROVA_NPU";
 
     private readonly InferenceSession _session;
     private readonly string _inputName;
@@ -25,15 +32,17 @@ public sealed class WindowsMlEmbeddingProvider : IEmbeddingProvider
     private bool _batchUnsupported;
 
     public string DeviceDescription { get; }
+    public ComputeEngine Engine { get; }
     public int PreferredBatchSize { get; }
 
-    private WindowsMlEmbeddingProvider(InferenceSession session, string description, int batch)
+    private WindowsMlEmbeddingProvider(InferenceSession session, ComputeEngine engine, string description, int batch)
     {
         _session = session;
         _inputName = session.InputMetadata.Keys.First();
         var dims = session.InputMetadata[_inputName].Dimensions; // es. [-1, 3, 224, 224]
         _side = dims.Length == 4 && dims[3] > 0 ? dims[3] : 224;
-        _batchUnsupported = dims.Length == 4 && dims[0] == 1;
+        _batchUnsupported = batch == 1 || dims.Length == 4 && dims[0] == 1;
+        Engine = engine;
         DeviceDescription = description;
         PreferredBatchSize = _batchUnsupported ? 1 : batch;
     }
@@ -41,26 +50,116 @@ public sealed class WindowsMlEmbeddingProvider : IEmbeddingProvider
     public static async Task<WindowsMlEmbeddingProvider> CreateAsync(
         string modelPath, AcceleratorPreference preference, IProgress<string>? log = null)
     {
-        if (!File.Exists(modelPath)) throw new FileNotFoundException("Modello ONNX non trovato", modelPath);
+        if (!File.Exists(modelPath)) throw new FileNotFoundException(Lang.T("Modello ONNX non trovato", "ONNX model not found"), modelPath);
 
-        _ = OrtEnv.Instance(); // l'ambiente ONNX Runtime deve esistere prima di registrare i provider
+        var env = OrtEnv.Instance(); // l'ambiente ONNX Runtime deve esistere prima di registrare i provider
         await RegisterCertifiedProvidersAsync(log);
+        var devices = DeviceInventory.Devices();
 
-        var so = new SessionOptions { GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL };
-        so.SetEpSelectionPolicy(preference switch
+        // Se il motore scelto non c'è o rifiuta il modello, si passa al successivo. "Automatico" parte dalla NPU:
+        // è fatta per la rete neurale e consuma poco.
+        ComputeEngine[] order = preference switch
         {
-            AcceleratorPreference.Npu => ExecutionProviderDevicePolicy.PREFER_NPU,
-            AcceleratorPreference.Gpu => ExecutionProviderDevicePolicy.PREFER_GPU,
-            AcceleratorPreference.Cpu => ExecutionProviderDevicePolicy.PREFER_CPU,
-            _ => ExecutionProviderDevicePolicy.MAX_PERFORMANCE,
-        });
+            AcceleratorPreference.Gpu => [ComputeEngine.Gpu, ComputeEngine.Cpu],
+            AcceleratorPreference.Cpu => [ComputeEngine.Cpu],
+            _ => [ComputeEngine.Npu, ComputeEngine.Gpu, ComputeEngine.Cpu],
+        };
+        foreach (var engine in order.Where(e => e != ComputeEngine.Cpu))
+        {
+            var candidates = Candidates(devices, engine);
+            if (candidates.Count == 0)
+            {
+                log?.Report(Lang.T($"Rete neurale: nessuna {engine.ToString().ToUpperInvariant()} utilizzabile da Windows ML.",
+                                   $"Neural network: no {engine.ToString().ToUpperInvariant()} that Windows ML can use."));
+                continue;
+            }
+            foreach (var device in candidates)
+                if (TryCreate(env, modelPath, engine, device, log) is { } provider) return provider;
+        }
 
-        var session = new InferenceSession(modelPath, so);
-        string devices = string.Join(", ", ListDevices());
-        string description = $"Windows ML ({PreferenceLabel(preference)}; disponibili: {devices})";
-        // Le NPU lavorano quasi sempre con forme statiche: una immagine alla volta è la scelta più sicura.
-        int batch = preference == AcceleratorPreference.Npu ? 1 : preference == AcceleratorPreference.Cpu ? 8 : 16;
-        return new WindowsMlEmbeddingProvider(session, description, batch);
+        // La CPU, con la sessione normale di ONNX Runtime: c'è sempre.
+        var so = new SessionOptions { GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL };
+        return new WindowsMlEmbeddingProvider(new InferenceSession(modelPath, so), ComputeEngine.Cpu,
+            Lang.T("Windows ML sulla CPU", "Windows ML on the CPU"), batch: 8);
+    }
+
+    /// <summary>I dispositivi di un motore, nell'ordine in cui provarli: per la GPU prima DirectML, il più compatibile.</summary>
+    private static List<OrtEpDevice> Candidates(IReadOnlyList<OrtEpDevice> devices, ComputeEngine engine)
+    {
+        var wanted = engine;
+        if (engine == ComputeEngine.Npu && Environment.GetEnvironmentVariable(TestNpuVariable) is { Length: > 0 } test)
+            wanted = test.Equals("cpu", StringComparison.OrdinalIgnoreCase) ? ComputeEngine.Cpu : ComputeEngine.Gpu;
+        return devices.Where(d => DeviceInventory.EngineOf(d) == wanted)
+            .OrderBy(d => d.EpName == "DmlExecutionProvider" ? 0 : 1)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Una sessione su quel dispositivo: prima tutto il modello lì (se una parte finisse sulla CPU la creazione fallisce),
+    /// poi, se il dispositivo non sa eseguire tutte le operazioni, con quelle che mancano sulla CPU.
+    /// </summary>
+    private static WindowsMlEmbeddingProvider? TryCreate(OrtEnv env, string modelPath, ComputeEngine engine, OrtEpDevice device, IProgress<string>? log)
+    {
+        string what = DeviceInventory.Describe(device);
+        string label = engine.ToString().ToUpperInvariant();
+        IReadOnlyDictionary<string, long> shapes;
+        try { shapes = engine == ComputeEngine.Npu ? StaticShapes(modelPath) : new Dictionary<string, long>(); }
+        catch (Exception ex)
+        {
+            log?.Report(Lang.T($"Rete neurale: modello non leggibile ({ex.Message}).", $"Neural network: model not readable ({ex.Message})."));
+            return null;
+        }
+
+        foreach (bool whole in new[] { true, false })
+        {
+            try
+            {
+                using var so = new SessionOptions { GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL };
+                foreach (var (name, value) in shapes) so.AddFreeDimensionOverrideByName(name, value);
+                if (whole) so.AddSessionConfigEntry("session.disable_cpu_ep_fallback", "1");
+                if (device.EpName == "DmlExecutionProvider")
+                {
+                    so.EnableMemoryPattern = false; // DirectML vuole così
+                    so.ExecutionMode = ExecutionMode.ORT_SEQUENTIAL;
+                }
+                so.AppendExecutionProvider(env, [device], new Dictionary<string, string>());
+                var session = new InferenceSession(modelPath, so);
+                string description = whole
+                    ? Lang.T($"Windows ML sulla {label}: {what}", $"Windows ML on the {label}: {what}")
+                    : Lang.T($"Windows ML sulla {label}: {what}, con alcune operazioni sulla CPU",
+                             $"Windows ML on the {label}: {what}, with some operations on the CPU");
+                int batch = engine == ComputeEngine.Npu ? 1 : 16;
+                return new WindowsMlEmbeddingProvider(session, engine, description, batch);
+            }
+            catch (Exception ex)
+            {
+                log?.Report(whole
+                    ? Lang.T($"La {label} ({what}) non esegue tutto il modello ({ex.Message}): provo con una parte sulla CPU.",
+                             $"The {label} ({what}) cannot run the whole model ({ex.Message}): trying with part of it on the CPU.")
+                    : Lang.T($"La {label} ({what}) non accetta il modello: {ex.Message}", $"The {label} ({what}) does not accept the model: {ex.Message}"));
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Le dimensioni variabili degli ingressi, rese fisse: il lotto a 1 (una foto alla volta), i canali a 3, il lato a 224.
+    /// Le NPU compilano il modello per forme fisse; con un lotto variabile lo rifiutano e tutto finisce sulla CPU.
+    /// </summary>
+    internal static IReadOnlyDictionary<string, long> StaticShapes(string modelPath)
+    {
+        using var so = new SessionOptions { GraphOptimizationLevel = GraphOptimizationLevel.ORT_DISABLE_ALL };
+        using var probe = new InferenceSession(modelPath, so);
+        var shapes = new Dictionary<string, long>();
+        foreach (var input in probe.InputMetadata.Values)
+        {
+            var dims = input.Dimensions;
+            var names = input.SymbolicDimensions;
+            for (int i = 0; i < dims.Length && i < names.Length; i++)
+                if (dims[i] < 0 && !string.IsNullOrEmpty(names[i]))
+                    shapes.TryAdd(names[i], i == 0 ? 1 : dims.Length == 4 && i == 1 ? 3 : 224);
+        }
+        return shapes;
     }
 
     /// <summary>Scarica (se serve) e registra gli execution provider certificati per questo PC.</summary>
@@ -74,7 +173,8 @@ public sealed class WindowsMlEmbeddingProvider : IEmbeddingProvider
         catch (Exception ex)
         {
             // Windows precedente a 24H2, rete assente, criteri aziendali: si prosegue con DirectML/CPU.
-            log?.Report($"Provider certificati Windows ML non disponibili ({ex.Message}); uso DirectML/CPU.");
+            log?.Report(Lang.T($"Provider certificati Windows ML non disponibili ({ex.Message}); uso DirectML/CPU.",
+                               $"Certified Windows ML providers not available ({ex.Message}); using DirectML/CPU."));
         }
     }
 
@@ -83,25 +183,13 @@ public sealed class WindowsMlEmbeddingProvider : IEmbeddingProvider
     {
         try
         {
-            return OrtEnv.Instance().GetEpDevices()
-                // DirectML non indica il produttore: niente doppio spazio in "GPU  via ..."
-                .Select(d => $"{d.HardwareDevice.Type} {d.HardwareDevice.Vendor}".TrimEnd() + $" via {d.EpName}")
-                .Distinct()
-                .ToList();
+            return DeviceInventory.Devices().Select(d => $"{d.HardwareDevice.Type} {DeviceInventory.Describe(d)}").Distinct().ToList();
         }
         catch (Exception ex)
         {
-            return [$"elenco non disponibile: {ex.Message}"];
+            return [Lang.T($"elenco non disponibile: {ex.Message}", $"list not available: {ex.Message}")];
         }
     }
-
-    private static string PreferenceLabel(AcceleratorPreference p) => p switch
-    {
-        AcceleratorPreference.Npu => "preferenza NPU",
-        AcceleratorPreference.Gpu => "preferenza GPU",
-        AcceleratorPreference.Cpu => "solo CPU",
-        _ => "massime prestazioni",
-    };
 
     public float[][] Embed(IReadOnlyList<RgbImage> images)
     {

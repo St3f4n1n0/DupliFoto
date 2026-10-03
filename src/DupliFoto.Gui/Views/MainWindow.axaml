@@ -49,6 +49,15 @@
     <Style Selector="Border#DecisionBar">
       <Setter Property="Padding" Value="12,10" />
     </Style>
+    <Style Selector="Ellipse.dot">
+      <Setter Property="Fill" Value="{DynamicResource DotOffBrush}" />
+    </Style>
+    <Style Selector="Ellipse.dot.ready">
+      <Setter Property="Fill" Value="{DynamicResource DotReadyBrush}" />
+    </Style>
+    <Style Selector="Ellipse.dot.active">
+      <Setter Property="Fill" Value="{DynamicResource DotOnBrush}" />
+    </Style>
 
     <!-- Disposizione compatta per gli schermi bassi (1366×768, o con il ridimensionamento al 125%):
          la attiva MainWindow quando l'altezza utile scende sotto i 860 punti, e lì l'elenco in basso è più basso. -->
@@ -445,7 +454,7 @@
 
       <Grid Grid.Row="3" RowDefinitions="Auto,*">
       <!-- ============ Contatori ============ -->
-      <Grid x:Name="Counters" ColumnDefinitions="Auto,*" Margin="4,2,4,4">
+      <Grid x:Name="Counters" ColumnDefinitions="Auto,*,Auto" Margin="4,2,4,4">
         <StackPanel Orientation="Horizontal" Spacing="22">
           <StackPanel Classes="stat" Orientation="Horizontal" Spacing="5">
             <TextBlock Classes="value" Text="{Binding FilesCount, StringFormat='{}{0:N0}'}" />
@@ -475,6 +484,26 @@
         </StackPanel>
         <TextBlock Grid.Column="1" Text="{Binding StatusText}" Classes="muted small" HorizontalAlignment="Right"
                    VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="24,0,0,0" IsVisible="{Binding !IsScanning}" />
+
+        <!-- I motori: verde dove si lavora, giallo dove si potrebbe, rosso dove no. I dettagli nel suggerimento. -->
+        <ItemsControl Grid.Column="2" x:Name="EngineDots" ItemsSource="{Binding Engines}" Margin="18,0,0,0" VerticalAlignment="Center"
+                      AutomationProperties.Name="{l:T Engines}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal" Spacing="12" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:EngineDot">
+              <StackPanel Orientation="Horizontal" Spacing="5" Background="Transparent" ToolTip.Tip="{Binding Tip}"
+                          AutomationProperties.Name="{Binding Tip}">
+                <Ellipse Width="9" Height="9" Classes="dot" VerticalAlignment="Center"
+                         Classes.off="{Binding IsOff}" Classes.ready="{Binding IsReady}" Classes.active="{Binding IsActive}" />
+                <TextBlock Text="{Binding Name}" Classes="muted small" VerticalAlignment="Center" />
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
       </Grid>
 
       <!-- ============ In basso: elenco delle coppie, con le azioni che valgono per tutto l'elenco ============ -->

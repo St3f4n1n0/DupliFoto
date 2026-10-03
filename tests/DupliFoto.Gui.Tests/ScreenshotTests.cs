@@ -62,6 +62,8 @@ public sealed class ScreenshotTests : IDisposable
         await vm.StartCommand.ExecuteAsync(null);
         vm.SelectedPair = vm.Pairs.Single(p => p.DuplicateName == "IMG-20260810-WA0001.jpg");
         await MainViewModelTests.WaitFor(() => vm.Left.Image is not null && vm.Right.Image is not null);
+        // I pallini come su un PC con GPU e una NPU non ancora usata.
+        vm.SetEngines([new(ComputeEngine.Cpu, true, Text.Empty), new(ComputeEngine.Gpu, true, Text.Empty), new(ComputeEngine.Npu, false, Text.Empty)]);
         Save(window, $"2-confronto-{theme}");
 
         vm.SelectedPair = vm.Pairs.Single(p => p.DuplicateName == "raffica_2.jpg");
@@ -138,55 +140,5 @@ public sealed class ScreenshotTests : IDisposable
         Assert.Equal(255, dark.A);
         Assert.NotEqual(light, dark); // segue il tema
         window.Close();
-    });
-
-    /// <summary>
-    /// Lo screenshot del README, con un piccolo archivio di esempio. Solo su richiesta:
-    /// DUPLIFOTO_README_SCREENSHOT=docs/images/screenshot.png (e facoltativamente DUPLIFOTO_README_ROOT per la cartella).
-    /// </summary>
-    [Fact]
-    public Task Readme_screenshot() => Ui.Run(async () =>
-    {
-        if (Environment.GetEnvironmentVariable("DUPLIFOTO_README_SCREENSHOT") is not { Length: > 0 } output) return;
-        string root = Environment.GetEnvironmentVariable("DUPLIFOTO_README_ROOT") ?? Path.Combine(Path.GetTempPath(), "Foto");
-        if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
-        string holidays = Path.Combine(root, "Vacanze 2024"), whatsapp = Path.Combine(root, "WhatsApp"), exported = Path.Combine(root, "Esportate");
-        foreach (var d in new[] { holidays, whatsapp, exported }) Directory.CreateDirectory(d);
-
-        var shot = new DateTime(2024, 8, 10, 19, 42, 5);
-        var exif = new DupliFoto.Tests.RealImages.Exif(shot, Latitude: 46.0321, Longitude: 11.2402, Make: "Google", Model: "Pixel 9");
-        var lake = DupliFoto.Tests.TestImages.Landscape(11, 1600, 1067);
-        DupliFoto.Tests.RealImages.SaveJpeg(lake, Path.Combine(holidays, "lago.jpg"), exif: exif);
-        File.Copy(Path.Combine(holidays, "lago.jpg"), Path.Combine(holidays, "lago (1).jpg"));
-        DupliFoto.Tests.RealImages.SaveJpeg(DupliFoto.Tests.TestImages.Resize(lake, 800, 533), Path.Combine(whatsapp, "IMG-20240810-WA0007.jpg"), quality: 55);
-        DupliFoto.Tests.RealImages.SaveJpeg(DupliFoto.Tests.TestImages.Landscape(10, 1600, 1067), Path.Combine(holidays, "tramonto_1.jpg"),
-            exif: exif with { TakenAt = shot.AddMinutes(20) });
-        DupliFoto.Tests.RealImages.SaveJpeg(
-            DupliFoto.Tests.TestImages.Resize(DupliFoto.Tests.TestImages.Resize(DupliFoto.Tests.TestImages.Landscape(10, 1600, 1067, shiftX: 0.01), 500, 333), 1600, 1067),
-            Path.Combine(holidays, "tramonto_2.jpg"), exif: exif with { TakenAt = shot.AddMinutes(20).AddSeconds(1.2) });
-        var hills = DupliFoto.Tests.TestImages.Landscape(12, 1200, 800);
-        DupliFoto.Tests.RealImages.SavePng(hills, Path.Combine(holidays, "colline.png"));
-        DupliFoto.Tests.RealImages.SavePng(hills, Path.Combine(exported, "colline.png"), comment: "esportata");
-        DupliFoto.Tests.RealImages.SaveJpeg(DupliFoto.Tests.TestImages.Landscape(13, 1600, 1067), Path.Combine(holidays, "mattino.jpg"),
-            exif: exif with { TakenAt = shot.AddDays(1) });
-
-        Application.Current!.RequestedThemeVariant = ThemeVariant.Light;
-        var vm = new MainViewModel(new SettingsStore(null)) { CachePath = null };
-        vm.AddFolders([holidays, whatsapp, exported]);
-        vm.Folders[0].IsKept = true;
-        vm.SelectedMode = vm.Modes.Single(m => m.Value == RunMode.Assisted);
-        vm.QuarantineRoot = Path.Combine(Path.GetTempPath(), "DupliFoto-Quarantena");
-        var window = new MainWindow { DataContext = vm, WindowState = Avalonia.Controls.WindowState.Normal, Width = 1360, Height = 930 };
-        window.Show();
-        await vm.StartCommand.ExecuteAsync(null);
-        vm.SelectedPair = vm.Pairs.Single(p => p.DuplicateName == "IMG-20240810-WA0007.jpg");
-        await MainViewModelTests.WaitFor(() => vm.Left.Image is not null && vm.Right.Image is not null);
-
-        Dispatcher.UIThread.RunJobs();
-        var frame = window.CaptureRenderedFrame() ?? throw new InvalidOperationException("Nessun fotogramma");
-        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
-        frame.Save(output, new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
-        window.Close();
-        Directory.Delete(root, recursive: true);
     });
 }

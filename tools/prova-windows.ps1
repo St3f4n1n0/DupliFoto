@@ -41,7 +41,12 @@ function Wait-ExtractionGone {
 
 Write-Host "Sistema: $((Get-CimInstance Win32_OperatingSystem).Caption) build $([Environment]::OSVersion.Version.Build)"
 Run aiuto
-Run hardware
+$hw = & $cli hardware | Out-String
+Write-Host $hw
+Check ($LASTEXITCODE -eq 0) 'hardware: codice di uscita 0'
+# Solo ASCII nelle espressioni: PowerShell 5 può leggere l'uscita UTF-8 del programma con un'altra codepage.
+Check ($hw -match 'CPU\s+s') 'hardware: la CPU c''e'' sempre'
+Check ($hw -match 'NPU\s+(s|no)') 'hardware: dice se c''e'' una NPU'
 
 # Foto di prova: una scena, una copia identica, una versione "WhatsApp" rimpicciolita, un PNG, una foto diversa.
 Add-Type -AssemblyName System.Drawing
@@ -109,6 +114,24 @@ if ($Full) {
     Check ($out -match 'Rete neurale: Windows ML') 'modello caricato con Windows ML'
     Check ($out -match 'Embedding neurali su') 'embedding calcolati'
     Check ($out -notmatch 'Embedding non disponibili') 'nessun errore di inferenza'
+
+    # La strada per la NPU: modello a dimensioni fisse, dispositivo scelto da DupliFoto, prima tutto il modello lì.
+    # Qui non c'è una NPU: DUPLIFOTO_PROVA_NPU fa passare la CPU per la NPU, lungo la stessa strada.
+    $env:DUPLIFOTO_PROVA_NPU = 'cpu'
+    $out = & $cli $dir --non-interattivo --no-cache --modello "$Work\modello-prova.onnx" --acceleratore npu --report "$reportDir\npu.html" | Out-String
+    Remove-Item Env:DUPLIFOTO_PROVA_NPU
+    Write-Host $out
+    Check ($LASTEXITCODE -eq 0) 'strada della NPU: codice di uscita 0'
+    Check ($out -match 'Rete neurale: Windows ML sulla NPU') 'strada della NPU: il modello a dimensioni fisse parte sul dispositivo scelto'
+    Check ($out -match 'Embedding neurali su') 'strada della NPU: embedding calcolati, una foto alla volta'
+
+    # Senza NPU vera: si dice perché e si passa al motore successivo.
+    $out = & $cli $dir --non-interattivo --no-cache --modello "$Work\modello-prova.onnx" --acceleratore npu --report "$reportDir\senza-npu.html" | Out-String
+    Write-Host $out
+    Check ($LASTEXITCODE -eq 0) 'senza NPU: codice di uscita 0'
+    Check ($out -match 'nessuna NPU utilizzabile') 'senza NPU: lo dice'
+    Check ($out -match 'Rete neurale: Windows ML sulla (GPU|CPU)') 'senza NPU: passa alla GPU o alla CPU'
+    Check ($out -match 'Embedding neurali su') 'senza NPU: embedding calcolati'
 }
 
 # 4) Interfaccia grafica: si apre con la cartella passata come argomento e resta aperta.
@@ -173,6 +196,22 @@ try {
     Check ($app.MainWindowHandle -ne 0) "la finestra principale compare dopo $i secondi"
     Start-Sleep -Seconds 5  # il tempo di disegnare il contenuto
     Write-Host "Finestra principale: '$($app.MainWindowTitle)'"
+
+    # I testi della finestra, letti da fuori con UI Automation: ci sono davvero nell'exe pubblicato (con il trimming),
+    # e nella lingua di Windows. I server di GitHub sono in inglese, e le impostazioni non scelgono una lingua.
+    Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+    $uia = [System.Windows.Automation.AutomationElement]
+    $windowElement = $uia::FromHandle($app.MainWindowHandle)
+    function Find-Text($text) {
+        $condition = New-Object System.Windows.Automation.PropertyCondition($uia::NameProperty, $text)
+        return $windowElement.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+    }
+    $english = Find-Text 'Start search'
+    $italian = Find-Text 'Avvia ricerca'
+    $uiCulture = (Get-UICulture).Name
+    Write-Host "Lingua di Windows: $uiCulture; trovato 'Start search': $($null -ne $english); trovato 'Avvia ricerca': $($null -ne $italian)"
+    if ($uiCulture -like 'it*') { Check ($null -ne $italian) 'la finestra parla italiano, come Windows' }
+    else { Check ($null -ne $english -and $null -eq $italian) 'la finestra parla inglese, come Windows' }
 
     # L'app sopra, il magenta sotto; poi si contano i punti magenta dentro la finestra dell'app.
     # Mica mostra lo sfondo del desktop, non le finestre dietro: con Mica o con uno sfondo pieno non ce ne sono.
