@@ -13,6 +13,7 @@
 
 DupliFoto is **portable**: download the `.exe` and run it. There is nothing to install, since .NET and every library are included.
 
+- **Videos.** Tick **Videos** to look for identical videos too: off by default, and **More options → Videos** chooses between the full and the quick check.
 - **Language.** English or Italian: the app follows the language of Windows, and **More options → Language** changes it.
 - **Leaving no trace.** Settings, cache, error log and reports go to a `DupliFoto-dati` folder next to the `.exe`, and moved duplicates to `DupliFoto-Quarantena`, also next to the `.exe`: on a USB stick they travel with it. At start the program unpacks itself into `%TEMP%\.net`, which takes a few seconds, and removes that copy when you close it. `Pulisci DupliFoto.bat`, in `DupliFoto-dati`, removes what earlier versions left on the PC.
 - **SmartScreen.** The executables are not code-signed yet, so Windows may show *"Windows protected your PC"*. Click **More info**, then **Run anyway**.

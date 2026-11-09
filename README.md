@@ -6,6 +6,7 @@
 
 <p align="center">
   Find and clean up duplicate photos on Windows: exact copies, recompressed or resized versions, and burst shots.<br>
+  Identical videos too, if you ask.<br>
   Portable, safe by design, and able to use your NPU or GPU.
 </p>
 
@@ -29,7 +30,7 @@
 - **You choose which folder wins.** Pick the folder whose copies must always stay (for example, the one you have already catalogued), and compare folders only against each other if you like: "what in *Downloads* is already in *Photos*?".
 - **Never deletes anything on its own.** Duplicates go to a quarantine folder that can be restored with one click, or to the Recycle Bin.
 - **Portable.** A single `.exe` with nothing to install: .NET and every library are included.
-- **Many formats:** JPEG, PNG, HEIC, AVIF, WebP, TIFF, JPEG XL and the common RAW formats.
+- **Many formats:** JPEG, PNG, HEIC, AVIF, WebP, TIFF, JPEG XL and the common RAW formats; with **Videos** ticked, also MP4, MOV, M4V, AVI, MKV, WMV, MTS/M2TS, 3GP, WebM and MPEG.
 - **Optional neural model** (DINOv2) that runs on the NPU, the GPU or the CPU through Windows ML. Three dots at the bottom of the window show at a glance which of CPU, GPU and NPU is available and which one is working.
 - **English and Italian.** The app follows the language of Windows (Italian on an Italian Windows, English everywhere else), or the one you pick in **More options**.
 - **Command-line tool** for scripts and scheduled clean-ups, in English and Italian too.
@@ -63,13 +64,14 @@ The labels below are those of the English interface; in Italian they read *Aggiu
 1. **Folders.** Add one or more folders with **Add folder**, or drag them from File Explorer. With two or more folders, two more choices appear:
    - **Copy to keep:** *Automatic choice* lets the rules below decide; picking a folder means its copies always stay, and only copies elsewhere are moved. When folders are nested (*Photos* and *Photos\Catalogued*), each photo belongs to the most specific folder you added.
    - **Look for duplicates:** *in all photos* compares every photo with every other; *only across different folders* compares each folder only with the others, so duplicates within the same folder are left alone.
-2. **Mode.** Pick a mode (see [Modes](#modes)) and where duplicates go: quarantine or Recycle Bin. Then press **Start search**. USB sticks, memory cards and network drives have no Recycle Bin: if a folder is on one of them, DupliFoto says so before the search and uses the quarantine.
+2. **Mode.** Pick a mode (see [Modes](#modes)) and where duplicates go: quarantine or Recycle Bin. Tick **Videos** to look for identical videos as well (see [Videos](#videos)). Then press **Start search**. USB sticks, memory cards and network drives have no Recycle Bin: if a folder is on one of them, DupliFoto says so before the search and uses the quarantine.
 3. **Compare.** Each pair appears side by side: the copy to keep (*To keep*) on the left, the copy to move (*To move*) on the right, each with the folder it comes from. In the middle are the confidence and the reason the left-hand copy is kept.
    - **Move the right-hand one** moves the right-hand photo away; the left-hand one stays where it is.
    - **Keep both** keeps both.
    - **Swap** keeps the right-hand one instead.
    - The next pair to decide comes up automatically.
-4. **Review.** Counters and the full list of pairs sit at the bottom, and the list can be filtered. Above the list, **Undo moves** puts back everything moved to quarantine during the session, and **Report** saves an HTML report with thumbnails and a CSV file for Excel in `DupliFoto-dati\Report`.
+   - A video has no preview: a ▶ *Video* placeholder takes its place, and the eye under its name opens it in its own player.
+4. **Review.** Counters and the full list of pairs sit at the bottom, and the list can be filtered (*Videos* shows only the video pairs). Above the list, **Undo moves** puts back everything moved to quarantine during the session, and **Report** saves an HTML report with thumbnails and a CSV file for Excel in `DupliFoto-dati\Report`.
 
 On low screens (1366×768, or a higher resolution with 125–150% scaling) the window uses a compact layout, and scrolls if even that does not fit.
 
@@ -83,6 +85,8 @@ duplifoto-cli "D:\Photos" --mode assisted                  # ask for every group
 duplifoto-cli "D:\Photos" "E:\Phone" --mode semi-auto --keep "D:\Photos"
 duplifoto-cli "D:\Catalogued" "D:\Downloads" --across-folders --keep "D:\Catalogued"
 duplifoto-cli "D:\Photos" --mode auto --threshold 98 --model dinov2-small.onnx --non-interactive
+duplifoto-cli "E:\Phone" --video                           # photos and identical videos, full check
+duplifoto-cli "E:\Phone" --video-quick --mode assisted     # videos with the quick check, decided one by one
 duplifoto-cli undo "...\DupliFoto-Quarantena\registro-20260930-101500-3fa2c1.jsonl"
 duplifoto-cli hardware                                     # CPU / GPU / NPU available
 duplifoto-cli --version
@@ -104,7 +108,7 @@ duplifoto-cli --version
 
 Messages, questions, help and report follow the language of Windows, like the app. Every command and option also has an Italian name, which keeps working in both languages: `analizza`, `annulla`, `aiuto`, `--modo sola-lettura`, `--preferisci`, `--solo-tra-cartelle`, `--non-interattivo` and so on. Scripts written for earlier versions run unchanged. In interactive questions the keys follow the language: *y*/*n*/*a* in English, *s*/*n*/*t* in Italian.
 
-Every run writes an HTML report and a CSV file. Browsers cannot preview HEIC and RAW files in the report, but the paths are clickable. Dropping a folder onto `duplifoto-cli.exe` runs a read-only analysis, and the report opens in the browser.
+Every run writes an HTML report and a CSV file. Browsers cannot preview HEIC and RAW files in the report, and videos show a ▶ placeholder instead of a thumbnail, but the paths are clickable. Dropping a folder onto `duplifoto-cli.exe` runs a read-only analysis, and the report opens in the browser.
 
 ## How it works
 
@@ -113,7 +117,7 @@ DupliFoto works like a funnel, from the cheapest check to the most expensive one
 | Level | Finds | How | Confidence |
 |---|---|---|---|
 | 0 | inventory | name, size, date (almost free) | — |
-| 1 | identical files | same size → hash of the first and last 64 KB → full xxHash128 → start and end compared again before any move (all of the file with *Check before moving*) | 100% |
+| 1 | identical files (photos, and videos if asked) | same size → hash of the first and last 64 KB → full xxHash128 → start and end compared again before any move (all of the file with *Check before moving*); videos with the quick check: 16 blocks instead of the full hash | 100% (quick-checked videos 99%) |
 | 2 | same pixels, different metadata | xxHash128 of the decoded pixels, only for candidates | 99% |
 | 3 | same picture recompressed, resized or rotated | DCT perceptual hash in 8 orientations, difference hash, BK-tree search | 90–98% |
 | 4 | burst shots | same camera, EXIF time within seconds, visual (or neural) similarity | 60–89% |
@@ -137,6 +141,19 @@ Tick **Videos** next to *Burst shots* (or use `--video` on the command line) and
 | **Full** (default, `--video`) | the whole of both files | byte-identical, 100%: the same rules as identical photos |
 | **Quick** (`--video-quick`) | 16 blocks of 64 KB spread from start to end, 1 MB per video whatever its size | *Videos, quick check*, 99%. Two videos that differ only between the blocks would look the same, so the semi-automatic mode never moves them on its own; before every move the same 16 blocks are compared again. |
 
+Which one to pick:
+
+- **Full** when the videos are on the PC's own drive, or when you want the same certainty as for identical photos. On an external drive it reads every candidate video whole: two 4 GB copies mean 8 GB to read. Only videos with exactly the same size are read, so it is rarely the whole archive.
+- **Quick** for large archives on USB drives, where reading everything would take hours. Real copies (from a phone backup, a second export, a folder copied twice) are found the same way; what it cannot rule out is two different videos with the same size that differ only between the blocks, which is why it stops at 99%.
+
+A few things worth knowing:
+
+- **Only identical copies.** A video re-encoded by WhatsApp, trimmed, or exported again at another quality has different bytes, and is not found. Comparing what videos show would mean decoding them, which DupliFoto does not do.
+- **Never mixed with photos.** A video is only compared with other videos; the photo and the video of a Live Photo (`IMG_0001.HEIC` + `IMG_0001.MOV`) are never a pair.
+- **The same safety rules.** Quarantine, Undo, the checks before moving, the guard on the quarantine drive and the Recycle Bin rules apply to videos exactly as to photos. Videos are large, so a quarantine on another drive fills up faster: that is where the 10% guard matters most.
+- **Which copy is kept.** Videos have no resolution or sharpness for DupliFoto to compare, so the folder to keep decides first, then the name without "(1)" or "Copia", the original over an edited version, the older file and the shorter path (see [Which copy is kept](#which-copy-is-kept)).
+- **Remembered.** The choice of **Videos** and of the check is saved with the other settings. The inventory at the start of the search, and the summary of the command line, count photos and videos separately ("8 photos and 2 videos").
+
 ## Modes
 
 | Mode | 100% | 99% | 90–98% | 60–89% |
@@ -146,7 +163,7 @@ Tick **Videos** next to *Burst shots* (or use `--video` on the command line) and
 | semi-automatic | **automatic** | asks | asks | asks |
 | automatic (threshold 99 by default, minimum 90) | **automatic** | **automatic** | above the threshold | always asks |
 
-Burst shots are always left to you. In unattended command-line runs (`--non-interactive`), anything that would need confirmation is left untouched and counted as "to review".
+The 99% column includes videos matched by the quick check: the semi-automatic mode asks about them, the automatic mode moves them at its default threshold. Burst shots are always left to you. In unattended command-line runs (`--non-interactive`), anything that would need confirmation is left untouched and counted as "to review".
 
 ## Safety
 
@@ -157,7 +174,7 @@ These rules hold in every mode:
 - **Recycle Bin only when it really exists.** USB sticks, memory cards and network drives have no Recycle Bin, and "deleting" there would mean erasing. DupliFoto checks this before the search, when you choose the Recycle Bin or add a folder: if a folder is on such a drive, it says so and uses the quarantine. Once you have checked the files in quarantine, you delete them yourself. If the Recycle Bin is disabled or too small, Windows asks before erasing instead of doing it silently.
 - **Undo journal.** Every move is written to a JSON Lines journal as it happens. `duplifoto-cli undo` and **Undo moves** restore everything in quarantine; the Recycle Bin is restored from Windows.
 - **Files changed after the scan are not touched,** and neither is anything whose copy-to-keep has gone missing or changed.
-- **Checked again before moving.** Right before an "identical" file is moved, its first and last 64 KB are compared byte by byte with the copy to keep, on top of size and date. That is where the metadata are, and it is quick even on an external drive: the search has already compared the whole files through their full hash. **More options → Check before moving** (`--full-check`) compares all of both files again, byte by byte. That is the 100% proof, but on an external drive it can take as long as the search.
+- **Checked again before moving.** Right before an "identical" file is moved, its first and last 64 KB are compared byte by byte with the copy to keep, on top of size and date. That is where the metadata are, and it is quick even on an external drive: the search has already compared the whole files through their full hash. **More options → Check before moving** (`--full-check`) compares all of both files again, byte by byte. That is the 100% proof, but on an external drive it can take as long as the search. A video is checked again on the same 16 blocks as the quick check (1 MB, whatever its size), or whole with *Check before moving*.
 - **One file, two paths.** A folder added twice by different routes (`Z:\Foto` and `\\NAS\Foto`, a SUBST drive, a junction) does not turn each photo into its own duplicate: the file is recognised by its identity on disk. After every move DupliFoto also checks that the copy to keep is still there; if it is not, the file goes straight back.
 - **OneDrive and links.** Online-only OneDrive files are skipped, so they are not downloaded. Symbolic links and junctions are not followed: no loops, no photo counted twice.
 - **Locked files.** A file briefly locked by another program (antivirus, indexer) is retried; a file still open is left in place.
@@ -172,6 +189,7 @@ These rules hold in every mode:
   5. the older file;
   6. the shorter path.
 - **Burst shots.** The sharpest shot wins (variance of the Laplacian), then the higher resolution.
+- **Videos.** As for duplicates, minus resolution and metadata, which DupliFoto does not read from videos: the folder to keep, then rules 3 to 6.
 
 ## NPU and GPU acceleration
 
@@ -292,10 +310,11 @@ The ARM64 build is compiled but not run, because the CI machines are x64.
 
 1. **The neural model in the download**, so that the NPU can be used without Python.
 2. **App.** Synchronised zoom on the two photos, keyboard shortcuts, a thumbnail grid for large groups.
-3. **Best shot.** Open eyes and smiles to pick the best burst shot (face detection via ONNX).
-4. **Native burst IDs** (Apple BurstUUID, Samsung) and Live Photo pairs (HEIC+MOV).
-5. **NTFS MFT reading** for an instant inventory of drives with millions of files.
-6. **Pre-compiled NPU models** for a faster cold start.
+3. **Similar videos.** Recompressed or trimmed copies, by comparing a few frames (this needs a video decoder in the download).
+4. **Best shot.** Open eyes and smiles to pick the best burst shot (face detection via ONNX).
+5. **Native burst IDs** (Apple BurstUUID, Samsung) and Live Photo pairs (HEIC+MOV).
+6. **NTFS MFT reading** for an instant inventory of drives with millions of files.
+7. **Pre-compiled NPU models** for a faster cold start.
 
 ## License
 
