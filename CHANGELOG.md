@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 
 - The *Look for burst shots* check box is now just **Burst shots**, to make room for **Videos** on the same row. The tooltip says what it does.
+- Avalonia, the user interface library, updated from 12.1.3 to 12.1.5; the test libraries updated too.
 
 ## [1.0.0] - 2026-10-03
 
