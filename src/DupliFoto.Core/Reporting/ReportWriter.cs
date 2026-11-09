@@ -16,6 +16,7 @@ public static class ReportWriter
         MatchKind.IdenticalPixels => Lang.T("Stessi pixel", "Same pixels"),
         MatchKind.Perceptual => Lang.T("Stessa immagine", "Same picture"),
         MatchKind.Burst => Lang.T("Scatti multipli", "Burst shots"),
+        MatchKind.VideoSampled => Lang.T("Video, verifica rapida", "Videos, quick check"),
         _ => k.ToString(),
     };
 
@@ -71,6 +72,8 @@ public static class ReportWriter
             .it{flex:0 0 200px;font-size:12.5px;word-break:break-all}
             .it img{width:200px;height:150px;object-fit:cover;border-radius:8px;background:var(--line);display:block;margin-bottom:6px}
             .keep img{outline:3px solid var(--ok);outline-offset:-3px}
+            .vid{width:200px;height:150px;border-radius:8px;background:var(--line);display:flex;align-items:center;justify-content:center;margin-bottom:6px;font-size:20px;color:inherit}
+            .keep .vid{outline:3px solid var(--ok);outline-offset:-3px}
             .tag{font-weight:600}
             </style></head><body>
             """.Replace("{{LANG}}", Lang.Code));
@@ -103,10 +106,14 @@ public static class ReportWriter
         {
             string uri = new Uri(f.Path).AbsoluteUri;
             string dims = f.Width > 0 ? $"{f.Width}×{f.Height} · " : "";
+            string sharp = f.IsVideo ? "" : $" · {Lang.T("nitidezza", "sharpness")} {f.Sharpness:0}";
             string when = f.TakenAt is { } t ? $"<br>{t.ToString("g", It)}" : "";
-            sb.Append($"<div class=\"it{(keep ? " keep" : "")}\"><a href=\"{Enc(uri)}\"><img loading=lazy src=\"{Enc(uri)}\" alt=\"\"></a>");
+            string thumb = f.IsVideo
+                ? $"<span class=vid>&#9654; {Lang.T("video", "video")}</span>"   // niente anteprima: i video non si decodificano
+                : $"<img loading=lazy src=\"{Enc(uri)}\" alt=\"\">";
+            sb.Append($"<div class=\"it{(keep ? " keep" : "")}\"><a href=\"{Enc(uri)}\">{thumb}</a>");
             sb.Append($"<span class=tag>{Enc(tag)}</span> <span class=mut>{Enc(reason)}</span><br>{Enc(f.Path)}<br>");
-            sb.Append($"<span class=mut>{dims}{FormatBytes(f.Size)} · {Lang.T("nitidezza", "sharpness")} {f.Sharpness:0}{when}</span></div>");
+            sb.Append($"<span class=mut>{dims}{FormatBytes(f.Size)}{sharp}{when}</span></div>");
         }
     }
 

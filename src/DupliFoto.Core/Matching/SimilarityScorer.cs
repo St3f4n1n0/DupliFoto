@@ -6,8 +6,8 @@ namespace DupliFoto.Core.Matching;
 /// Decide SE due foto sono doppioni e CON QUALE affidabilità (0-100).
 /// Tutte le regole di punteggio stanno qui, in un solo posto, così sono facili da tarare e testare.
 ///
-///   100      identici al byte
-///    99      stessi pixel, metadati diversi
+///   100      identici al byte (foto e video)
+///    99      stessi pixel, metadati diversi; video uguali alla verifica rapida
 ///   90-98    stessa immagine ricompressa / ridimensionata / ruotata
 ///   60-89    scatti multipli della stessa scena
 ///   ≤ 80     qualunque coppia in cui una delle due è una "versione modificata"
@@ -16,16 +16,28 @@ public static class SimilarityScorer
 {
     public readonly record struct Match(MatchKind Kind, double Confidence, Text Reason);
 
+    public static readonly Text VideoSampledReason = new(
+        $"stesso peso e stessi byte in {ScanOptions.VideoSampleBlocks} punti sparsi sul video (verifica rapida)",
+        $"same size and same bytes at {ScanOptions.VideoSampleBlocks} points spread over the video (quick check)");
+
     public const double ExactConfidence = 100;
     public const double PixelConfidence = 99;
+    public const double VideoSampledConfidence = 99;
     public const double PerceptualMax = 98;
     public const double BurstMax = 89;
     public const double EditedCap = 80;
 
     public static Match? Compare(PhotoFile a, PhotoFile b, ScanOptions o)
     {
-        if (a.FullHash is not null && a.FullHash == b.FullHash && a.Size == b.Size)
+        if (a.FullHash is not null && a.FullHash == b.FullHash && a.Size == b.Size && a.IsVideo == b.IsVideo)
             return new Match(MatchKind.ExactBytes, ExactConfidence, new("identici al byte", "byte-identical"));
+
+        // I video si confrontano solo con gli hash, e solo con altri video.
+        if (a.IsVideo || b.IsVideo)
+            return a.IsVideo && b.IsVideo && a.Size == b.Size && a.SampleHash is not null && a.SampleHash == b.SampleHash
+                   && !(a.FullHash is not null && b.FullHash is not null) // hash completi noti e diversi: non sono copie
+                ? new Match(MatchKind.VideoSampled, VideoSampledConfidence, VideoSampledReason)
+                : null;
 
         if (IsExcludedPair(a, b, out _)) return null;
 

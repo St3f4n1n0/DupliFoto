@@ -35,8 +35,10 @@ internal sealed class ConsolePrompt : IDecisionPrompt
                     : "  —  ";
                 var color = isKeeper ? ConsoleColor.Green : ConsoleColor.Yellow;
                 Ui.Color(color, $"  [{i}] {tag,-6} {f.Path}");
-                string detail = $"{f.Width}×{f.Height}  {ReportWriter.FormatBytes(f.Size)}  {Lang.T("nitidezza", "sharpness")} {f.Sharpness:0}"
-                                + (f.TakenAt is { } t ? $"  {t.ToString(Lang.T("dd/MM/yyyy HH:mm:ss", "yyyy-MM-dd HH:mm:ss"))}" : "");
+                string detail = f.IsVideo
+                    ? $"video  {ReportWriter.FormatBytes(f.Size)}  {f.LastWriteUtc.ToLocalTime().ToString(Lang.T("dd/MM/yyyy HH:mm", "yyyy-MM-dd HH:mm"))}"
+                    : $"{f.Width}×{f.Height}  {ReportWriter.FormatBytes(f.Size)}  {Lang.T("nitidezza", "sharpness")} {f.Sharpness:0}"
+                      + (f.TakenAt is { } t ? $"  {t.ToString(Lang.T("dd/MM/yyyy HH:mm:ss", "yyyy-MM-dd HH:mm:ss"))}" : "");
                 Console.WriteLine($"             {detail}");
                 if (isKeeper && ReferenceEquals(f, g.Keeper) && !g.KeeperReason.IsEmpty)
                     Console.WriteLine($"             {Lang.T("perché", "because")}: {g.KeeperReason}");

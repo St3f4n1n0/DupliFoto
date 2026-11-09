@@ -275,7 +275,10 @@
                   <TextBlock Text="{l:T PercentUp}" Classes="label" />
                 </StackPanel>
                 <CheckBox IsChecked="{Binding IncludeSubfolders}" Content="{l:T Subfolders}" Margin="0,0,20,0" IsEnabled="{Binding IsIdle}" />
-                <CheckBox IsChecked="{Binding DetectBursts}" Content="{l:T LookForBursts}" Margin="0,0,20,0" IsEnabled="{Binding IsIdle}" />
+                <CheckBox IsChecked="{Binding DetectBursts}" Content="{l:T LookForBursts}" Margin="0,0,20,0" IsEnabled="{Binding IsIdle}"
+                          ToolTip.Tip="{l:T LookForBurstsTip}" />
+                <CheckBox IsChecked="{Binding IncludeVideos}" Content="{l:T LookForVideos}" Margin="0,0,20,0" IsEnabled="{Binding IsIdle}"
+                          ToolTip.Tip="{l:T LookForVideosTip}" />
                 <Button Classes="subtle" IsEnabled="{Binding IsIdle}">
                   <StackPanel Orientation="Horizontal" Spacing="8">
                     <PathIcon Data="{StaticResource IconTune}" />
@@ -299,6 +302,11 @@
                           <TextBlock Text="{l:T FullCheck}" TextWrapping="Wrap" />
                         </CheckBox>
                         <TextBlock Text="{l:T FullCheckHint}" Classes="faint small" TextWrapping="Wrap" />
+
+                        <TextBlock Text="{l:T Videos}" Classes="h" Margin="0,8,0,0" />
+                        <RadioButton GroupName="videocheck" Content="{l:T VideoFullCheck}" IsChecked="{Binding FullVideoCheck}" />
+                        <RadioButton GroupName="videocheck" Content="{l:T VideoQuickCheck}" IsChecked="{Binding QuickVideoCheck}" />
+                        <TextBlock Text="{l:T VideoCheckHint}" Classes="faint small" TextWrapping="Wrap" />
 
                         <TextBlock Text="{l:T BurstShots}" Classes="h" Margin="0,8,0,0" />
                         <StackPanel Orientation="Horizontal" Spacing="8">

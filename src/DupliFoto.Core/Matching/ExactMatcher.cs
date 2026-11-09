@@ -8,6 +8,8 @@ namespace DupliFoto.Core.Matching;
 /// Livello 1: file identici al byte.
 /// Imbuto: stesso peso → stesso hash parziale (inizio+fine) → stesso hash completo.
 /// Il nome NON è un requisito: una copia rinominata "vacanze.jpg" viene trovata lo stesso.
+/// I video passano dallo stesso imbuto, mai insieme alle foto; con la verifica rapida l'ultimo passo è l'hash di
+/// 16 blocchi sparsi sul file invece che di tutto il file (vedi <see cref="VideoCheck"/>).
 /// </summary>
 public static class ExactMatcher
 {
@@ -19,8 +21,8 @@ public static class ExactMatcher
     {
         var parallel = new ParallelOptions { MaxDegreeOfParallelism = options.MaxDegreeOfParallelism, CancellationToken = ct };
 
-        // 1) Peso identico: gratis, e scarta la gran parte dei file.
-        var sameSize = files.GroupBy(f => f.Size).Where(g => g.Count() > 1).SelectMany(g => g).ToList();
+        // 1) Peso identico: gratis, e scarta la gran parte dei file. Una foto e un video non sono mai copie.
+        var sameSize = files.GroupBy(f => (f.Size, f.IsVideo)).Where(g => g.Count() > 1).SelectMany(g => g).ToList();
         progress?.Report(Lang.T($"Stesso peso: {sameSize.Count:N0} file candidati su {files.Count:N0}.", $"Same size: {sameSize.Count:N0} candidate files out of {files.Count:N0}."));
 
         // 2) Hash parziale: legge solo 2 × 64 KB per file.
@@ -35,13 +37,35 @@ public static class ExactMatcher
         });
         partial.Finish();
 
-        var samePartial = sameSize
+        var survivors = sameSize
             .Where(f => f.PartialHash is not null)
-            .GroupBy(f => (f.Size, f.PartialHash))
+            .GroupBy(f => (f.Size, f.PartialHash, f.IsVideo))
             .Where(g => g.Count() > 1)
             .SelectMany(g => g)
             .ToList();
-        progress?.Report(Lang.T($"Stesso hash parziale: {samePartial.Count:N0} file. Calcolo hash completi...", $"Same partial hash: {samePartial.Count:N0} files. Computing full hashes..."));
+        // Video con la verifica rapida: 16 blocchi sparsi invece del file intero.
+        bool quickVideos = options.VideoCheck == VideoCheck.Quick;
+        var sampled = quickVideos ? survivors.Where(f => f.IsVideo).ToList() : [];
+        var samePartial = quickVideos ? survivors.Where(f => !f.IsVideo).ToList() : survivors;
+        progress?.Report(Lang.T($"Stesso hash parziale: {survivors.Count:N0} file. Calcolo hash completi...", $"Same partial hash: {survivors.Count:N0} files. Computing full hashes..."));
+
+        var exact = new List<List<PhotoFile>>();
+        if (sampled.Count > 0)
+        {
+            var sampling = new ProgressCounter(progress, sampled.Count, (done, total, _) =>
+                Lang.T($"Video, verifica rapida: {done:N0} di {total:N0}...", $"Videos, quick check: {done:N0} of {total:N0}..."));
+            Parallel.ForEach(sampled, parallel, f =>
+            {
+                try { f.SampleHash = ComputeSampleHash(f.Path, f.Size, options.PartialHashBytes, ScanOptions.VideoSampleBlocks); }
+                catch (Exception ex) { f.AnalysisError = Lang.T($"Lettura: {ex.Message}", $"Reading: {ex.Message}"); }
+                sampling.Add();
+            });
+            sampling.Finish();
+            exact.AddRange(sampled.Where(f => f.SampleHash is not null)
+                .GroupBy(f => (f.Size, f.SampleHash))
+                .Where(g => g.Count() > 1)
+                .Select(g => g.ToList()));
+        }
 
         // 3) Hash completo (xxHash128), solo per i sopravvissuti: legge i file interi, è la parte lunga.
         var toFull = samePartial.Where(f => f.FullHash is null).ToList();
@@ -57,12 +81,12 @@ public static class ExactMatcher
         });
         full.Finish();
 
-        return samePartial
+        exact.AddRange(samePartial
             .Where(f => f.FullHash is not null)
-            .GroupBy(f => (f.Size, f.FullHash))
+            .GroupBy(f => (f.Size, f.FullHash, f.IsVideo))
             .Where(g => g.Count() > 1)
-            .Select(g => g.ToList())
-            .ToList();
+            .Select(g => g.ToList()));
+        return exact;
     }
 
     /// <summary>
@@ -131,7 +155,52 @@ public static class ExactMatcher
     /// dell'hash parziale): è lì che stanno i metadati (EXIF), che un programma può riscrivere lasciando uguali peso e
     /// data. È il controllo che si fa subito prima di spostare, se non è attiva la verifica completa (<see cref="FilesAreIdentical"/>).
     /// </summary>
-    public static bool HeadAndTailAreIdentical(string a, string b, int chunk)
+    public static bool HeadAndTailAreIdentical(string a, string b, int chunk) => BlocksAreIdentical(a, b, chunk, 2);
+
+    /// <summary>
+    /// I blocchi da leggere: <paramref name="blocks"/> blocchi da <paramref name="chunk"/> byte, il primo all'inizio,
+    /// l'ultimo alla fine e gli altri sparsi a distanze uguali. Un file che non è più grande di tutti i blocchi insieme
+    /// si legge per intero, in un blocco solo.
+    /// </summary>
+    internal static IEnumerable<(long Offset, int Count)> SampleBlocks(long size, int chunk, int blocks)
+    {
+        if (size <= (long)chunk * blocks)
+        {
+            yield return (0, (int)size);
+            yield break;
+        }
+        for (int i = 0; i < blocks; i++)
+            yield return ((long)((double)(size - chunk) * i / (blocks - 1)), chunk);
+    }
+
+    /// <summary>Video, verifica rapida: hash del peso e dei <paramref name="blocks"/> blocchi sparsi sul file.</summary>
+    public static UInt128 ComputeSampleHash(string path, long size, int chunk, int blocks)
+    {
+        using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1);
+        var hasher = new XxHash128();
+        hasher.Append(BitConverter.GetBytes(size));
+        var buffer = ArrayPool<byte>.Shared.Rent((int)Math.Min(size, (long)chunk * blocks) + 1);
+        try
+        {
+            foreach (var (offset, count) in SampleBlocks(size, chunk, blocks))
+            {
+                fs.Position = offset;
+                int read = fs.ReadAtLeast(buffer.AsSpan(0, count), count, throwOnEndOfStream: false);
+                hasher.Append(buffer.AsSpan(0, read));
+            }
+            return hasher.GetCurrentHashAsUInt128();
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+    }
+
+    /// <summary>
+    /// Confronto byte per byte dei soli blocchi di <see cref="SampleBlocks"/>: 2 blocchi sono inizio e fine (il controllo
+    /// rapido delle foto), 16 la verifica rapida dei video.
+    /// </summary>
+    public static bool BlocksAreIdentical(string a, string b, int chunk, int blocks)
     {
         var fa = new FileInfo(a);
         var fb = new FileInfo(b);
@@ -140,23 +209,20 @@ public static class ExactMatcher
 
         using var sa = new FileStream(a, FileMode.Open, FileAccess.Read, FileShare.Read, 1);
         using var sb = new FileStream(b, FileMode.Open, FileAccess.Read, FileShare.Read, 1);
-        var ba = ArrayPool<byte>.Shared.Rent(chunk);
-        var bb = ArrayPool<byte>.Shared.Rent(chunk);
+        int max = (int)Math.Min(size, (long)chunk * blocks) + 1;
+        var ba = ArrayPool<byte>.Shared.Rent(max);
+        var bb = ArrayPool<byte>.Shared.Rent(max);
         try
         {
-            bool Same(long offset, int count)
+            foreach (var (offset, count) in SampleBlocks(size, chunk, blocks))
             {
                 sa.Position = offset;
                 sb.Position = offset;
                 int ra = sa.ReadAtLeast(ba.AsSpan(0, count), count, throwOnEndOfStream: false);
                 int rb = sb.ReadAtLeast(bb.AsSpan(0, count), count, throwOnEndOfStream: false);
-                return ra == count && rb == count && ba.AsSpan(0, count).SequenceEqual(bb.AsSpan(0, count));
+                if (ra != count || rb != count || !ba.AsSpan(0, count).SequenceEqual(bb.AsSpan(0, count))) return false;
             }
-
-            int head = (int)Math.Min(chunk, size);
-            if (!Same(0, head)) return false;
-            long tail = Math.Max(head, size - chunk);
-            return tail == size || Same(tail, (int)(size - tail));
+            return true;
         }
         finally
         {

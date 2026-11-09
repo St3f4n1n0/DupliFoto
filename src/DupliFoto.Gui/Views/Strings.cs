@@ -30,7 +30,8 @@ public static class Strings
     public static string AutoFrom => Lang.T("Sposta da sola da", "Moves on its own from");
     public static string PercentUp => Lang.T("% in su", "% up");
     public static string Subfolders => Lang.T("Sottocartelle", "Subfolders");
-    public static string LookForBursts => Lang.T("Cerca scatti multipli", "Look for burst shots");
+    public static string LookForBursts => Lang.T("Scatti multipli", "Burst shots");
+    public static string LookForBurstsTip => Lang.T("Cerca anche gli scatti multipli: foto della stessa scena fatte a pochi secondi di distanza. Si decidono sempre a mano.", "Also look for burst shots: photos of the same scene taken a few seconds apart. They are always decided by hand.");
     public static string MoreOptions => Lang.T("Altre opzioni", "More options");
     public static string QuarantineFolder => Lang.T("Cartella di quarantena", "Quarantine folder");
     public static string Browse => Lang.T("Sfoglia…", "Browse…");
@@ -39,6 +40,12 @@ public static class Strings
     public static string FullCheck => Lang.T("Riconfronta per intero i file identici al byte", "Compare byte-identical files again in full");
     public static string FullCheckHint => Lang.T("Di solito, subito prima di spostare un file identico, ne riconfronto peso, data, inizio e fine con la copia da tenere: è rapido anche sui dischi esterni, e la ricerca li ha già confrontati per intero. Con questa opzione rileggo tutti e due i file: è la prova al 100%, ma su un disco esterno può durare quanto la ricerca.", "Usually, just before moving an identical file, I check its size, date, start and end again against the copy to keep: it is quick even on external drives, and the search has already compared them in full. With this option I read both files again: it is the 100% proof, but on an external drive it can take as long as the search.");
     public static string BurstShots => Lang.T("Scatti multipli", "Burst shots");
+    public static string LookForVideos => Lang.T("Video", "Videos");
+    public static string LookForVideosTip => Lang.T("Cerca anche i video: solo le copie identiche, confrontate con gli hash (niente confronto visivo). Un video non viene mai confrontato con una foto.", "Also look for videos: identical copies only, compared through hashes (no visual comparison). A video is never compared with a photo.");
+    public static string Videos => Lang.T("Video", "Videos");
+    public static string VideoFullCheck => Lang.T("Verifica completa: legge tutto il video", "Full check: reads the whole video");
+    public static string VideoQuickCheck => Lang.T("Verifica rapida: legge 16 blocchi da 64 KB", "Quick check: reads 16 blocks of 64 KB");
+    public static string VideoCheckHint => Lang.T("La completa dà la prova al 100% che due video sono identici, ma su un disco esterno legge gigabyte. La rapida legge 1 MB per video, sparso dall'inizio alla fine: i video uguali risultano al 99%, e la modalità semi-automatica non li sposta mai da sola.", "The full check gives 100% proof that two videos are identical, but on an external drive it reads gigabytes. The quick check reads 1 MB per video, spread from start to end: matching videos come out at 99%, and the semi-automatic mode never moves them on its own.");
     public static string AtMost => Lang.T("Al massimo", "At most");
     public static string SecondsBetween => Lang.T("secondi tra uno scatto e l'altro", "seconds between shots");
     public static string NeuralOptional => Lang.T("Rete neurale (facoltativa)", "Neural network (optional)");

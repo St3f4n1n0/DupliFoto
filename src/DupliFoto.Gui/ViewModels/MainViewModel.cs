@@ -13,7 +13,7 @@ using DupliFoto.Gui.Services;
 
 namespace DupliFoto.Gui.ViewModels;
 
-public enum PairFilter { All, Pending, Exact, Pixels, Perceptual, Burst, Moved, Skipped }
+public enum PairFilter { All, Pending, Exact, Pixels, Perceptual, Burst, Videos, Moved, Skipped }
 
 /// <summary>
 /// Tutto lo stato della finestra principale. Le regole (quando si sposta da solo, cosa è sicuro)
@@ -117,6 +117,7 @@ public sealed partial class MainViewModel : ObservableObject
         new(PairFilter.Pixels, "Stessi pixel", "Same pixels"),
         new(PairFilter.Perceptual, "Stessa immagine", "Same picture"),
         new(PairFilter.Burst, "Scatti multipli", "Burst shots"),
+        new(PairFilter.Videos, "Video", "Videos"),
         new(PairFilter.Moved, "Spostate", "Moved"),
         new(PairFilter.Skipped, "Tenute entrambe", "Kept both"),
     ];
@@ -138,6 +139,17 @@ public sealed partial class MainViewModel : ObservableObject
     /// <summary>Prima di spostare un file identico, riconfrontarlo per intero (e non solo peso, data, inizio e fine).</summary>
     [ObservableProperty] private bool _verifyBeforeMove;
     [ObservableProperty] private bool _detectBursts = true;
+    /// <summary>Cercare anche i video: solo copie identiche, con gli hash. Spenta di norma.</summary>
+    [ObservableProperty] private bool _includeVideos;
+    /// <summary>Video: verifica rapida (16 blocchi sparsi) invece dell'hash di tutto il file.</summary>
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(FullVideoCheck))] private bool _quickVideoCheck;
+
+    /// <summary>L'altra scelta di <see cref="QuickVideoCheck"/>, per i pulsanti di scelta.</summary>
+    public bool FullVideoCheck
+    {
+        get => !QuickVideoCheck;
+        set => QuickVideoCheck = !value;
+    }
     [ObservableProperty] private decimal _burstSeconds = 10;
     [ObservableProperty] private string? _modelPath;
     [ObservableProperty] private Choice<string> _selectedAccelerator;
@@ -485,6 +497,8 @@ public sealed partial class MainViewModel : ObservableObject
             CachePath = CachePath,
             Recursive = IncludeSubfolders,
             DetectBursts = DetectBursts,
+            IncludeVideos = IncludeVideos,
+            VideoCheck = QuickVideoCheck ? VideoCheck.Quick : VideoCheck.Full,
             BurstWindowSeconds = (double)BurstSeconds,
             Mode = SelectedMode.Value,
             AutoThreshold = Math.Max((double)Threshold, ScanOptions.AutoThresholdFloor),
@@ -900,6 +914,7 @@ public sealed partial class MainViewModel : ObservableObject
         PairFilter.Pending => p.IsPending,
         PairFilter.Exact => p.Member.Kind == MatchKind.ExactBytes,
         PairFilter.Pixels => p.Member.Kind == MatchKind.IdenticalPixels,
+        PairFilter.Videos => p.Duplicate.IsVideo,
         PairFilter.Perceptual => p.Member.Kind == MatchKind.Perceptual,
         PairFilter.Burst => p.Member.Kind == MatchKind.Burst,
         PairFilter.Moved => p.IsMoved,
@@ -969,7 +984,7 @@ public sealed partial class MainViewModel : ObservableObject
             {
                 var next = VisiblePairs[i + 1];
                 foreach (var f in new[] { next.Keeper, next.Duplicate })
-                    if (File.Exists(f.Path))
+                    if (!f.IsVideo && File.Exists(f.Path))
                         try { await _images.LoadAsync(f.Path, cts.Token); } catch (Exception) { /* solo un'anticipazione */ }
             }
         }
@@ -978,6 +993,14 @@ public sealed partial class MainViewModel : ObservableObject
     private async Task LoadAsync(PhotoPanel panel, PhotoFile? f, CancellationToken ct)
     {
         if (f is null) return;
+        if (f.IsVideo)
+        {
+            // I video non si decodificano: si aprono nel loro programma, con l'occhio sotto il nome.
+            panel.Placeholder = File.Exists(f.Path)
+                ? Lang.T("▶  Video\nNessuna anteprima: aprilo con l'occhio qui sotto", "▶  Video\nNo preview: open it with the eye below")
+                : Lang.T("Il file non è più qui\n(spostato o rinominato)", "The file is no longer here\n(moved or renamed)");
+            return;
+        }
         panel.IsLoading = true;
         try
         {
@@ -1041,6 +1064,8 @@ public sealed partial class MainViewModel : ObservableObject
         VerifyBeforeMove = s.VerifyBeforeMove;
         IncludeSubfolders = s.IncludeSubfolders;
         DetectBursts = s.DetectBursts;
+        IncludeVideos = s.IncludeVideos;
+        QuickVideoCheck = s.QuickVideoCheck;
         BurstSeconds = (decimal)Math.Clamp(s.BurstSeconds, 1, 120);
         ModelPath = s.ModelPath;
         SelectedAccelerator = Accelerators.FirstOrDefault(a => a.Value == s.Accelerator) ?? Accelerators[0];
@@ -1058,6 +1083,8 @@ public sealed partial class MainViewModel : ObservableObject
         VerifyBeforeMove = VerifyBeforeMove,
         IncludeSubfolders = IncludeSubfolders,
         DetectBursts = DetectBursts,
+        IncludeVideos = IncludeVideos,
+        QuickVideoCheck = QuickVideoCheck,
         BurstSeconds = (double)BurstSeconds,
         ModelPath = ModelPath,
         Accelerator = SelectedAccelerator.Value,

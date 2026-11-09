@@ -23,7 +23,8 @@
   - byte-identical files, even when renamed;
   - the same pixels with different metadata;
   - the same picture recompressed, resized or rotated (for example, a copy that went through WhatsApp);
-  - several shots of the same scene taken seconds apart.
+  - several shots of the same scene taken seconds apart;
+  - identical videos, if you ask (see [Videos](#videos)).
 - **Side-by-side comparison.** The copy to keep is on the left and the one to move on the right, with a confidence score and the reason. You can move the right-hand copy, keep both, or swap which one to keep.
 - **You choose which folder wins.** Pick the folder whose copies must always stay (for example, the one you have already catalogued), and compare folders only against each other if you like: "what in *Downloads* is already in *Photos*?".
 - **Never deletes anything on its own.** Duplicates go to a quarantine folder that can be restored with one click, or to the Recycle Bin.
@@ -96,6 +97,7 @@ duplifoto-cli --version
 - output: `--report`;
 - neural model: `--model`, `--accelerator`;
 - burst shots: `--burst`, `--no-bursts`;
+- videos: `--video` (full check), `--video-quick` (quick check);
 - scanning: `--no-subfolders`, `--hidden`, `--no-cache`, `--threads`;
 - unattended runs: `--non-interactive`;
 - language: `--language it|en|auto`, or the `DUPLIFOTO_LANG` variable.
@@ -122,6 +124,18 @@ A few rules always apply:
 - An edited version (`-edited`, `(modificata)`) is capped at 80%.
 - Two photos with different capture times are never "the same picture": at most, they are burst shots.
 - Confidence is always measured against the copy that is kept, never along a chain.
+- A video is never compared with a photo.
+
+## Videos
+
+Tick **Videos** next to *Burst shots* (or use `--video` on the command line) and DupliFoto also looks at MP4, MOV, M4V, AVI, MKV, WMV, MTS/M2TS, 3GP, WebM and MPEG files. It is off by default, because on a large archive it adds a lot of reading. Videos are never decoded: only identical copies are found, through level 1 of the funnel, and a recompressed or trimmed video is not recognised. In the comparison a video has no preview; the eye under its name opens it in its own player.
+
+**More options → Videos** chooses how two videos with the same size are compared:
+
+| Check | Reads | Result |
+|---|---|---|
+| **Full** (default, `--video`) | the whole of both files | byte-identical, 100%: the same rules as identical photos |
+| **Quick** (`--video-quick`) | 16 blocks of 64 KB spread from start to end, 1 MB per video whatever its size | *Videos, quick check*, 99%. Two videos that differ only between the blocks would look the same, so the semi-automatic mode never moves them on its own; before every move the same 16 blocks are compared again. |
 
 ## Modes
 
@@ -249,6 +263,7 @@ assets/               icon and the script that draws it
 On every push, GitHub Actions builds the solution and runs all tests on Linux and on Windows. The tests cover:
 
 - **The engine:** every level of the funnel, the modes, the checks before moving (quick and full), undo and the cache.
+- **Videos:** left out unless asked, the full and the quick check (including a difference the quick check cannot see), never paired with photos, never moved on their own after a quick check.
 - **The safety rules:** links, the same file reached through two paths, the last copy that automatic mode must always keep, the folder to keep (also with nested folders), journals, locked files, and the Recycle Bin on Windows.
 - **Comparing folders:** only pairs between different folders, duplicates inside a folder left alone, and swapping the copy to keep.
 - **Real libraries:** Magick.NET and MetadataExtractor on generated JPEG and PNG files, checking EXIF with sub-seconds and GPS, orientation, greyscale and transparency.

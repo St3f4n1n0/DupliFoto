@@ -152,6 +152,11 @@ async Task<int> Analyze(string[] a)
             case "--nascosti" or "--hidden": o.IncludeHidden = true; break;
             case "--raffica" or "--burst": o.BurstWindowSeconds = Number(arg, Next(), 0.1, 3600); break;
             case "--no-raffiche" or "--no-bursts": o.DetectBursts = false; break;
+            case "--video" or "--videos": o.IncludeVideos = true; break;
+            case "--video-rapido" or "--video-quick" or "--videos-quick":
+                o.IncludeVideos = true;
+                o.VideoCheck = VideoCheck.Quick;
+                break;
             case "--preferisci" or "--keep" or "--prefer": o.PreferredFolders.Add(Path.GetFullPath(Next())); break;
             case "--solo-tra-cartelle" or "--across-folders": o.CrossFolderOnly = true; break;
             case "--non-interattivo" or "--non-interactive": interactive = false; break;
@@ -192,6 +197,10 @@ async Task<int> Analyze(string[] a)
         Console.WriteLine(T("Solo tra cartelle diverse: i doppioni dentro la stessa cartella vengono ignorati.",
                             "Only across different folders: duplicates within the same folder are ignored."));
     foreach (var keep in o.PreferredFolders) Console.WriteLine(T($"Copie da tenere: quelle in {keep}", $"Copies to keep: those in {keep}"));
+    if (o.IncludeVideos)
+        Console.WriteLine(o.VideoCheck == VideoCheck.Quick
+            ? T("Video: inclusi, verifica rapida (16 blocchi per video).", "Videos: included, quick check (16 blocks per video).")
+            : T("Video: inclusi, verifica completa (tutto il file).", "Videos: included, full check (the whole file)."));
 
     // --- Acceleratore (facoltativo) ---
     IEmbeddingProvider? embeddings = null;
@@ -319,11 +328,13 @@ static void PrintSummary(ScanResult r, ScanOptions o)
 {
     string groups = T("gruppi", "groups"), reclaimable = T("recuperabili", "to reclaim");
     Console.WriteLine();
-    Console.WriteLine(T($"Foto analizzate: {r.Files.Count:N0} in {r.Elapsed:mm\\:ss}  ·  illeggibili: {r.UnreadableFiles:N0}",
-                        $"Photos analysed: {r.Files.Count:N0} in {r.Elapsed:mm\\:ss}  ·  unreadable: {r.UnreadableFiles:N0}"));
+    int videos = r.Files.Count(f => f.IsVideo);
+    string what = videos == 0 ? $"{r.Files.Count:N0}" : T($"{r.Files.Count - videos:N0} e {videos:N0} video", $"{r.Files.Count - videos:N0} and {videos:N0} videos");
+    Console.WriteLine(T($"Foto analizzate: {what} in {r.Elapsed:mm\\:ss}  ·  illeggibili: {r.UnreadableFiles:N0}",
+                        $"Photos analysed: {what} in {r.Elapsed:mm\\:ss}  ·  unreadable: {r.UnreadableFiles:N0}"));
     foreach (var grp in r.Groups.GroupBy(g => g.Kind).OrderBy(g => g.Key))
-        Console.WriteLine($"  {ReportWriter.KindLabel(grp.Key),-18} {grp.Count(),6:N0} {groups}   {ReportWriter.FormatBytes(grp.Sum(g => g.ReclaimableBytes)),10} {reclaimable}");
-    Console.WriteLine($"  {T("Totale", "Total"),-18} {r.Groups.Count,6:N0} {groups}   {ReportWriter.FormatBytes(r.Groups.Sum(g => g.ReclaimableBytes)),10}");
+        Console.WriteLine($"  {ReportWriter.KindLabel(grp.Key),-22} {grp.Count(),6:N0} {groups}   {ReportWriter.FormatBytes(grp.Sum(g => g.ReclaimableBytes)),10} {reclaimable}");
+    Console.WriteLine($"  {T("Totale", "Total"),-22} {r.Groups.Count,6:N0} {groups}   {ReportWriter.FormatBytes(r.Groups.Sum(g => g.ReclaimableBytes)),10}");
 }
 
 static void PrintHelp() => Console.WriteLine(Lang.IsEnglish ? Help.English : Help.Italian);

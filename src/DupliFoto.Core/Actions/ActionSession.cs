@@ -129,7 +129,7 @@ public sealed class ActionSession(ScanOptions options, IProgress<string>? progre
                 return new MoveOutcome(MoveResult.QuarantineFull, QuarantineFullMessage(space));
             deleteForGood = true;
         }
-        if (member.Kind == MatchKind.ExactBytes && !StillIdentical(keeper, f))
+        if (member.Kind is MatchKind.ExactBytes or MatchKind.VideoSampled && !StillIdentical(keeper, f))
             return Warn(MoveResult.ByteCheckFailed, options.VerifyBeforeMove
                 ? Lang.T($"La verifica byte per byte è fallita, saltato: {f.Path}", $"The byte-by-byte check failed, skipped: {f.Path}")
                 : Lang.T($"Inizio o fine del file non sono più uguali alla copia da tenere, saltato: {f.Path}",
@@ -175,8 +175,10 @@ public sealed class ActionSession(ScanOptions options, IProgress<string>? progre
     /// I due file "identici" lo sono ancora? Di solito si riconfrontano solo inizio e fine (l'analisi li ha già
     /// confrontati per intero, e peso e data sono appena stati ricontrollati); per intero con VerifyBeforeMove.
     /// </summary>
-    private bool StillIdentical(PhotoFile keeper, PhotoFile f) => options.VerifyBeforeMove
-        ? ExactMatcher.FilesAreIdentical(keeper.Path, f.Path)
+    private bool StillIdentical(PhotoFile keeper, PhotoFile f) =>
+        options.VerifyBeforeMove ? ExactMatcher.FilesAreIdentical(keeper.Path, f.Path)
+        // Un video si ricontrolla negli stessi 16 punti della verifica rapida: 1 MB, qualunque sia il suo peso.
+        : f.IsVideo ? ExactMatcher.BlocksAreIdentical(keeper.Path, f.Path, options.PartialHashBytes, ScanOptions.VideoSampleBlocks)
         : ExactMatcher.HeadAndTailAreIdentical(keeper.Path, f.Path, options.PartialHashBytes);
 
     public string QuarantineFullMessage(DiskSpace space) => Lang.T(

@@ -16,6 +16,9 @@ public sealed class GuiSettings
     public bool IncludeSubfolders { get; set; } = true;
     public bool CrossFolderOnly { get; set; }
     public bool DetectBursts { get; set; } = true;
+    /// <summary>Cercare anche i video (solo copie identiche); <c>QuickVideoCheck</c>: a campione invece che per intero.</summary>
+    public bool IncludeVideos { get; set; }
+    public bool QuickVideoCheck { get; set; }
     public double BurstSeconds { get; set; } = 10;
     public string? ModelPath { get; set; }
     public string Accelerator { get; set; } = "auto";

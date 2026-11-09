@@ -108,6 +108,20 @@ $help = & $cli aiuto | Out-String
 Check ($help -match 'USO' -and $help -match '--solo-tra-cartelle') 'in italiano: l''aiuto'
 Check (-not (Test-Path $oldLocal)) 'niente in %LOCALAPPDATA%\DupliFoto'
 
+# Video: si guardano solo con --video; con --video-rapido le copie identiche escono come «Video, verifica rapida».
+$vdir = Join-Path $Work 'video'
+New-Item -ItemType Directory -Force $vdir | Out-Null
+$bytes = New-Object byte[] 3000000
+(New-Object Random 5).NextBytes($bytes)
+[IO.File]::WriteAllBytes("$vdir\vacanze.mp4", $bytes)
+[IO.File]::WriteAllBytes("$vdir\vacanze (1).mp4", $bytes)
+$out = & $cli $vdir --non-interattivo --no-cache --report "$reportDir\senza-video.html" | Out-String
+Check ($out -match 'Inventario completato: 0 foto\.') 'video: senza --video non si guardano'
+$out = & $cli $vdir --video-rapido --non-interattivo --no-cache --report "$reportDir\video.html" | Out-String
+Check ($LASTEXITCODE -eq 0 -and $out -match '0 foto e 2 video' -and $out -match 'Video, verifica rapida') 'video: con --video-rapido trova la copia'
+$out = & $cli $vdir --video --non-interattivo --no-cache --report "$reportDir\video-completa.html" | Out-String
+Check ($out -match 'Identici al byte\s+1') 'video: con --video la copia e'' identica al byte'
+
 if ($Full) {
     # 2) Semi-automatica: sposta da sola solo la copia identica, nella quarantena accanto all'exe; poi "annulla" la
     #    riporta al suo posto.

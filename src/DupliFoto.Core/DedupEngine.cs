@@ -41,6 +41,7 @@ public sealed class DedupEngine(IImageDecoder decoder, IMetadataReader metadata,
             // nell'analisi visiva perché possono avere un doppione in un'altra cartella.
             if (o.CrossFolderOnly && set.All(f => SameRoot(f, set[0]))) continue;
             var (keeper, why) = KeeperPolicy.Choose(set, isBurst: false, o);
+            bool sampled = set[0].SampleHash is not null && set[0].FullHash is null; // video, verifica rapida
             var group = new DuplicateGroup
             {
                 Keeper = keeper,
@@ -48,9 +49,9 @@ public sealed class DedupEngine(IImageDecoder decoder, IMetadataReader metadata,
                 Duplicates = set.Where(f => !ReferenceEquals(f, keeper)).Select(f => new GroupMember
                 {
                     File = f,
-                    Kind = MatchKind.ExactBytes,
-                    Confidence = SimilarityScorer.ExactConfidence,
-                    Reason = DescribeExact(keeper, f),
+                    Kind = sampled ? MatchKind.VideoSampled : MatchKind.ExactBytes,
+                    Confidence = sampled ? SimilarityScorer.VideoSampledConfidence : SimilarityScorer.ExactConfidence,
+                    Reason = sampled ? SimilarityScorer.VideoSampledReason : DescribeExact(keeper, f),
                 }).ToList(),
             };
             groups.Add(group);
@@ -58,9 +59,10 @@ public sealed class DedupEngine(IImageDecoder decoder, IMetadataReader metadata,
             foreach (var d in group.Duplicates) hiddenDuplicates.Add(d.File);
         }
         progress?.Report(Lang.T($"Livello 1: {groups.Count:N0} gruppi di file identici.", $"Level 1: {groups.Count:N0} groups of identical files."));
+        // I video hanno finito qui: solo copie identiche (o uguali alla verifica rapida), nessuna analisi visiva.
 
-        // ---------- Analisi visiva (una volta per contenuto distinto) ----------
-        var reps = files.Where(f => !hiddenDuplicates.Contains(f) && f.AnalysisError is null).ToList();
+        // ---------- Analisi visiva (una volta per contenuto distinto; mai sui video) ----------
+        var reps = files.Where(f => !f.IsVideo && !hiddenDuplicates.Contains(f) && f.AnalysisError is null).ToList();
         var toAnalyze = reps.Where(f => !f.IsAnalyzed).ToList();
         progress?.Report(Lang.T($"Analisi visiva di {toAnalyze.Count:N0} foto ({reps.Count - toAnalyze.Count:N0} già in cache)...",
             $"Visual analysis of {toAnalyze.Count:N0} photos ({reps.Count - toAnalyze.Count:N0} already in the cache)..."));

@@ -16,6 +16,23 @@ public sealed class ScanOptions
         ".dng", ".cr2", ".cr3", ".nef", ".arw", ".orf", ".rw2", ".raf", ".pef", ".srw",
     };
 
+    /// <summary>
+    /// Cercare anche i video (<see cref="VideoExtensions"/>). Dei video si trovano solo le copie identiche, con gli
+    /// hash: nessuna decodifica, nessun confronto visivo, e un video non viene mai confrontato con una foto.
+    /// </summary>
+    public bool IncludeVideos { get; set; }
+
+    /// <summary>Come confrontare i video che hanno lo stesso peso: per intero (predefinito) o a campione.</summary>
+    public VideoCheck VideoCheck { get; set; } = VideoCheck.Full;
+
+    /// <summary>Quanti blocchi da <see cref="PartialHashBytes"/> legge la verifica rapida di un video, sparsi dall'inizio alla fine.</summary>
+    public const int VideoSampleBlocks = 16;
+
+    public static readonly HashSet<string> VideoExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".mp4", ".m4v", ".mov", ".avi", ".mkv", ".wmv", ".mts", ".m2ts", ".3gp", ".webm", ".mpg", ".mpeg",
+    };
+
     /// <summary>Estensioni RAW: una coppia RAW+JPEG con lo stesso nome non è mai un doppione.</summary>
     public static readonly HashSet<string> RawExtensions = new(StringComparer.OrdinalIgnoreCase)
     {

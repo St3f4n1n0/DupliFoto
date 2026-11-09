@@ -43,7 +43,7 @@ public static class FileScanner
             var files = new FileSystemEnumerable<string>(root, (ref FileSystemEntry e) => e.ToFullPath(), enumeration)
             {
                 ShouldIncludePredicate = (ref FileSystemEntry e) =>
-                    !e.IsDirectory && options.Extensions.Contains(Path.GetExtension(e.FileName).ToString()) && !IsLink(ref e),
+                    !e.IsDirectory && IsWanted(options, Path.GetExtension(e.FileName).ToString()) && !IsLink(ref e),
                 // Mai seguire collegamenti simbolici e giunzioni: eviterebbe cicli infiniti e foto contate due volte.
                 // Mai entrare in una quarantena di DupliFoto, ovunque sia: anche quelle delle versioni precedenti
                 // (in Immagini) contengono doppioni già spostati.
@@ -82,7 +82,11 @@ public static class FileScanner
             }
         }
 
-        progress?.Report(Lang.T($"Inventario completato: {result.Count:N0} foto.", $"Inventory completed: {result.Count:N0} photos."));
+        int videos = result.Count(f => f.IsVideo);
+        progress?.Report(videos == 0
+            ? Lang.T($"Inventario completato: {result.Count:N0} foto.", $"Inventory completed: {result.Count:N0} photos.")
+            : Lang.T($"Inventario completato: {result.Count - videos:N0} foto e {videos:N0} video.",
+                     $"Inventory completed: {result.Count - videos:N0} photos and {videos:N0} videos."));
         return result;
     }
 
@@ -95,6 +99,9 @@ public static class FileScanner
     }
 
     /// <summary>Vero se <paramref name="path"/> sta dentro <paramref name="folder"/> (non basta il prefisso: "D:\Foto" non contiene "D:\Foto2").</summary>
+    private static bool IsWanted(ScanOptions o, string extension) =>
+        o.Extensions.Contains(extension) || (o.IncludeVideos && ScanOptions.VideoExtensions.Contains(extension));
+
     public static bool IsUnder(string path, string folder)
     {
         string f = Normalize(folder);

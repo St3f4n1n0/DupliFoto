@@ -216,6 +216,8 @@ public sealed partial class PhotoPanel(bool isKeeper) : ObservableObject
         parts.Add(ReportWriter.FormatBytes(f.Size));
         if (f.TakenAt is { } t) parts.Add(t.ToString(Lang.T("dd/MM/yyyy HH:mm:ss", "yyyy-MM-dd HH:mm:ss")));
         if (f.CameraModel is { } m) parts.Add(m);
+        if (f.IsVideo)
+            parts.Add(Lang.T($"modificato il {f.LastWriteUtc.ToLocalTime():dd/MM/yyyy HH:mm}", $"modified {f.LastWriteUtc.ToLocalTime():yyyy-MM-dd HH:mm}"));
         if (f.Sharpness > 0) parts.Add(Lang.T($"nitidezza {f.Sharpness:0}", $"sharpness {f.Sharpness:0}"));
         return string.Join("  ·  ", parts);
     }

@@ -3,6 +3,16 @@
 All notable changes to DupliFoto are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] - 2026-11-09
+
+### Added
+
+- **Videos.** **Videos**, next to *Burst shots* (`--video` on the command line), also looks for identical copies of MP4, MOV, M4V, AVI, MKV, WMV, MTS/M2TS, 3GP, WebM and MPEG files. It is off by default. Videos are compared only through hashes, never decoded and never compared with photos. **More options → Videos** chooses between the full check, the default, which reads both files whole and finds byte-identical copies at 100%, and the quick check (`--video-quick`). The quick check reads 16 blocks of 64 KB spread over each video, 1 MB whatever its size, and marks the matches as *Videos, quick check* at 99%. The semi-automatic mode never moves those on its own, and the same 16 blocks are compared again right before every move. Videos have their own filter in the list of pairs; in the comparison and in the report they show no preview, and open in their own player.
+
+### Changed
+
+- The *Look for burst shots* check box is now just **Burst shots**, to make room for **Videos** on the same row. The tooltip says what it does.
+
 ## [1.0.0] - 2026-10-03
 
 The first stable version. The search, the safety rules and the app have been used and tested on every feature: from here on, the command-line options, the settings and the journal format stay compatible within version 1.
@@ -108,6 +118,7 @@ First public release.
 - Tested automatically on Windows Server 2025 and Windows Server 2022 (the Windows 10 base); not yet on physical Windows 10 PCs, dedicated NPUs, or large HEIC/RAW archives.
 - The ARM64 executables are built but not run in CI, which only has x64 machines.
 
+[1.1.0]: https://github.com/St3f4n1n0/DupliFoto/releases/tag/v1.1.0
 [1.0.0]: https://github.com/St3f4n1n0/DupliFoto/releases/tag/v1.0.0
 [0.3.1]: https://github.com/St3f4n1n0/DupliFoto/releases/tag/v0.3.1
 [0.3.0]: https://github.com/St3f4n1n0/DupliFoto/releases/tag/v0.3.0

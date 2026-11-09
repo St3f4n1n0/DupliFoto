@@ -11,6 +11,20 @@ public enum MatchKind
     Perceptual = 2,
     /// <summary>Scatti multipli della stessa scena (raffica, doppio scatto).</summary>
     Burst = 3,
+    /// <summary>
+    /// Video con lo stesso peso e gli stessi byte in 16 punti sparsi su tutto il file (verifica rapida): quasi certamente
+    /// identici, ma non provato su ogni byte. In fondo all'elenco, perché i registri scritti prima restino leggibili.
+    /// </summary>
+    VideoSampled = 4,
+}
+
+/// <summary>Come si confrontano i video che hanno lo stesso peso.</summary>
+public enum VideoCheck
+{
+    /// <summary>Hash di tutto il file: identici al byte, al 100%. Legge per intero ogni video candidato.</summary>
+    Full,
+    /// <summary>Solo 16 blocchi da 64 KB sparsi sul file: legge 1 MB per video, qualunque sia il suo peso.</summary>
+    Quick,
 }
 
 /// <summary>Modalità operative del programma.</summary>
@@ -50,6 +64,8 @@ public sealed class PhotoFile
     public string Root { get; set; } = "";
 
     public string Extension => System.IO.Path.GetExtension(Path).ToLowerInvariant();
+    /// <summary>Un video: si confronta solo con gli hash, e solo con altri video.</summary>
+    public bool IsVideo => ScanOptions.VideoExtensions.Contains(Extension);
     public string BaseName => System.IO.Path.GetFileNameWithoutExtension(Path);
     public string Directory => System.IO.Path.GetDirectoryName(Path) ?? "";
 
@@ -61,6 +77,8 @@ public sealed class PhotoFile
     // --- Livello 1: identità dei byte ---
     public ulong? PartialHash { get; set; }
     public UInt128? FullHash { get; set; }
+    /// <summary>Video, verifica rapida: hash di 16 blocchi sparsi sul file (vedi <see cref="VideoCheck.Quick"/>).</summary>
+    public UInt128? SampleHash { get; set; }
 
     // --- Livello 2-4: contenuto visivo ---
     public int Width { get; set; }

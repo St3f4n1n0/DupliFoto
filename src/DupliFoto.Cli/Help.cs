@@ -37,6 +37,11 @@ internal static class Help
           --acceleratore auto|npu|gpu|cpu   dove far lavorare il modello (predefinito: auto = NPU, poi GPU, poi CPU)
           --raffica <secondi>           distanza massima tra scatti multipli (predefinita: 10)
           --no-raffiche                 non cercare scatti multipli
+          --video                       cerca anche i video (mp4, mov, avi, mkv...): solo le copie identiche,
+                                        con l'hash di tutto il file; mai confrontati con le foto
+          --video-rapido                come --video, ma confronta solo 16 blocchi sparsi su ogni video
+                                        (1 MB letto per video): molto più veloce, affidabilità 99%, e la
+                                        semi-automatica non li sposta mai da sola
           --no-sottocartelle  --nascosti  --no-cache  --thread <n>
           --non-interattivo             non fare domande: ciò che richiede conferma resta da rivedere
           --lingua it|en|auto           lingua di messaggi e report (predefinita: come Windows;
@@ -92,6 +97,11 @@ internal static class Help
           --accelerator auto|npu|gpu|cpu    where the model runs (default: auto = NPU, then GPU, then CPU)
           --burst <seconds>             maximum time between burst shots (default: 10)
           --no-bursts                   do not look for burst shots
+          --video                       also look for videos (mp4, mov, avi, mkv...): identical copies only,
+                                        with the hash of the whole file; never compared with photos
+          --video-quick                 like --video, but compares only 16 blocks spread over each video
+                                        (1 MB read per video): much faster, 99% confidence, and the
+                                        semi-automatic mode never moves them on its own
           --no-subfolders  --hidden  --no-cache  --threads <n>
           --non-interactive             ask nothing: whatever needs a confirmation is left for review
           --language it|en|auto         language of messages and report (default: as Windows;
