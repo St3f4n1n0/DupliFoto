@@ -8,7 +8,7 @@
   </PropertyGroup>
   <ItemGroup Label="Motore">
     <!-- Decodifica JPEG/PNG/HEIC/AVIF/WebP/RAW (Apache 2.0) -->
-    <PackageVersion Include="Magick.NET-Q8-AnyCPU" Version="14.17.2" />
+    <PackageVersion Include="Magick.NET-Q8-AnyCPU" Version="15.1.0" />
     <!-- Lettura EXIF veloce, senza decodificare l'immagine (Apache 2.0) -->
     <PackageVersion Include="MetadataExtractor" Version="2.9.3" />
     <!-- xxHash3 / xxHash128 (MIT) -->
