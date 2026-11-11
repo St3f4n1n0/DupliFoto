@@ -12,7 +12,7 @@
     <!-- Lettura EXIF veloce, senza decodificare l'immagine (Apache 2.0) -->
     <PackageVersion Include="MetadataExtractor" Version="2.9.3" />
     <!-- xxHash3 / xxHash128 (MIT) -->
-    <PackageVersion Include="System.IO.Hashing" Version="10.0.12" />
+    <PackageVersion Include="System.IO.Hashing" Version="11.0.0" />
   </ItemGroup>
   <ItemGroup Label="Accelerazione (Windows ML)">
     <PackageVersion Include="Microsoft.WindowsAppSDK.ML" Version="1.8.2223" />
