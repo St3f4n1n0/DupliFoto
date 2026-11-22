@@ -111,6 +111,8 @@ jobs:
           name: DupliFoto-${{ steps.version.outputs.version }}
           path: dist
           if-no-files-found: error
+          # The release job takes the files within the same run; published releases keep their own copy.
+          retention-days: 7
 
       - uses: actions/upload-artifact@v7
         if: always()
@@ -118,6 +120,7 @@ jobs:
           name: screenshots-windows-2025
           path: ${{ runner.temp }}/screenshots
           if-no-files-found: ignore
+          retention-days: 7
 
   # Windows Server 2022 shares its base with Windows 10 21H2 (no Mica, pre-Windows 11 build):
   # the closest thing to Windows 10 that GitHub offers.
@@ -146,6 +149,7 @@ jobs:
           name: screenshots-windows-2022
           path: ${{ runner.temp }}/screenshots
           if-no-files-found: ignore
+          retention-days: 7
 
   # Only for a tag vX.Y.Z or a manual run with a version, and only when every test above has passed.
   release:
